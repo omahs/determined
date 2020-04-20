@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -53,6 +54,7 @@ import (
 	"github.com/determined-ai/determined/master/internal/proxy"
 	"github.com/determined-ai/determined/master/internal/rm"
 	"github.com/determined-ai/determined/master/internal/rm/allocationmap"
+	"github.com/determined-ai/determined/master/internal/scim"
 	"github.com/determined-ai/determined/master/internal/task/tasklogger"
 	"github.com/determined-ai/determined/master/internal/task/taskmodel"
 	"github.com/determined-ai/determined/master/internal/telemetry"
@@ -1192,6 +1194,17 @@ func (m *Master) Run(ctx context.Context) error {
 
 	webhooks.Init()
 	defer webhooks.Deinit()
+
+	if m.config.Scim.Enabled && m.config.Scim.Username != "" && m.config.Scim.Password != "" {
+		masterURL, err := getMasterURL(m.config)
+		if err != nil {
+			return errors.Wrap(err, "couldn't parse masterURL for SCIM")
+		}
+		log.Infof("SCIM is enabled at %v/scim/v2", masterURL)
+		scim.RegisterAPIHandler(m.echo, m.db, &m.config.Scim, masterURL)
+	} else {
+		log.Info("SCIM is disabled")
+	}
 
 	return m.startServers(ctx, cert)
 }

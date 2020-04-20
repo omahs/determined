@@ -32,6 +32,10 @@ PROJECT_ROOT_PATH = Path(__file__).resolve().parents[2]
 EXAMPLES_PATH = PROJECT_ROOT_PATH / "examples"
 
 
+SCIM_USERNAME = "determined"
+SCIM_PASSWORD = "password"
+
+
 def fixtures_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "fixtures", path)
 

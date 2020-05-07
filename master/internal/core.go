@@ -54,6 +54,7 @@ import (
 	"github.com/determined-ai/determined/master/internal/proxy"
 	"github.com/determined-ai/determined/master/internal/rm"
 	"github.com/determined-ai/determined/master/internal/rm/allocationmap"
+	"github.com/determined-ai/determined/master/internal/saml"
 	"github.com/determined-ai/determined/master/internal/scim"
 	"github.com/determined-ai/determined/master/internal/task/tasklogger"
 	"github.com/determined-ai/determined/master/internal/task/taskmodel"
@@ -1204,6 +1205,17 @@ func (m *Master) Run(ctx context.Context) error {
 		scim.RegisterAPIHandler(m.echo, m.db, &m.config.Scim, masterURL)
 	} else {
 		log.Info("SCIM is disabled")
+	}
+
+	if m.config.SAML.Enabled {
+		log.Info("SAML is enabled")
+		samlService, err := saml.New(m.db, m.config.SAML)
+		if err != nil {
+			return errors.Wrap(err, "error creating SAML service")
+		}
+		saml.RegisterAPIHandler(m.echo, samlService)
+	} else {
+		log.Info("SAML is disabled")
 	}
 
 	return m.startServers(ctx, cert)

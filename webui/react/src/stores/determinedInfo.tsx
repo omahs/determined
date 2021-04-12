@@ -47,6 +47,7 @@ const initInfo: DeterminedInfo = {
   isTelemetryEnabled: false,
   masterId: '',
   rbacEnabled: false,
+  ssoProviders: [],
   userManagementEnabled: true,
   version: process.env.VERSION || '',
 };

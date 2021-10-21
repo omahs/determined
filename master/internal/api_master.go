@@ -39,7 +39,7 @@ func (a *apiServer) GetMaster(
 		TelemetryEnabled:      a.m.config.Telemetry.Enabled && a.m.config.Telemetry.SegmentWebUIKey != "",
 		ExternalLoginUri:      a.m.config.InternalConfig.ExternalSessions.LoginURI,
 		ExternalLogoutUri:     a.m.config.InternalConfig.ExternalSessions.LogoutURI,
-		Branding:              "determined",
+		Branding:              "hpe",
 		RbacEnabled:           config.GetAuthZConfig().IsRBACUIEnabled(),
 		Product:               product,
 		UserManagementEnabled: !a.m.config.InternalConfig.ExternalSessions.Enabled(),

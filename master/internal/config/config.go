@@ -153,6 +153,7 @@ type Config struct {
 
 	Scim ScimConfig `json:"scim"`
 	SAML SAMLConfig `json:"saml"`
+	OIDC OIDCConfig `json:"oidc"`
 }
 
 // GetMasterConfig returns reference to the master config singleton.

@@ -5,6 +5,7 @@ go 1.20
 require (
 	cloud.google.com/go v0.94.0
 	github.com/Masterminds/sprig/v3 v3.2.2
+	github.com/RobotsAndPencils/go-saml v0.0.0-20170520135329-fb13cb52a46b
 	github.com/aws/aws-sdk-go v1.40.34
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
@@ -33,6 +34,7 @@ require (
 	github.com/jackc/pgtype v1.8.0
 	github.com/jackc/pgx/v4 v4.12.0
 	github.com/jmoiron/sqlx v1.2.1-0.20190826204134-d7d95172beb5
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/labstack/echo-contrib v0.11.0
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/labstack/gommon v0.4.0
@@ -58,6 +60,7 @@ require (
 	google.golang.org/grpc/examples v0.0.0-20210525230658-4bae49e05b28 // indirect
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v3 v3.4.0
+	gopkg.in/oauth2.v3 v3.12.0
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.20.14
@@ -88,6 +91,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -147,7 +151,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.6.1 // indirect
 	go.opentelemetry.io/proto/otlp v0.12.1 // indirect
 	go.uber.org/atomic v1.9.0
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
+	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
@@ -157,6 +161,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.63.2 // indirect
+	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.3.0 // indirect
@@ -170,9 +175,12 @@ require (
 
 require (
 	cloud.google.com/go/storage v1.10.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-test/deep v1.1.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/jinzhu/copier v0.3.5
+	github.com/klauspost/compress v1.13.5 // indirect
 	github.com/uptrace/bun v1.1.8
 	github.com/uptrace/bun/dialect/pgdialect v1.1.8
 	github.com/uptrace/bun/extra/bundebug v1.1.2
@@ -180,9 +188,9 @@ require (
 )
 
 require (
-	github.com/fatih/color v1.13.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	golang.org/x/sync v0.1.0
 )
 
 replace github.com/determined-ai/determined/proto => ../proto
+

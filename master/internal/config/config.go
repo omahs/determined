@@ -151,9 +151,10 @@ type Config struct {
 	// Internal contains "hidden" useful debugging configurations.
 	InternalConfig InternalConfig `json:"__internal"`
 
-	Scim ScimConfig `json:"scim"`
-	SAML SAMLConfig `json:"saml"`
-	OIDC OIDCConfig `json:"oidc"`
+	Scim     ScimConfig     `json:"scim"`
+	SAML     SAMLConfig     `json:"saml"`
+	OIDC     OIDCConfig     `json:"oidc"`
+	DetCloud DetCloudConfig `json:"det_cloud"`
 }
 
 // GetMasterConfig returns reference to the master config singleton.

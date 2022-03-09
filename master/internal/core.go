@@ -1206,5 +1206,11 @@ func (m *Master) Run(ctx context.Context) error {
 		log.Info("OIDC is disabled")
 	}
 
+	if m.config.DetCloud.Enabled {
+		log.Info("Det Cloud is enabled")
+	} else {
+		log.Info("Det Cloud is disabled")
+	}
+
 	return m.startServers(ctx, cert)
 }

@@ -6,12 +6,14 @@ import (
 
 // OIDCConfig holds the parameters for the OIDC provider.
 type OIDCConfig struct {
-	Enabled         bool   `json:"enabled"`
-	Provider        string `json:"provider"`
-	ClientID        string `json:"client_id"`
-	ClientSecret    string `json:"client_secret"`
-	IDPSSOURL       string `json:"idp_sso_url"`
-	IDPRecipientURL string `json:"idp_recipient_url"`
+	Enabled                     bool   `json:"enabled"`
+	Provider                    string `json:"provider"`
+	ClientID                    string `json:"client_id"`
+	ClientSecret                string `json:"client_secret"`
+	IDPSSOURL                   string `json:"idp_sso_url"`
+	IDPRecipientURL             string `json:"idp_recipient_url"`
+	AuthenticationClaim         string `json:"authentication_claim"`
+	SCIMAuthenticationAttribute string `json:"scim_authentication_attribute"`
 }
 
 // Validate implements the check.Validatable interface.

@@ -20,6 +20,8 @@ func root(ctx *actor.Context) error {
 			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
 		case sproto.PodsAddr, sproto.AgentsAddr:
 			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
+		case sproto.DispatcherRMAddr:
+			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
 		}
 		return nil
 	case actor.ChildStopped:
@@ -27,6 +29,8 @@ func root(ctx *actor.Context) error {
 		case sproto.K8sRMAddr, sproto.AgentRMAddr:
 			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
 		case sproto.PodsAddr, sproto.AgentsAddr:
+			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
+		case sproto.DispatcherRMAddr:
 			ctx.Log().WithField("crash", msg).Errorf(clusterCrashMessage)
 		}
 		return nil

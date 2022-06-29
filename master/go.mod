@@ -69,6 +69,7 @@ require (
 )
 
 require (
+	github.hpe.com/hpe/hpc-ard-launcher-go/launcher v0.1.2
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.29.0
 	go.opentelemetry.io/otel v1.6.1
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.1
@@ -194,3 +195,8 @@ require (
 
 replace github.com/determined-ai/determined/proto => ../proto
 
+// Determined AI's CircleCI doesn't have access to "github.hpe.com/hpe/hpc-ard-launcher-go",
+// so the build will fail in CircleCI.  Therefore, we had to do a "git clone" of the
+// launcher repo to store a local copy.  We make use of the "replace" directive to use the
+// local copy and not try to pull it from GitHub.
+replace github.hpe.com/hpe/hpc-ard-launcher-go/launcher => ../hpc-ard-launcher-go/launcher

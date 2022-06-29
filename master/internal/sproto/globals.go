@@ -9,6 +9,8 @@ var (
 	AgentRMAddr = actor.Addr("agentRM")
 	// K8sRMAddr is the actor address of the k8s resource manager.
 	K8sRMAddr = actor.Addr("kubernetesRM")
+	// DispatcherRMAddr is the actor address of the dispatcher.
+	DispatcherRMAddr = actor.Addr("SlurmRM")
 	// AgentsAddr is the actor address of the agents.
 	AgentsAddr = actor.Addr("agents")
 	// PodsAddr is the actor address of the pods.

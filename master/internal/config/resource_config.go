@@ -22,7 +22,9 @@ func (r *ResourceConfig) ResolveResource() error {
 			AgentRM: &AgentResourceManagerConfig{},
 		}
 	}
-	if r.ResourceManager.AgentRM == nil && r.ResourceManager.KubernetesRM == nil {
+	if r.ResourceManager.AgentRM == nil &&
+		r.ResourceManager.KubernetesRM == nil &&
+		r.ResourceManager.DispatcherRM == nil {
 		r.ResourceManager.AgentRM = &AgentResourceManagerConfig{}
 	}
 	if r.ResourcePools == nil &&

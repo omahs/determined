@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -48,7 +47,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/elastic"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
 	"github.com/determined-ai/determined/master/internal/job"
-	"github.com/determined-ai/determined/master/internal/oidc"
 	"github.com/determined-ai/determined/master/internal/plugin/sso"
 	"github.com/determined-ai/determined/master/internal/portregistry"
 	"github.com/determined-ai/determined/master/internal/prom"
@@ -1194,23 +1192,6 @@ func (m *Master) Run(ctx context.Context) error {
 
 	webhooks.Init()
 	defer webhooks.Deinit()
-
-	if m.config.OIDC.Enabled {
-		log.Info("OIDC is enabled")
-		oidcService, err := oidc.New(m.db, m.config.OIDC)
-		if err != nil {
-			return errors.Wrap(err, "error creating SAML service")
-		}
-		oidc.RegisterAPIHandler(m.echo, oidcService)
-	} else {
-		log.Info("OIDC is disabled")
-	}
-
-	if m.config.DetCloud.Enabled {
-		log.Info("Det Cloud is enabled")
-	} else {
-		log.Info("Det Cloud is disabled")
-	}
 
 	return m.startServers(ctx, cert)
 }

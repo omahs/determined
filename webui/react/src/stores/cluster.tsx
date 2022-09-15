@@ -24,6 +24,7 @@ const initClusterOverview: ClusterOverview = {
  * @param pool resource pool
  */
 export const maxPoolSlotCapacity = (pool: ResourcePool): number => {
+  if (pool.slotsAvailable && pool.slotsAvailable > 0) return pool.slotsAvailable; // The case for HPC Slurm & PBS clusters
   if (pool.maxAgents > 0 && pool.slotsPerAgent && pool.slotsPerAgent > 0)
     return pool.maxAgents * pool.slotsPerAgent;
   // on-premise deployments don't have dynamic agents and we don't know how many

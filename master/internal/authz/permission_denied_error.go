@@ -11,6 +11,7 @@ import (
 // access privileges. RequiredPermissions can be empty for non-rbac errors.
 type PermissionDeniedError struct {
 	RequiredPermissions []rbacv1.PermissionType
+	OneOf               bool
 }
 
 // Error returns an error string.
@@ -23,7 +24,13 @@ func (p PermissionDeniedError) Error() string {
 	for i, perm := range p.RequiredPermissions {
 		permissions[i] = rbacv1.PermissionType_name[int32(perm)]
 	}
-	return fmt.Sprintf("access denied; required permissions: %s", strings.Join(
+
+	permStr := "access denied; required permissions:"
+	if p.OneOf {
+		permStr = "access denied; one of the following permissions required:"
+	}
+
+	return fmt.Sprintf("%s %s", permStr, strings.Join(
 		permissions, ", "))
 }
 

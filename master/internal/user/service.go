@@ -59,6 +59,13 @@ var unauthenticatedPointsList = []string{
 	"/api/v1/.*",
 	"/proxy/:service/.*",
 	"/agents\\?id=.*",
+	"/saml/sso(/.*)?",
+	"/saml/initiate(/.*)?",
+	"/oidc/callback(/.*)?",
+	"/oidc/sso(/.*)?",
+	"/oauth2/authorize(/.*)?",
+	"/oauth2/token(/.*)?",
+	"/scim/v2/.*",
 }
 
 // adminAuthPointsList contains the paths that require admin authentication.

@@ -177,7 +177,10 @@ require (
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
-require github.hpe.com/hpe/hpc-ard-launcher-go/launcher v0.1.2 // indirect
+require (
+	github.com/Masterminds/semver/v3 v3.1.1 // indirect
+	github.hpe.com/hpe/hpc-ard-launcher-go/launcher v0.1.2 // indirect
+)
 
 replace github.com/determined-ai/determined/master => ../master
 

@@ -327,6 +327,7 @@ def test_core_api_tutorials(
 
 
 @pytest.mark.parallel
+@pytest.mark.e2e_slurm_gpu
 def test_core_api_distributed_tutorial() -> None:
     exp.run_basic_test(
         conf.tutorials_path("core_api/4_distributed.yaml"), conf.tutorials_path("core_api"), 1

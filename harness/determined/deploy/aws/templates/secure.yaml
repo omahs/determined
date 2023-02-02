@@ -72,7 +72,7 @@ Parameters:
   MasterInstanceType:
     Type: String
     Description: Instance Type of Master
-    Default: m5.large
+    Default: m5a.large
 
   AuxAgentInstanceType:
     Type: String
@@ -82,12 +82,12 @@ Parameters:
   ComputeAgentInstanceType:
     Type: String
     Description: Instance Type of agents in the compute resource pool
-    Default: p2.8xlarge
+    Default: g4dn.metal
 
   BastionInstanceType:
     Type: String
     Description: Instance Type of Bastion
-    Default: m5.large
+    Default: m5a.large
 
   InboundCIDRRange:
     Type: String

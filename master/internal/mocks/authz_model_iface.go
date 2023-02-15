@@ -100,6 +100,10 @@ func (_m *ModelAuthZ) FilterReadableModelsQuery(ctx context.Context, curUser mod
 	ret := _m.Called(ctx, curUser, query)
 
 	var r0 *bun.SelectQuery
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, model.User, *bun.SelectQuery) (*bun.SelectQuery, error)); ok {
+		return rf(ctx, curUser, query)
+	}
 	if rf, ok := ret.Get(0).(func(context.Context, model.User, *bun.SelectQuery) *bun.SelectQuery); ok {
 		r0 = rf(ctx, curUser, query)
 	} else {
@@ -108,7 +112,6 @@ func (_m *ModelAuthZ) FilterReadableModelsQuery(ctx context.Context, curUser mod
 		}
 	}
 
-	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, model.User, *bun.SelectQuery) error); ok {
 		r1 = rf(ctx, curUser, query)
 	} else {

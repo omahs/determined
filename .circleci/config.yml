@@ -54,6 +54,9 @@ parameters:
   master-build-resource-class:
     type: string
     default: xlarge
+  default-slack-channel:
+    type: string
+    default: C04PTNKLR8W # ci-bots-ee
 
 release-and-rc-filters: &release-and-rc-filters
   branches:
@@ -2354,6 +2357,7 @@ jobs:
           fail_only: true
           failure_message: ':thisisfine: A \`${CIRCLE_JOB}\` job on branch \`${CIRCLE_BRANCH}\` has failed! Author Email: \`${AUTHOR_EMAIL}\`'
           mentions: "${SLACK_USER_ID}"
+          channel: <<pipeline.parameters.default-slack-channel>>
 
   deploy-latest-gke:
     parameters:
@@ -3177,6 +3181,7 @@ workflows:
               cluster-id-prefix: ["parallel"]
               mark: ["parallel"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       - test-e2e-aws:
           name: test-e2e-gpu-single
@@ -3193,6 +3198,7 @@ workflows:
               enable-tls: [true]
               mark: ["e2e_gpu"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       - test-e2e-gke:
           name: test-e2e-gke-single-gpu
@@ -3208,6 +3214,7 @@ workflows:
               mark: ["e2e_gpu"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel
@@ -3223,6 +3230,7 @@ workflows:
               mark: ["parallel"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-32"]
               gpus-per-machine: [4]
               num-machines: [2]
@@ -3242,6 +3250,7 @@ workflows:
               mark: ["e2e_gpu and tensorflow2"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               environment-image:
                 - determinedai/environments:cuda-11.1-pytorch-1.9-tf-2.4-gpu-0.19.10
 
@@ -3259,6 +3268,7 @@ workflows:
               mark: ["parallel and tensorflow2"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-32"]
               gpus-per-machine: [4]
               num-machines: [2]
@@ -3279,6 +3289,7 @@ workflows:
               mark: ["e2e_gpu and not gpu_required"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-8"]
               gpus-per-machine: [0]
               environment-gpu-enabled: ["0"]
@@ -3299,6 +3310,7 @@ workflows:
               mark: ["e2e_k8s"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-8"]
               gpus-per-machine: [0]
               environment-gpu-enabled: ["0"]
@@ -3403,6 +3415,7 @@ workflows:
               cluster-id-prefix: ["deepspeed"]
               mark: ["deepspeed"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               max-dynamic-agents: [2]
 
       # K8s GPU tests
@@ -3423,6 +3436,7 @@ workflows:
               mark: ["e2e_gpu"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel
@@ -3437,6 +3451,7 @@ workflows:
               mark: ["parallel"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-32"]
               gpus-per-machine: [4]
               num-machines: [2]
@@ -3455,6 +3470,7 @@ workflows:
               mark: ["e2e_gpu and tensorflow2"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               environment-image:
                 - determinedai/environments:cuda-11.1-pytorch-1.9-tf-2.4-gpu-0.19.10
 
@@ -3471,6 +3487,7 @@ workflows:
               mark: ["parallel and tensorflow2"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-32"]
               gpus-per-machine: [4]
               num-machines: [2]
@@ -3495,6 +3512,7 @@ workflows:
               mark: ["e2e_gpu and not gpu_required"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-8"]
               gpus-per-machine: [0]
               environment-gpu-enabled: ["0"]
@@ -3514,6 +3532,7 @@ workflows:
               mark: ["e2e_k8s"]
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               machine-type: ["n1-standard-8"]
               gpus-per-machine: [0]
               environment-gpu-enabled: ["0"]
@@ -3579,6 +3598,7 @@ workflows:
               cluster-id-prefix: ["parallel"]
               mark: ["parallel"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       - test-e2e-aws:
           name: test-e2e-gpu-single
@@ -3594,6 +3614,7 @@ workflows:
               enable-tls: [true]
               mark: ["e2e_gpu"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
       # mmdetection tests
       - request-mmdetection-tests:
@@ -3614,6 +3635,7 @@ workflows:
               cluster-id-prefix: ["mmdetection"]
               mark: ["model_hub_mmdetection"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               max-dynamic-agents: [2]
 
       # Transformers tests
@@ -3635,6 +3657,7 @@ workflows:
               cluster-id-prefix: ["transformers"]
               mark: ["model_hub_transformers"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               max-dynamic-agents: [2]
 
       - test-e2e-aws:
@@ -3651,6 +3674,7 @@ workflows:
               cluster-id-prefix: ["transformers-amp"]
               mark: ["model_hub_transformers_amp"]
               slack-mentions: ["${SLACK_USER_ID}"]
+              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
               max-dynamic-agents: [2]
 
       # Request AWS FS tests
@@ -3667,6 +3691,7 @@ workflows:
             - package-and-push-system-dev
           cluster-id-prefix: aws-fs-fsx
           deployment-type: fsx
+          slack-channel: <<pipeline.parameters.default-slack-channel>>
           slack-mentions: "${SLACK_USER_ID}"
 
       - test-aws-fs:
@@ -3678,6 +3703,7 @@ workflows:
             - package-and-push-system-dev
           cluster-id-prefix: aws-fs-efs
           deployment-type: efs
+          slack-channel: <<pipeline.parameters.default-slack-channel>>
           slack-mentions: "${SLACK_USER_ID}"
 
   nightly:
@@ -3775,6 +3801,7 @@ workflows:
           cluster-id-prefix: aws-fs-fsx
           deployment-type: fsx
           slack-mentions: "${SLACK_USER_ID}"
+          slack-channel: <<pipeline.parameters.default-slack-channel>>
 
       - test-aws-fs:
           name: test-aws-fs-efs
@@ -3782,6 +3809,7 @@ workflows:
           cluster-id-prefix: aws-fs-efs
           deployment-type: efs
           slack-mentions: "${SLACK_USER_ID}"
+          slack-channel: <<pipeline.parameters.default-slack-channel>>
       - build-proto
       - build-helm
       - build-docs:

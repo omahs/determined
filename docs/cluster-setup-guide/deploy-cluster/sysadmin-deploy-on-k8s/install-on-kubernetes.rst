@@ -347,6 +347,27 @@ The next example is a toleration for when a node has the ``gpu`` taint type.
          operator: "Exists"
          effect: "NoSchedule"
 
+.. _multi-rp-on-kubernetes:
+
+Setting up multiple Resource Pools
+==================================
+
+In order to set up multiple resource pools for Determined on your Kubernetes cluster, you need 
+to do the following:
+#. First `create a namespace <https://kubernetes.io/docs/tasks/administer-cluster/namespaces/#creating-a-new-namespace>` 
+   for each resource pool. The default namespace can also be mapped to a resource pool
+#. As Determined ensures that tasks in a given resource pool get launched in its linked 
+   namespace, the cluster admin needs to ensure that pods in a given namespace have the 
+   right nodeSelector / toleration automatically added to their podSpec so that they can 
+   be forced to be scheduled on the nodes that we want to be part of a given resource pool. 
+   This can be done using an admissions controller like a `PodNodeSelector <https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#podnodeselector>`or `PodTolerationRestriction. <https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#podtolerationrestriction>`
+#. Label / Taint the appropriate nodes you want to include as part of each resource pool. 
+   For instance you may add a taint like ``kubectl taint nodes prod_node_name pool_taint=prod:NoSchedule`` 
+   and the appropriate toleration to the PodTolerationRestriction admissions controller so it is 
+   automatically added to the podSpec based on which namespace (and hence resource pool) a task runs in.
+#. Add the appropriate resource pool name to namespace mappings in the ``resourcePools`` section of 
+   the ``values.yaml`` file in the Helm chart.
+
 ********************
  Install Determined
 ********************

@@ -898,6 +898,11 @@ commands:
           command: |
             echo 'export HELM_VALUES="detVersion=<<parameters.det-version>>,maxSlotsPerPod=<<parameters.gpus-per-machine>>,checkpointStorage.type=gcs,checkpointStorage.bucket=<<parameters.storage-bucket>>"' >> "$BASH_ENV"
           name: Prepare helm overrides
+      - run:
+          command: |
+            echo 'export HELM_VALUES="${HELM_VALUES},enterpriseEdition=true,imagePullSecretName=docker-cred"' >> "$BASH_ENV"
+            kubectl create secret docker-registry docker-cred --docker-username=$DOCKER_USER --docker-password=$DOCKER_PASS
+          name: Set EE helm overrides and create docker secret
       - when:
           condition: <<parameters.gpus-per-machine>>
           steps:
@@ -3178,7 +3183,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-single-gpu
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3194,7 +3201,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3214,7 +3223,9 @@ workflows:
       # Legacy tf 2.4 tests.
       - test-e2e-gke:
           name: test-e2e-gke-single-gpu-tfonly
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3232,7 +3243,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel-tfonly
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3253,7 +3266,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-single-cpu
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3274,7 +3289,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-k8s-reattach
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters:
             branches:
               only: main
@@ -3403,7 +3420,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-single-gpu
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests
@@ -3418,7 +3437,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests
@@ -3437,7 +3458,9 @@ workflows:
       # Requestable legacy tf 2.4 tests.
       - test-e2e-gke:
           name: test-e2e-gke-single-gpu-tfonly
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests
@@ -3454,7 +3477,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel-tfonly
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests
@@ -3479,7 +3504,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-single-cpu
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests-cpu
@@ -3499,7 +3526,9 @@ workflows:
 
       - test-e2e-gke:
           name: test-e2e-gke-k8s-reattach
-          context: gcp-ci
+          context:
+            - gcp-ci
+            - determined-ee
           filters: *upstream-feature-branch
           requires:
             - request-k8-tests-cpu

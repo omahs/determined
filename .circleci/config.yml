@@ -1950,7 +1950,7 @@ jobs:
         type: string
         default: "1"
       environment-image:
-        default: determinedai/environments:cuda-11.3-pytorch-1.10-tf-2.8-gpu-0.19.10
+        default: determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.8-gpu-8f027a2
         type: string
       accel-node-taints:
         type: string
@@ -2441,7 +2441,7 @@ workflows:
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
               environment-image:
-                - determinedai/environments:cuda-11.3-pytorch-1.10-tf-2.8-gpu-0.19.10
+                - determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.8-gpu-8f027a2
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel-tfonly
@@ -2461,7 +2461,7 @@ workflows:
               gpus-per-machine: [4]
               num-machines: [2]
               environment-image:
-                - determinedai/environments:cuda-11.3-pytorch-1.10-tf-2.8-gpu-0.19.10
+                - determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.8-gpu-8f027a2
 
       - test-e2e-gke:
           name: test-e2e-gke-single-cpu
@@ -2640,7 +2640,7 @@ workflows:
               parallelism: [1]
               slack-mentions: ["${SLACK_USER_ID}"]
               environment-image:
-                - determinedai/environments:cuda-11.3-pytorch-1.10-tf-2.8-gpu-0.19.10
+                - determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.8-gpu-8f027a2
 
       - test-e2e-gke:
           name: test-e2e-gke-parallel-tfonly
@@ -2659,7 +2659,7 @@ workflows:
               gpus-per-machine: [4]
               num-machines: [2]
               environment-image:
-                - determinedai/environments:cuda-11.3-pytorch-1.10-tf-2.8-gpu-0.19.10
+                - determinedai/environments-dev:cuda-11.3-pytorch-1.12-tf-2.8-gpu-8f027a2
 
       # K8s CPU tests
       - request-k8-tests-cpu:

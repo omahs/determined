@@ -140,6 +140,7 @@ class Determined:
         config: Union[str, pathlib.Path, Dict],
         model_dir: Union[str, pathlib.Path],
         includes: Optional[Iterable[Union[str, pathlib.Path]]] = None,
+        project_id: Optional[int] = None,
     ) -> experiment.ExperimentReference:
         """
         Create an experiment with config parameters and model directory. The function
@@ -178,9 +179,9 @@ class Determined:
             activate=True,
             config=config_text,
             modelDefinition=model_context,
+            projectId=project_id,
             # TODO: add these as params to create_experiment()
             parentId=None,
-            projectId=None,
         )
 
         resp = bindings.post_CreateExperiment(self._session, body=req)

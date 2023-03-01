@@ -3637,73 +3637,6 @@ workflows:
               slack-mentions: ["${SLACK_USER_ID}"]
               slack-channel: [<<pipeline.parameters.default-slack-channel>>]
 
-      # mmdetection tests
-      - request-mmdetection-tests:
-          type: approval
-          filters: *upstream-feature-branch
-
-      - test-e2e-aws:
-          name: test-e2e-mmdetection
-          context:
-            - aws
-            - determined-ee
-          filters: *upstream-feature-branch
-          requires:
-            - request-mmdetection-tests
-            - package-and-push-system-dev
-          matrix:
-            parameters:
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              cluster-id-prefix: ["mmdetection"]
-              mark: ["model_hub_mmdetection"]
-              slack-mentions: ["${SLACK_USER_ID}"]
-              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
-              max-dynamic-agents: [2]
-
-      # Transformers tests
-      - request-transformers-tests:
-          type: approval
-          filters: *upstream-feature-branch
-
-      - test-e2e-aws:
-          name: test-e2e-transformers
-          context:
-            - aws
-            - determined-ee
-          filters: *upstream-feature-branch
-          requires:
-            - request-transformers-tests
-            - package-and-push-system-dev
-          matrix:
-            parameters:
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              cluster-id-prefix: ["transformers"]
-              mark: ["model_hub_transformers"]
-              slack-mentions: ["${SLACK_USER_ID}"]
-              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
-              max-dynamic-agents: [2]
-
-      - test-e2e-aws:
-          name: test-e2e-transformers-amp
-          context:
-            - aws
-            - determined-ee
-          filters: *upstream-feature-branch
-          requires:
-            - request-transformers-tests
-            - package-and-push-system-dev
-          matrix:
-            parameters:
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              cluster-id-prefix: ["transformers-amp"]
-              mark: ["model_hub_transformers_amp"]
-              slack-mentions: ["${SLACK_USER_ID}"]
-              slack-channel: [<<pipeline.parameters.default-slack-channel>>]
-              max-dynamic-agents: [2]
-
       # Request AWS FS tests
       - request-aws-fs-tests:
           type: approval
@@ -3765,52 +3698,6 @@ workflows:
             parameters:
               cluster-id-prefix: ["distributed"]
               mark: ["distributed"]
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              max-dynamic-agents: [2]
-      - test-e2e-aws:
-          name: test-e2e-gpu-transformers
-          context:
-            - aws
-            - determined-ee
-          matrix:
-            parameters:
-              cluster-id-prefix: ["transformers"]
-              mark: ["model_hub_transformers"]
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              max-dynamic-agents: [2]
-      - test-e2e-aws:
-          name: test-e2e-gpu-transformers-amp
-          context:
-            - aws
-            - determined-ee
-          matrix:
-            parameters:
-              cluster-id-prefix: ["transformers-amp"]
-              mark: ["model_hub_transformers_amp"]
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              max-dynamic-agents: [2]
-      - test-e2e-aws:
-          name: test-e2e-gpu-mmdetection
-          context:
-            - aws
-            - determined-ee
-          matrix:
-            parameters:
-              cluster-id-prefix: ["mmdet"]
-              mark: ["model_hub_mmdetection"]
-              compute-agent-instance-type: ["g4dn.metal"]
-              aux-agent-instance-type: ["m5.large"]
-              max-dynamic-agents: [2]
-      - test-e2e-aws:
-          name: test-e2e-gpu-mmdetection-quarantine
-          context: aws
-          matrix:
-            parameters:
-              cluster-id-prefix: ["mmdet-quarantine"]
-              mark: ["model_hub_mmdetection_quarantine"]
               compute-agent-instance-type: ["g4dn.metal"]
               aux-agent-instance-type: ["m5.large"]
               max-dynamic-agents: [2]

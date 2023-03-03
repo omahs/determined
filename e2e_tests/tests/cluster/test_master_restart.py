@@ -225,7 +225,9 @@ def test_master_restart_cmd_k8s(
 
 def _test_master_restart_cmd(managed_cluster: Cluster, slots: int, downtime: int) -> None:
     command_id = run_command(30, slots=slots)
-    wait_for_command_state(command_id, "RUNNING", 30)
+    # The timeout below is set to 300 seconds because sometimes the experiment
+    # remains in the PULLING state for long duration when pulling a new image.
+    wait_for_command_state(command_id, "RUNNING", 300)
 
     if downtime >= 0:
         managed_cluster.kill_master()

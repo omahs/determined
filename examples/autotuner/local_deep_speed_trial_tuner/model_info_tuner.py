@@ -5,7 +5,7 @@ import pathlib
 import shutil
 import tempfile
 import uuid
-from typing import List
+from typing import Any, List
 
 import determined as det
 from determined import searcher
@@ -55,12 +55,14 @@ class ModelInfoTuner(searcher.SearchMethod):
         self,
         _: searcher.SearcherState,
         request_id: uuid.UUID,
-        metric: float,
+        # metric: float,
+        metric: Any,
         train_length: int,
         #            other_metrics: dict[str, Any]
     ) -> List[searcher.Operation]:
         logging.info(f"validation completed; metric={metric}, train_length={train_length}")
         return []
+        # TODO: should run Create Operations for additional trials
 
     # for passing HPs
     # allow the search method to do things to the experiment directory
@@ -98,6 +100,8 @@ class ModelInfoTuner(searcher.SearchMethod):
         model_info_hyperparameters = copy.deepcopy(self.hyperparameters)
         model_info_hyperparameters["deepspeed_config"] = self.model_info_config_path
         model_info_hyperparameters["deepspeed_mode"] = "model_info_profiling"
+        # TODO: Read this for dsat mode
+
         create = searcher.Create(
             request_id=self.model_info_profile_request_id,
             hparams=model_info_hyperparameters,

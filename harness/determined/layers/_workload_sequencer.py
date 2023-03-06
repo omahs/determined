@@ -287,6 +287,7 @@ class WorkloadSequencer(workload.Source):
         # But we can't do that without breaking behavior.
         if op is not None and self.batches_until_op_complete(op) < 1:
             op.report_completed(searcher_metric)
+            # TODO: Actually send the whole dictionary back
 
         if self.ckpt_policy == "best" and not self.checkpoint_is_current():
             # Before reporting our own validation metric, check what the best known validation is

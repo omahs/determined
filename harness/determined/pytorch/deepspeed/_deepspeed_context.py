@@ -125,7 +125,6 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
         self._check_experiment_config_optimizations()
 
     def _is_model_info_trial(self) -> bool:
-        # TODO we can think of a less hacky way
         hparams = self.get_hparams()
         if "deepspeed_mode" not in hparams:
             return False

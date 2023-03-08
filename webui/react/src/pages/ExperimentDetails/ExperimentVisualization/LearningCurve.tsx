@@ -17,6 +17,7 @@ import { readStream } from 'services/utils';
 import Message, { MessageType } from 'shared/components/Message';
 import Spinner from 'shared/components/Spinner/Spinner';
 import useUI from 'shared/contexts/stores/UI';
+import { Primitive } from 'shared/types';
 import { glasbeyColor } from 'shared/utils/color';
 import { flattenObject } from 'shared/utils/data';
 import { ErrorLevel, ErrorType } from 'shared/utils/error';
@@ -25,7 +26,9 @@ import {
   ExperimentAction as Action,
   CommandResponse,
   ExperimentBase,
+  ExperimentSearcherName,
   Hyperparameter,
+  HyperparameterType,
   Metric,
   metricTypeParamMap,
   RunState,
@@ -75,11 +78,41 @@ const LearningCurve: React.FC<Props> = ({
   const isExperimentTerminal = terminalRunStates.has(experiment.state as RunState);
 
   const hyperparameters = useMemo(() => {
-    return fullHParams.reduce((acc, key) => {
-      acc[key] = experiment.hyperparameters[key];
-      return acc;
-    }, {} as Record<string, Hyperparameter>);
-  }, [experiment.hyperparameters, fullHParams]);
+    /**
+     * For Custom Searchers, we want to show all trial hparams, as they may not be
+     * defined in the experiment config.
+     * Note: If we support the other tabs in the future for Custom Searchers
+     * such as HpParallelCoordinates, HpScatterPlots, and HpHeatMaps, we will need to
+     * generalize this logic a bit.
+     */
+    if (experiment.config.searcher.name === ExperimentSearcherName.Custom && trialHps.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log('BEGIN CUSTOM SEARCHER');
+      // eslint-disable-next-line no-console
+      console.log(trialHps[0].hparams); // eslint-disable-line no-console
+      // let unique_values = {};
+      const ret = Object.keys(trialHps[0].hparams).reduce((acc, key) => {
+        // eslint-disable-next-line no-console
+        console.log('key:', key);
+        if (trialHps[0].hparams[key] as Primitive) {
+          acc[key] = {
+            type: HyperparameterType.Constant,
+          };
+        } else {
+          // eslint-disable-next-line no-console
+          console.log('REFUSED KEY:', key);
+        }
+        return acc;
+      }, {} as Record<string, Hyperparameter>);
+
+      return ret;
+    } else {
+      return fullHParams.reduce((acc, key) => {
+        acc[key] = experiment.hyperparameters[key];
+        return acc;
+      }, {} as Record<string, Hyperparameter>);
+    }
+  }, [experiment.hyperparameters, fullHParams, trialHps, experiment.config]);
 
   const handleTrialClick = useCallback(
     (event: MouseEvent, trialId: number) => {

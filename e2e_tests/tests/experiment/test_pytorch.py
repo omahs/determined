@@ -14,7 +14,6 @@ from tests import experiment as exp
 def test_pytorch_11_const(
     aggregation_frequency: int,
     image_type: str,
-    using_k8s: bool,
     collect_trial_profiles: Callable[[int], None],
 ) -> None:
     config = conf.load_config(conf.fixtures_path("mnist_pytorch/const-pytorch11.yaml"))
@@ -28,20 +27,19 @@ def test_pytorch_11_const(
     else:
         warnings.warn("Using default images", stacklevel=2)
 
-    if using_k8s:
-        pod_spec = {
-            "metadata": {"labels": {"ci": "testing"}},
-            "spec": {
-                "containers": [
-                    {
-                        "name": "determined-container",
-                        "volumeMounts": [{"name": "temp1", "mountPath": "/random"}],
-                    }
-                ],
-                "volumes": [{"name": "temp1", "emptyDir": {}}],
-            },
-        }
-        config = conf.set_pod_spec(config, pod_spec)
+    pod_spec = {
+        "metadata": {"labels": {"ci": "testing"}},
+        "spec": {
+            "containers": [
+                {
+                    "name": "determined-container",
+                    "volumeMounts": [{"name": "temp1", "mountPath": "/random"}],
+                }
+            ],
+            "volumes": [{"name": "temp1", "emptyDir": {}}],
+        },
+    }
+    config = conf.set_pod_spec(config, pod_spec)
 
     experiment_id = exp.run_basic_test_with_temp_config(
         config, conf.tutorials_path("mnist_pytorch"), 1

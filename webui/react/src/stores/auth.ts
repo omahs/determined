@@ -1,4 +1,4 @@
-import { WritableObservable } from 'micro-observables';
+import { observable, WritableObservable } from 'micro-observables';
 
 import { globalStorage } from 'globalStorage';
 import { Auth } from 'types';
@@ -48,3 +48,47 @@ export const selectIsAuthenticated = auth.select((a) =>
     NotLoaded: () => false,
   }),
 );
+
+interface AuthState {
+  auth: Loadable<Auth>;
+  isChecked: boolean;
+}
+
+const defaultState: AuthState = {
+  auth: NotLoaded,
+  isChecked: false,
+};
+
+class AuthStore {
+  protected state: WritableObservable<AuthState> = observable(defaultState);
+  public readonly auth = this.state.select((s) => s.auth);
+  public readonly isChecked = this.state.select((s) => s.isChecked);
+  public readonly isAuthenticated = this.auth.select((auth) => {
+    return Loadable.match(auth, {
+      Loaded: (a) => a.isAuthenticated,
+      NotLoaded: () => false,
+    });
+  });
+
+  public setAuth(newAuth: Auth) {
+    if (newAuth.token) {
+      ensureAuthCookieSet(newAuth.token);
+      globalStorage.authToken = newAuth.token;
+    }
+    this.state.update((s) => ({ ...s, auth: Loaded(newAuth) }));
+  }
+
+  public setIsChecked() {
+    this.state.update((s) => ({ ...s, isChecked: true }));
+  }
+
+  public reset() {
+    clearAuthCookie();
+    globalStorage.removeAuthToken();
+    this.state.set(defaultState);
+  }
+}
+
+const authStore = new AuthStore();
+
+export default authStore;

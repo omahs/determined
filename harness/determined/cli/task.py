@@ -15,7 +15,7 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
         resources = t.get("resources", [])
         if not resources:
             return "unassigned"
-        agents = [a for r in resources for a in r["agent_devices"]]
+        agents = [a for r in resources for a in r["agentDevices"]]
         if len(agents) == 1:
             agent = agents[0]  # type: str
             return agent
@@ -38,19 +38,19 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
     ]
     values = [
         [
-            task["task_id"],
-            task["allocation_id"],
+            task["taskId"],
+            task["allocationId"],
             task["name"],
-            task["slots_needed"],
-            render.format_time(task["registered_time"]),
+            task["slotsNeeded"],
+            render.format_time(task["registeredTime"]),
             agent_info(task),
-            task["priority"] if task["scheduler_type"] == "priority" else "N/A",
-            task["resource_pool"],
-            ",".join(map(str, sorted(pp["port"] for pp in task.get("proxy_ports", [])))),
+            task["priority"] if task["schedulerType"] == "priority" else "N/A",
+            task["resourcePool"],
+            ",".join(map(str, sorted(pp["port"] for pp in task.get("proxyPorts", [])))),
         ]
         for task_id, task in sorted(
             tasks.items(),
-            key=lambda tup: (render.format_time(tup[1]["registered_time"]),),
+            key=lambda tup: (render.format_time(tup[1]["registeredTime"]),),
         )
     ]
 
@@ -59,8 +59,9 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
 
 @authentication.required
 def list_tasks(args: Namespace) -> None:
-    r = api.get(args.master, "tasks")
-    tasks = r.json()
+    r = api.get(args.master, "api/v1/tasks")
+    tasks = r.json()["allocationIdToSummary"]
+
     render_tasks(args, tasks)
 
 

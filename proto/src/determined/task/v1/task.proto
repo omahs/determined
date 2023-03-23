@@ -3,6 +3,9 @@ syntax = "proto3";
 package determined.task.v1;
 option go_package = "github.com/determined-ai/determined/proto/pkg/taskv1";
 
+import "google/protobuf/timestamp.proto";
+import "determined/device/v1/device.proto";
+
 // The current state of the task.
 enum State {
   // The task state is unknown.
@@ -48,4 +51,110 @@ message Task {
   string task_type = 2;
   // List of Allocations.
   repeated Allocation allocations = 4;
+}
+
+// Address represents an exposed port on a container.
+message Address {
+  string container_ip  = 1;
+  int32 container_port = 2;
+  string host_ip       = 3;
+  int32 host_port      = 4;
+}
+
+// ResourcesStarted contains the information needed by tasks from container
+// started.
+message ResourcesStarted {
+  repeated Address addresses = 1;
+  // NativeResourcesID is the native Docker hex container ID of the Determined
+  // container.
+  string native_resources_id = 2;
+}
+
+// The failure type of a resource.
+enum FailureType {
+  // UnknownError denotes an internal error that did not map to a know failure
+  // type.
+  FAILURE_TYPE_UNKNOWN_ERROR = 0;
+
+  // ResourcesFailed denotes that the container ran but failed with a non-zero
+  // exit code.
+  FAILURE_TYPE_RESOURCES_FAILED = 1;
+
+  // ResourcesAborted denotes the container was canceled before it was started.
+  FAILURE_TYPE_RESOURCES_ABORTED = 2;
+
+  // ResourcesMissing denotes the resources were missing when the master asked
+  // about it.
+  FAILURE_TYPE_RESOURCES_MISSING = 3;
+
+  // TaskAborted denotes that the task was canceled before it was started.
+  FAILURE_TYPE_TASK_ABORTED = 4;
+
+  // TaskError denotes that the task failed without an associated exit code.
+  FAILURE_TYPE_TASK_ERROR = 5;
+
+  // AgentFailed denotes that the agent failed while the container was running.
+  FAILURE_TYPE_AGENT_FAILED = 6;
+
+  // AgentError denotes that the agent failed to launch the container.
+  FAILURE_TYPE_AGENT_ERROR = 7;
+
+  // RestoreError denotes a failure to restore a running allocation on master
+  // blip.
+  FAILURE_TYPE_RESTORE_ERROR = 8;
+}
+
+// ResourcesFailure contains information about restored resources' failure.
+message ResourcesFailure {
+  FailureType failure_type = 1;
+  string err_msg           = 2;
+  optional int32 exit_code = 3;
+}
+
+// ResourcesStopped contains the information needed by tasks from container
+// stopped.
+message ResourcesStopped {
+  ResourcesFailure failure = 1;
+}
+
+// ResourcesSummary provides a summary of the resources comprising what we know
+// at the time the allocation is granted, but for k8s it is granted before being
+// scheduled so it isn't really much and `agent_devices` are missing for k8s.
+message ResourcesSummary {
+  message Devices {
+    repeated determined.device.v1.Device devices = 1;
+  }
+  string resources_id                = 1;
+  string resources_type              = 2;
+  string allocation_id               = 3;
+  map<string, Devices> agent_devices = 4;
+
+  // Available if the RM can give information on the container level.
+  optional string container_id = 5;
+
+  // Available if the RM knows the resource is already started / exited.
+  optional ResourcesStarted started = 6;
+  optional ResourcesStopped exited  = 7;
+}
+
+// ProxyPortConfig configures a proxy the allocation should start.
+message ProxyPortConfig {
+  string service_id    = 1;
+  int32 port           = 2;
+  bool proxy_tcp       = 3;
+  bool unauthenticated = 4;
+}
+
+// AllocationSummary contains information about a task for external display.
+message AllocationSummary {
+  string task_id                            = 1;
+  string allocation_id                      = 2;
+  string name                               = 3;
+  google.protobuf.Timestamp registered_time = 4;
+  string resource_pool                      = 5;
+  int32 slots_needed                        = 6;
+  repeated ResourcesSummary resources       = 7;
+  string scheduler_type                     = 8;
+  optional int32 priority                   = 9;
+  repeated ProxyPortConfig proxy_ports      = 10;
 }

@@ -167,3 +167,10 @@ message ReportCheckpointRequest {
 }
 // Response to ReportCheckpointRequest.
 message ReportCheckpointResponse {}
+
+message GetTasksRequest {}
+
+message GetTasksResponse {
+  map<string, determined.task.v1.AllocationSummary> allocation_id_to_summary =
+      1;
+}

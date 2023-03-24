@@ -969,6 +969,7 @@ func (*ReportCheckpointResponse) Descriptor() ([]byte, []int) {
 	return file_determined_api_v1_task_proto_rawDescGZIP(), []int{13}
 }
 
+// Request the information of all tasks.
 type GetTasksRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1007,11 +1008,13 @@ func (*GetTasksRequest) Descriptor() ([]byte, []int) {
 	return file_determined_api_v1_task_proto_rawDescGZIP(), []int{14}
 }
 
+// Response to GetTasksRequest.
 type GetTasksResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Information about a task for external display.
 	AllocationIdToSummary map[string]*taskv1.AllocationSummary `protobuf:"bytes,1,rep,name=allocation_id_to_summary,json=allocationIdToSummary,proto3" json:"allocation_id_to_summary,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 

@@ -1,4 +1,5 @@
 import json
+import re
 from argparse import Namespace
 from functools import partial
 from typing import Any, Dict, List, Union, cast
@@ -6,8 +7,21 @@ from typing import Any, Dict, List, Union, cast
 from determined import cli
 from determined.cli import command, render
 from determined.common import api
-from determined.common.api import authentication
+from determined.common.api import authentication, bindings
 from determined.common.declarative_argparse import Arg, Cmd, Group
+
+
+def to_snake(s: str) -> str:
+    return re.sub(r"([A-Z]\w+$)", "_\\1", s).lower()
+
+
+def convert_dict(d: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
+    """Recursively convert all keys in the dictionary from camel case to snake case"""
+    if isinstance(d, list):
+        return [convert_dict(i) if isinstance(i, (dict, list)) else i for i in d]
+    return {
+        to_snake(a): convert_dict(b) if isinstance(b, (dict, list)) else b for a, b in d.items()
+    }
 
 
 def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
@@ -22,7 +36,9 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
         return agents
 
     if args.json:
-        print(json.dumps(tasks, indent=4))
+        # The protocol buffer compiler generates camelCase JSON keys by default.
+        # Convert them to snake_case to match echo endpoint's behavior.
+        print(json.dumps(convert_dict(tasks), indent=4))
         return
 
     headers = [
@@ -59,8 +75,8 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
 
 @authentication.required
 def list_tasks(args: Namespace) -> None:
-    r = api.get(args.master, "api/v1/tasks")
-    tasks = r.json()["allocationIdToSummary"]
+    r = bindings.get_GetTasks(api.Session(master=args.master, user=args.user, auth=None, cert=None))
+    tasks = r.to_json()["allocationIdToSummary"]
 
     render_tasks(args, tasks)
 

@@ -100,7 +100,7 @@ type FailureType int32
 const (
 	// UnknownError denotes an internal error that did not map to a know failure
 	// type.
-	FailureType_FAILURE_TYPE_UNKNOWN_ERROR FailureType = 0
+	FailureType_FAILURE_TYPE_UNSPECIFIED FailureType = 0
 	// ResourcesFailed denotes that the container ran but failed with a non-zero
 	// exit code.
 	FailureType_FAILURE_TYPE_RESOURCES_FAILED FailureType = 1
@@ -125,7 +125,7 @@ const (
 // Enum value maps for FailureType.
 var (
 	FailureType_name = map[int32]string{
-		0: "FAILURE_TYPE_UNKNOWN_ERROR",
+		0: "FAILURE_TYPE_UNSPECIFIED",
 		1: "FAILURE_TYPE_RESOURCES_FAILED",
 		2: "FAILURE_TYPE_RESOURCES_ABORTED",
 		3: "FAILURE_TYPE_RESOURCES_MISSING",
@@ -136,7 +136,7 @@ var (
 		8: "FAILURE_TYPE_RESTORE_ERROR",
 	}
 	FailureType_value = map[string]int32{
-		"FAILURE_TYPE_UNKNOWN_ERROR":     0,
+		"FAILURE_TYPE_UNSPECIFIED":       0,
 		"FAILURE_TYPE_RESOURCES_FAILED":  1,
 		"FAILURE_TYPE_RESOURCES_ABORTED": 2,
 		"FAILURE_TYPE_RESOURCES_MISSING": 3,
@@ -342,10 +342,17 @@ type Address struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ContainerIp   string `protobuf:"bytes,1,opt,name=container_ip,json=containerIp,proto3" json:"container_ip,omitempty"`
-	ContainerPort int32  `protobuf:"varint,2,opt,name=container_port,json=containerPort,proto3" json:"container_port,omitempty"`
-	HostIp        string `protobuf:"bytes,3,opt,name=host_ip,json=hostIp,proto3" json:"host_ip,omitempty"`
-	HostPort      int32  `protobuf:"varint,4,opt,name=host_port,json=hostPort,proto3" json:"host_port,omitempty"`
+	// ContainerIP is the IP address from inside the container.
+	ContainerIp string `protobuf:"bytes,1,opt,name=container_ip,json=containerIp,proto3" json:"container_ip,omitempty"`
+	// ContainerPort is the port from inside the container.
+	ContainerPort int32 `protobuf:"varint,2,opt,name=container_port,json=containerPort,proto3" json:"container_port,omitempty"`
+	// HostIP is the IP address from outside the container. This can be
+	// different than the ContainerIP because of network forwarding on the host
+	// machine.
+	HostIp string `protobuf:"bytes,3,opt,name=host_ip,json=hostIp,proto3" json:"host_ip,omitempty"`
+	// HostPort is the IP port from outside the container. This can be different
+	// than the ContainerPort because of network forwarding on the host machine.
+	HostPort int32 `protobuf:"varint,4,opt,name=host_port,json=hostPort,proto3" json:"host_port,omitempty"`
 }
 
 func (x *Address) Reset() {
@@ -415,6 +422,7 @@ type ResourcesStarted struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Addresses represents the exposed ports on a container.
 	Addresses []*Address `protobuf:"bytes,1,rep,name=addresses,proto3" json:"addresses,omitempty"`
 	// NativeResourcesID is the native Docker hex container ID of the Determined
 	// container.
@@ -473,9 +481,13 @@ type ResourcesFailure struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// FailureType denotes the type of failure that resulted in the container
+	// stopping.
 	FailureType FailureType `protobuf:"varint,1,opt,name=failure_type,json=failureType,proto3,enum=determined.task.v1.FailureType" json:"failure_type,omitempty"`
-	ErrMsg      string      `protobuf:"bytes,2,opt,name=err_msg,json=errMsg,proto3" json:"err_msg,omitempty"`
-	ExitCode    *int32      `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
+	// The error message of the failure.
+	ErrMsg string `protobuf:"bytes,2,opt,name=err_msg,json=errMsg,proto3" json:"err_msg,omitempty"`
+	// The exit code of the failure.
+	ExitCode *int32 `protobuf:"varint,3,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
 }
 
 func (x *ResourcesFailure) Reset() {
@@ -514,7 +526,7 @@ func (x *ResourcesFailure) GetFailureType() FailureType {
 	if x != nil {
 		return x.FailureType
 	}
-	return FailureType_FAILURE_TYPE_UNKNOWN_ERROR
+	return FailureType_FAILURE_TYPE_UNSPECIFIED
 }
 
 func (x *ResourcesFailure) GetErrMsg() string {
@@ -538,6 +550,7 @@ type ResourcesStopped struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// ResourcesFailure contains information about restored resources' failure.
 	Failure *ResourcesFailure `protobuf:"bytes,1,opt,name=failure,proto3" json:"failure,omitempty"`
 }
 
@@ -588,15 +601,22 @@ type ResourcesSummary struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ResourcesId   string                               `protobuf:"bytes,1,opt,name=resources_id,json=resourcesId,proto3" json:"resources_id,omitempty"`
-	ResourcesType string                               `protobuf:"bytes,2,opt,name=resources_type,json=resourcesType,proto3" json:"resources_type,omitempty"`
-	AllocationId  string                               `protobuf:"bytes,3,opt,name=allocation_id,json=allocationId,proto3" json:"allocation_id,omitempty"`
-	AgentDevices  map[string]*ResourcesSummary_Devices `protobuf:"bytes,4,rep,name=agent_devices,json=agentDevices,proto3" json:"agent_devices,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// ResourcesID is the ID of some set of resources.
+	ResourcesId string `protobuf:"bytes,1,opt,name=resources_id,json=resourcesId,proto3" json:"resources_id,omitempty"`
+	// ResourcesType is the type of some set of resources. This should be purely
+	// informational.
+	ResourcesType string `protobuf:"bytes,2,opt,name=resources_type,json=resourcesType,proto3" json:"resources_type,omitempty"`
+	// AllocationID is the ID of an allocation of a task.
+	AllocationId string `protobuf:"bytes,3,opt,name=allocation_id,json=allocationId,proto3" json:"allocation_id,omitempty"`
+	// ID, an identifier for an agent, maps to the associated devices.
+	AgentDevices map[string]*ResourcesSummary_Devices `protobuf:"bytes,4,rep,name=agent_devices,json=agentDevices,proto3" json:"agent_devices,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// Available if the RM can give information on the container level.
 	ContainerId *string `protobuf:"bytes,5,opt,name=container_id,json=containerId,proto3,oneof" json:"container_id,omitempty"`
 	// Available if the RM knows the resource is already started / exited.
 	Started *ResourcesStarted `protobuf:"bytes,6,opt,name=started,proto3,oneof" json:"started,omitempty"`
-	Exited  *ResourcesStopped `protobuf:"bytes,7,opt,name=exited,proto3,oneof" json:"exited,omitempty"`
+	// ResourcesStopped contains the information needed by tasks from container
+	// stopped.
+	Exited *ResourcesStopped `protobuf:"bytes,7,opt,name=exited,proto3,oneof" json:"exited,omitempty"`
 }
 
 func (x *ResourcesSummary) Reset() {
@@ -686,10 +706,14 @@ type ProxyPortConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ServiceId       string `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
-	Port            int32  `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	ProxyTcp        bool   `protobuf:"varint,3,opt,name=proxy_tcp,json=proxyTcp,proto3" json:"proxy_tcp,omitempty"`
-	Unauthenticated bool   `protobuf:"varint,4,opt,name=unauthenticated,proto3" json:"unauthenticated,omitempty"`
+	// The service id of the proxy port config.
+	ServiceId string `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	// The port of the proxy port config.
+	Port int32 `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	// True if proxy uses TCP.
+	ProxyTcp bool `protobuf:"varint,3,opt,name=proxy_tcp,json=proxyTcp,proto3" json:"proxy_tcp,omitempty"`
+	// True if the proxy is unauthenticated.
+	Unauthenticated bool `protobuf:"varint,4,opt,name=unauthenticated,proto3" json:"unauthenticated,omitempty"`
 }
 
 func (x *ProxyPortConfig) Reset() {
@@ -758,16 +782,30 @@ type AllocationSummary struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	TaskId         string               `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	AllocationId   string               `protobuf:"bytes,2,opt,name=allocation_id,json=allocationId,proto3" json:"allocation_id,omitempty"`
-	Name           string               `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// TaskID is the unique ID of a task among all tasks.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// AllocationID is the ID of an allocation of a task. It is usually of the
+	// form TaskID.allocation_number, maybe with some other metadata if different
+	// types of allocations run.
+	AllocationId string `protobuf:"bytes,2,opt,name=allocation_id,json=allocationId,proto3" json:"allocation_id,omitempty"`
+	// The name of the task
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// The registered time of the task
 	RegisteredTime *timestamp.Timestamp `protobuf:"bytes,4,opt,name=registered_time,json=registeredTime,proto3" json:"registered_time,omitempty"`
-	ResourcePool   string               `protobuf:"bytes,5,opt,name=resource_pool,json=resourcePool,proto3" json:"resource_pool,omitempty"`
-	SlotsNeeded    int32                `protobuf:"varint,6,opt,name=slots_needed,json=slotsNeeded,proto3" json:"slots_needed,omitempty"`
-	Resources      []*ResourcesSummary  `protobuf:"bytes,7,rep,name=resources,proto3" json:"resources,omitempty"`
-	SchedulerType  string               `protobuf:"bytes,8,opt,name=scheduler_type,json=schedulerType,proto3" json:"scheduler_type,omitempty"`
-	Priority       *int32               `protobuf:"varint,9,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
-	ProxyPorts     []*ProxyPortConfig   `protobuf:"bytes,10,rep,name=proxy_ports,json=proxyPorts,proto3" json:"proxy_ports,omitempty"`
+	// The name of the resource pool.
+	ResourcePool string `protobuf:"bytes,5,opt,name=resource_pool,json=resourcePool,proto3" json:"resource_pool,omitempty"`
+	// The number of slots that are needed.
+	SlotsNeeded int32 `protobuf:"varint,6,opt,name=slots_needed,json=slotsNeeded,proto3" json:"slots_needed,omitempty"`
+	// ResourcesSummary provides a summary of the resources comprising what we
+	// know at the time the allocation is granted,
+	Resources []*ResourcesSummary `protobuf:"bytes,7,rep,name=resources,proto3" json:"resources,omitempty"`
+	// The type of the scheduler. Either 'FAIR_SHARE', 'PRIORITY', or
+	// 'ROUND_ROBIN'
+	SchedulerType string `protobuf:"bytes,8,opt,name=scheduler_type,json=schedulerType,proto3" json:"scheduler_type,omitempty"`
+	// THe priority of the task
+	Priority *int32 `protobuf:"varint,9,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
+	// ProxyPortConfig configures a proxy the allocation should start.
+	ProxyPorts []*ProxyPortConfig `protobuf:"bytes,10,rep,name=proxy_ports,json=proxyPorts,proto3" json:"proxy_ports,omitempty"`
 }
 
 func (x *AllocationSummary) Reset() {
@@ -872,11 +910,13 @@ func (x *AllocationSummary) GetProxyPorts() []*ProxyPortConfig {
 	return nil
 }
 
+// A wrapper message of a list of devices.
 type ResourcesSummary_Devices struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// The devices on an agent.
 	Devices []*devicev1.Device `protobuf:"bytes,1,rep,name=devices,proto3" json:"devices,omitempty"`
 }
 
@@ -1070,30 +1110,30 @@ var file_determined_task_v1_task_proto_rawDesc = []byte{
 	0x54, 0x45, 0x5f, 0x54, 0x45, 0x52, 0x4d, 0x49, 0x4e, 0x41, 0x54, 0x49, 0x4e, 0x47, 0x10, 0x07,
 	0x12, 0x11, 0x0a, 0x0d, 0x53, 0x54, 0x41, 0x54, 0x45, 0x5f, 0x57, 0x41, 0x49, 0x54, 0x49, 0x4e,
 	0x47, 0x10, 0x09, 0x12, 0x10, 0x0a, 0x0c, 0x53, 0x54, 0x41, 0x54, 0x45, 0x5f, 0x51, 0x55, 0x45,
-	0x55, 0x45, 0x44, 0x10, 0x08, 0x2a, 0xb1, 0x02, 0x0a, 0x0b, 0x46, 0x61, 0x69, 0x6c, 0x75, 0x72,
-	0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x1e, 0x0a, 0x1a, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45,
-	0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x5f, 0x45, 0x52,
-	0x52, 0x4f, 0x52, 0x10, 0x00, 0x12, 0x21, 0x0a, 0x1d, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45,
-	0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x4f, 0x55, 0x52, 0x43, 0x45, 0x53, 0x5f,
-	0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10, 0x01, 0x12, 0x22, 0x0a, 0x1e, 0x46, 0x41, 0x49, 0x4c,
-	0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x4f, 0x55, 0x52, 0x43,
-	0x45, 0x53, 0x5f, 0x41, 0x42, 0x4f, 0x52, 0x54, 0x45, 0x44, 0x10, 0x02, 0x12, 0x22, 0x0a, 0x1e,
-	0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53,
-	0x4f, 0x55, 0x52, 0x43, 0x45, 0x53, 0x5f, 0x4d, 0x49, 0x53, 0x53, 0x49, 0x4e, 0x47, 0x10, 0x03,
-	0x12, 0x1d, 0x0a, 0x19, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45,
-	0x5f, 0x54, 0x41, 0x53, 0x4b, 0x5f, 0x41, 0x42, 0x4f, 0x52, 0x54, 0x45, 0x44, 0x10, 0x04, 0x12,
-	0x1b, 0x0a, 0x17, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f,
-	0x54, 0x41, 0x53, 0x4b, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x05, 0x12, 0x1d, 0x0a, 0x19,
-	0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x41, 0x47, 0x45,
-	0x4e, 0x54, 0x5f, 0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10, 0x06, 0x12, 0x1c, 0x0a, 0x18, 0x46,
-	0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x41, 0x47, 0x45, 0x4e,
-	0x54, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x07, 0x12, 0x1e, 0x0a, 0x1a, 0x46, 0x41, 0x49,
-	0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x54, 0x4f, 0x52,
-	0x45, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x08, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e,
-	0x65, 0x64, 0x2d, 0x61, 0x69, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64,
-	0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x74, 0x61, 0x73, 0x6b, 0x76,
-	0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x55, 0x45, 0x44, 0x10, 0x08, 0x2a, 0xaf, 0x02, 0x0a, 0x0b, 0x46, 0x61, 0x69, 0x6c, 0x75, 0x72,
+	0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x1c, 0x0a, 0x18, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45,
+	0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45,
+	0x44, 0x10, 0x00, 0x12, 0x21, 0x0a, 0x1d, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54,
+	0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x4f, 0x55, 0x52, 0x43, 0x45, 0x53, 0x5f, 0x46, 0x41,
+	0x49, 0x4c, 0x45, 0x44, 0x10, 0x01, 0x12, 0x22, 0x0a, 0x1e, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52,
+	0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x4f, 0x55, 0x52, 0x43, 0x45, 0x53,
+	0x5f, 0x41, 0x42, 0x4f, 0x52, 0x54, 0x45, 0x44, 0x10, 0x02, 0x12, 0x22, 0x0a, 0x1e, 0x46, 0x41,
+	0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x4f, 0x55,
+	0x52, 0x43, 0x45, 0x53, 0x5f, 0x4d, 0x49, 0x53, 0x53, 0x49, 0x4e, 0x47, 0x10, 0x03, 0x12, 0x1d,
+	0x0a, 0x19, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x54,
+	0x41, 0x53, 0x4b, 0x5f, 0x41, 0x42, 0x4f, 0x52, 0x54, 0x45, 0x44, 0x10, 0x04, 0x12, 0x1b, 0x0a,
+	0x17, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x54, 0x41,
+	0x53, 0x4b, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x05, 0x12, 0x1d, 0x0a, 0x19, 0x46, 0x41,
+	0x49, 0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x41, 0x47, 0x45, 0x4e, 0x54,
+	0x5f, 0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10, 0x06, 0x12, 0x1c, 0x0a, 0x18, 0x46, 0x41, 0x49,
+	0x4c, 0x55, 0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x41, 0x47, 0x45, 0x4e, 0x54, 0x5f,
+	0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x07, 0x12, 0x1e, 0x0a, 0x1a, 0x46, 0x41, 0x49, 0x4c, 0x55,
+	0x52, 0x45, 0x5f, 0x54, 0x59, 0x50, 0x45, 0x5f, 0x52, 0x45, 0x53, 0x54, 0x4f, 0x52, 0x45, 0x5f,
+	0x45, 0x52, 0x52, 0x4f, 0x52, 0x10, 0x08, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64,
+	0x2d, 0x61, 0x69, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64, 0x2f, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x74, 0x61, 0x73, 0x6b, 0x76, 0x31, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

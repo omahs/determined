@@ -3240,7 +3240,7 @@ type DeterminedClient interface {
 	GetActiveTasksCount(ctx context.Context, in *GetActiveTasksCountRequest, opts ...grpc.CallOption) (*GetActiveTasksCountResponse, error)
 	// Check the status of a requested task.
 	GetTask(ctx context.Context, in *GetTaskRequest, opts ...grpc.CallOption) (*GetTaskResponse, error)
-	// Get all tasks
+	// Get all tasks.
 	GetTasks(ctx context.Context, in *GetTasksRequest, opts ...grpc.CallOption) (*GetTasksResponse, error)
 	// Get the requested model.
 	GetModel(ctx context.Context, in *GetModelRequest, opts ...grpc.CallOption) (*GetModelResponse, error)
@@ -5718,7 +5718,7 @@ type DeterminedServer interface {
 	GetActiveTasksCount(context.Context, *GetActiveTasksCountRequest) (*GetActiveTasksCountResponse, error)
 	// Check the status of a requested task.
 	GetTask(context.Context, *GetTaskRequest) (*GetTaskResponse, error)
-	// Get all tasks
+	// Get all tasks.
 	GetTasks(context.Context, *GetTasksRequest) (*GetTasksResponse, error)
 	// Get the requested model.
 	GetModel(context.Context, *GetModelRequest) (*GetModelResponse, error)

@@ -382,6 +382,9 @@ func (a *apiServer) GetTasks(
 	}
 
 	curUser, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	for allocationID := range summary {
 		isExp, exp, err := expFromAllocationID(a.m, allocationID)
@@ -404,12 +407,12 @@ func (a *apiServer) GetTasks(
 		}
 	}
 
-	pbAllocationIdToSummary := make(map[string]*taskv1.AllocationSummary)
-	for allocationId, allocationSummary := range summary {
-		pbAllocationIdToSummary[string(allocationId)] = allocationSummary.Proto()
+	pbAllocationIDToSummary := make(map[string]*taskv1.AllocationSummary)
+	for allocationID, allocationSummary := range summary {
+		pbAllocationIDToSummary[string(allocationID)] = allocationSummary.Proto()
 	}
 
-	return &apiv1.GetTasksResponse{AllocationIdToSummary: pbAllocationIdToSummary}, nil
+	return &apiv1.GetTasksResponse{AllocationIdToSummary: pbAllocationIDToSummary}, nil
 }
 
 func (a *apiServer) taskLogs(

@@ -88,8 +88,8 @@ func (r *ResourcesStarted) Proto() *taskv1.ResourcesStarted {
 		pbAddresses = append(pbAddresses, address.Proto())
 	}
 
-	return &taskv1.ResourcesStarted {
-		Addresses: pbAddresses,
+	return &taskv1.ResourcesStarted{
+		Addresses:         pbAddresses,
 		NativeResourcesId: r.NativeResourcesID,
 	}
 }
@@ -116,7 +116,7 @@ func (r *ResourcesStopped) Proto() *taskv1.ResourcesStopped {
 	if r == nil {
 		return nil
 	}
-	return &taskv1.ResourcesStopped {
+	return &taskv1.ResourcesStopped{
 		Failure: r.Failure.Proto(),
 	}
 }
@@ -177,9 +177,9 @@ func (r *ResourcesFailure) Proto() *taskv1.ResourcesFailure {
 		return nil
 	}
 
-	pbResourcesFailure := taskv1.ResourcesFailure {
+	pbResourcesFailure := taskv1.ResourcesFailure{
 		FailureType: r.FailureType.Proto(),
-		ErrMsg: r.ErrMsg,
+		ErrMsg:      r.ErrMsg,
 	}
 
 	if r.ExitCode != nil {
@@ -201,14 +201,14 @@ func NewResourcesFailure(
 	}
 }
 
-func (f ResourcesFailure) Error() string {
-	if f.ExitCode == nil {
-		if len(f.ErrMsg) > 0 {
-			return fmt.Sprintf("%s: %s", f.FailureType, f.ErrMsg)
+func (r ResourcesFailure) Error() string {
+	if r.ExitCode == nil {
+		if len(r.ErrMsg) > 0 {
+			return fmt.Sprintf("%s: %s", r.FailureType, r.ErrMsg)
 		}
-		return fmt.Sprintf("%s", f.FailureType)
+		return fmt.Sprintf("%s", r.FailureType)
 	}
-	return fmt.Sprintf("%s: %s (exit code %d)", f.FailureType, f.ErrMsg, *f.ExitCode)
+	return fmt.Sprintf("%s: %s (exit code %d)", r.FailureType, r.ErrMsg, *r.ExitCode)
 }
 
 // ExitCode is the process exit code of the container.
@@ -265,26 +265,26 @@ const (
 // Proto returns the proto representation of the device type.
 func (f FailureType) Proto() taskv1.FailureType {
 	switch f {
-		case ResourcesFailed:
-			return taskv1.FailureType_FAILURE_TYPE_RESOURCES_FAILED
-		case ResourcesAborted:
-			return taskv1.FailureType_FAILURE_TYPE_RESOURCES_ABORTED
-		case ResourcesMissing:
-			return taskv1.FailureType_FAILURE_TYPE_RESOURCES_MISSING
-		case TaskAborted:
-			return taskv1.FailureType_FAILURE_TYPE_TASK_ABORTED
-		case TaskError:
-			return taskv1.FailureType_FAILURE_TYPE_TASK_ERROR
-		case AgentFailed:
-			return taskv1.FailureType_FAILURE_TYPE_AGENT_FAILED
-		case AgentError:
-			return taskv1.FailureType_FAILURE_TYPE_AGENT_ERROR
-		case RestoreError:
-			return taskv1.FailureType_FAILURE_TYPE_RESTORE_ERROR
-		case UnknownError:
-			return taskv1.FailureType_FAILURE_TYPE_UNKNOWN_ERROR
-		default:
-			return taskv1.FailureType_FAILURE_TYPE_UNKNOWN_ERROR
+	case ResourcesFailed:
+		return taskv1.FailureType_FAILURE_TYPE_RESOURCES_FAILED
+	case ResourcesAborted:
+		return taskv1.FailureType_FAILURE_TYPE_RESOURCES_ABORTED
+	case ResourcesMissing:
+		return taskv1.FailureType_FAILURE_TYPE_RESOURCES_MISSING
+	case TaskAborted:
+		return taskv1.FailureType_FAILURE_TYPE_TASK_ABORTED
+	case TaskError:
+		return taskv1.FailureType_FAILURE_TYPE_TASK_ERROR
+	case AgentFailed:
+		return taskv1.FailureType_FAILURE_TYPE_AGENT_FAILED
+	case AgentError:
+		return taskv1.FailureType_FAILURE_TYPE_AGENT_ERROR
+	case RestoreError:
+		return taskv1.FailureType_FAILURE_TYPE_RESTORE_ERROR
+	case UnknownError:
+		return taskv1.FailureType_FAILURE_TYPE_UNSPECIFIED
+	default:
+		return taskv1.FailureType_FAILURE_TYPE_UNSPECIFIED
 	}
 }
 

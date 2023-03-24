@@ -55,15 +55,23 @@ message Task {
 
 // Address represents an exposed port on a container.
 message Address {
-  string container_ip  = 1;
+  // ContainerIP is the IP address from inside the container.
+  string container_ip = 1;
+  // ContainerPort is the port from inside the container.
   int32 container_port = 2;
-  string host_ip       = 3;
-  int32 host_port      = 4;
+  // HostIP is the IP address from outside the container. This can be
+  // different than the ContainerIP because of network forwarding on the host
+  // machine.
+  string host_ip = 3;
+  // HostPort is the IP port from outside the container. This can be different
+  // than the ContainerPort because of network forwarding on the host machine.
+  int32 host_port = 4;
 }
 
 // ResourcesStarted contains the information needed by tasks from container
 // started.
 message ResourcesStarted {
+  // Addresses represents the exposed ports on a container.
   repeated Address addresses = 1;
   // NativeResourcesID is the native Docker hex container ID of the Determined
   // container.
@@ -74,7 +82,7 @@ message ResourcesStarted {
 enum FailureType {
   // UnknownError denotes an internal error that did not map to a know failure
   // type.
-  FAILURE_TYPE_UNKNOWN_ERROR = 0;
+  FAILURE_TYPE_UNSPECIFIED = 0;
 
   // ResourcesFailed denotes that the container ran but failed with a non-zero
   // exit code.
@@ -106,14 +114,19 @@ enum FailureType {
 
 // ResourcesFailure contains information about restored resources' failure.
 message ResourcesFailure {
+  // FailureType denotes the type of failure that resulted in the container
+  // stopping.
   FailureType failure_type = 1;
-  string err_msg           = 2;
+  // The error message of the failure.
+  string err_msg = 2;
+  // The exit code of the failure.
   optional int32 exit_code = 3;
 }
 
 // ResourcesStopped contains the information needed by tasks from container
 // stopped.
 message ResourcesStopped {
+  // ResourcesFailure contains information about restored resources' failure.
   ResourcesFailure failure = 1;
 }
 
@@ -121,12 +134,19 @@ message ResourcesStopped {
 // at the time the allocation is granted, but for k8s it is granted before being
 // scheduled so it isn't really much and `agent_devices` are missing for k8s.
 message ResourcesSummary {
+  // A wrapper message of a list of devices.
   message Devices {
+    // The devices on an agent.
     repeated determined.device.v1.Device devices = 1;
   }
-  string resources_id                = 1;
-  string resources_type              = 2;
-  string allocation_id               = 3;
+  // ResourcesID is the ID of some set of resources.
+  string resources_id = 1;
+  // ResourcesType is the type of some set of resources. This should be purely
+  // informational.
+  string resources_type = 2;
+  // AllocationID is the ID of an allocation of a task.
+  string allocation_id = 3;
+  // ID, an identifier for an agent, maps to the associated devices.
   map<string, Devices> agent_devices = 4;
 
   // Available if the RM can give information on the container level.
@@ -134,27 +154,48 @@ message ResourcesSummary {
 
   // Available if the RM knows the resource is already started / exited.
   optional ResourcesStarted started = 6;
-  optional ResourcesStopped exited  = 7;
+
+  // ResourcesStopped contains the information needed by tasks from container
+  // stopped.
+  optional ResourcesStopped exited = 7;
 }
 
 // ProxyPortConfig configures a proxy the allocation should start.
 message ProxyPortConfig {
-  string service_id    = 1;
-  int32 port           = 2;
-  bool proxy_tcp       = 3;
+  // The service id of the proxy port config.
+  string service_id = 1;
+  // The port of the proxy port config.
+  int32 port = 2;
+  // True if proxy uses TCP.
+  bool proxy_tcp = 3;
+  // True if the proxy is unauthenticated.
   bool unauthenticated = 4;
 }
 
 // AllocationSummary contains information about a task for external display.
 message AllocationSummary {
-  string task_id                            = 1;
-  string allocation_id                      = 2;
-  string name                               = 3;
+  // TaskID is the unique ID of a task among all tasks.
+  string task_id = 1;
+  // AllocationID is the ID of an allocation of a task. It is usually of the
+  // form TaskID.allocation_number, maybe with some other metadata if different
+  // types of allocations run.
+  string allocation_id = 2;
+  // The name of the task
+  string name = 3;
+  // The registered time of the task
   google.protobuf.Timestamp registered_time = 4;
-  string resource_pool                      = 5;
-  int32 slots_needed                        = 6;
-  repeated ResourcesSummary resources       = 7;
-  string scheduler_type                     = 8;
-  optional int32 priority                   = 9;
-  repeated ProxyPortConfig proxy_ports      = 10;
+  // The name of the resource pool.
+  string resource_pool = 5;
+  // The number of slots that are needed.
+  int32 slots_needed = 6;
+  // ResourcesSummary provides a summary of the resources comprising what we
+  // know at the time the allocation is granted,
+  repeated ResourcesSummary resources = 7;
+  // The type of the scheduler. Either 'FAIR_SHARE', 'PRIORITY', or
+  // 'ROUND_ROBIN'
+  string scheduler_type = 8;
+  // THe priority of the task
+  optional int32 priority = 9;
+  // ProxyPortConfig configures a proxy the allocation should start.
+  repeated ProxyPortConfig proxy_ports = 10;
 }

@@ -255,13 +255,13 @@ export const ProtobufNullValue = {
 } as const
 export type ProtobufNullValue = ValueOf<typeof ProtobufNullValue>
 /**
- * 
+ * A wrapper message of a list of devices.
  * @export
  * @interface ResourcesSummaryDevices
  */
 export interface ResourcesSummaryDevices {
     /**
-     * 
+     * The devices on an agent.
      * @type {Array<V1Device>}
      * @memberof ResourcesSummaryDevices
      */
@@ -883,25 +883,25 @@ export interface V1AddProjectNoteResponse {
  */
 export interface V1Address {
     /**
-     * 
+     * ContainerIP is the IP address from inside the container.
      * @type {string}
      * @memberof V1Address
      */
     containerIp?: string;
     /**
-     * 
+     * ContainerPort is the port from inside the container.
      * @type {number}
      * @memberof V1Address
      */
     containerPort?: number;
     /**
-     * 
+     * HostIP is the IP address from outside the container. This can be different than the ContainerIP because of network forwarding on the host machine.
      * @type {string}
      * @memberof V1Address
      */
     hostIp?: string;
     /**
-     * 
+     * HostPort is the IP port from outside the container. This can be different than the ContainerPort because of network forwarding on the host machine.
      * @type {number}
      * @memberof V1Address
      */
@@ -1184,61 +1184,61 @@ export interface V1AllocationRendezvousInfoResponse {
  */
 export interface V1AllocationSummary {
     /**
-     * 
+     * TaskID is the unique ID of a task among all tasks.
      * @type {string}
      * @memberof V1AllocationSummary
      */
     taskId?: string;
     /**
-     * 
+     * AllocationID is the ID of an allocation of a task. It is usually of the form TaskID.allocation_number, maybe with some other metadata if different types of allocations run.
      * @type {string}
      * @memberof V1AllocationSummary
      */
     allocationId?: string;
     /**
-     * 
+     * The name of the task
      * @type {string}
      * @memberof V1AllocationSummary
      */
     name?: string;
     /**
-     * 
+     * The registered time of the task
      * @type {Date}
      * @memberof V1AllocationSummary
      */
     registeredTime?: Date;
     /**
-     * 
+     * The name of the resource pool.
      * @type {string}
      * @memberof V1AllocationSummary
      */
     resourcePool?: string;
     /**
-     * 
+     * The number of slots that are needed.
      * @type {number}
      * @memberof V1AllocationSummary
      */
     slotsNeeded?: number;
     /**
-     * 
+     * ResourcesSummary provides a summary of the resources comprising what we know at the time the allocation is granted,
      * @type {Array<V1ResourcesSummary>}
      * @memberof V1AllocationSummary
      */
     resources?: Array<V1ResourcesSummary>;
     /**
-     * 
+     * The type of the scheduler. Either 'FAIR_SHARE', 'PRIORITY', or 'ROUND_ROBIN'
      * @type {string}
      * @memberof V1AllocationSummary
      */
     schedulerType?: string;
     /**
-     * 
+     * THe priority of the task
      * @type {number}
      * @memberof V1AllocationSummary
      */
     priority?: number;
     /**
-     * 
+     * ProxyPortConfig configures a proxy the allocation should start.
      * @type {Array<V1ProxyPortConfig>}
      * @memberof V1AllocationSummary
      */
@@ -2654,12 +2654,12 @@ export interface V1ExperimentSimulation {
     trials?: Array<V1TrialSimulation>;
 }
 /**
- * The failure type of a resource.   - FAILURE_TYPE_UNKNOWN_ERROR: UnknownError denotes an internal error that did not map to a know failure type.  - FAILURE_TYPE_RESOURCES_FAILED: ResourcesFailed denotes that the container ran but failed with a non-zero exit code.  - FAILURE_TYPE_RESOURCES_ABORTED: ResourcesAborted denotes the container was canceled before it was started.  - FAILURE_TYPE_RESOURCES_MISSING: ResourcesMissing denotes the resources were missing when the master asked about it.  - FAILURE_TYPE_TASK_ABORTED: TaskAborted denotes that the task was canceled before it was started.  - FAILURE_TYPE_TASK_ERROR: TaskError denotes that the task failed without an associated exit code.  - FAILURE_TYPE_AGENT_FAILED: AgentFailed denotes that the agent failed while the container was running.  - FAILURE_TYPE_AGENT_ERROR: AgentError denotes that the agent failed to launch the container.  - FAILURE_TYPE_RESTORE_ERROR: RestoreError denotes a failure to restore a running allocation on master blip.
+ * The failure type of a resource.   - FAILURE_TYPE_UNSPECIFIED: UnknownError denotes an internal error that did not map to a know failure type.  - FAILURE_TYPE_RESOURCES_FAILED: ResourcesFailed denotes that the container ran but failed with a non-zero exit code.  - FAILURE_TYPE_RESOURCES_ABORTED: ResourcesAborted denotes the container was canceled before it was started.  - FAILURE_TYPE_RESOURCES_MISSING: ResourcesMissing denotes the resources were missing when the master asked about it.  - FAILURE_TYPE_TASK_ABORTED: TaskAborted denotes that the task was canceled before it was started.  - FAILURE_TYPE_TASK_ERROR: TaskError denotes that the task failed without an associated exit code.  - FAILURE_TYPE_AGENT_FAILED: AgentFailed denotes that the agent failed while the container was running.  - FAILURE_TYPE_AGENT_ERROR: AgentError denotes that the agent failed to launch the container.  - FAILURE_TYPE_RESTORE_ERROR: RestoreError denotes a failure to restore a running allocation on master blip.
  * @export
  * @enum {string}
  */
 export const V1FailureType = {
-    UNKNOWNERROR: 'FAILURE_TYPE_UNKNOWN_ERROR',
+    UNSPECIFIED: 'FAILURE_TYPE_UNSPECIFIED',
     RESOURCESFAILED: 'FAILURE_TYPE_RESOURCES_FAILED',
     RESOURCESABORTED: 'FAILURE_TYPE_RESOURCES_ABORTED',
     RESOURCESMISSING: 'FAILURE_TYPE_RESOURCES_MISSING',
@@ -3806,13 +3806,13 @@ export interface V1GetTaskResponse {
     task?: V1Task;
 }
 /**
- * 
+ * Response to GetTasksRequest.
  * @export
  * @interface V1GetTasksResponse
  */
 export interface V1GetTasksResponse {
     /**
-     * 
+     * Information about a task for external display.
      * @type {{ [key: string]: V1AllocationSummary; }}
      * @memberof V1GetTasksResponse
      */
@@ -6688,25 +6688,25 @@ export interface V1Project {
  */
 export interface V1ProxyPortConfig {
     /**
-     * 
+     * The service id of the proxy port config.
      * @type {string}
      * @memberof V1ProxyPortConfig
      */
     serviceId?: string;
     /**
-     * 
+     * The port of the proxy port config.
      * @type {number}
      * @memberof V1ProxyPortConfig
      */
     port?: number;
     /**
-     * 
+     * True if proxy uses TCP.
      * @type {boolean}
      * @memberof V1ProxyPortConfig
      */
     proxyTcp?: boolean;
     /**
-     * 
+     * True if the proxy is unauthenticated.
      * @type {boolean}
      * @memberof V1ProxyPortConfig
      */
@@ -7608,19 +7608,19 @@ export type V1ResourcePoolType = ValueOf<typeof V1ResourcePoolType>
  */
 export interface V1ResourcesFailure {
     /**
-     * 
+     * FailureType denotes the type of failure that resulted in the container stopping.
      * @type {V1FailureType}
      * @memberof V1ResourcesFailure
      */
     failureType?: V1FailureType;
     /**
-     * 
+     * The error message of the failure.
      * @type {string}
      * @memberof V1ResourcesFailure
      */
     errMsg?: string;
     /**
-     * 
+     * The exit code of the failure.
      * @type {number}
      * @memberof V1ResourcesFailure
      */
@@ -7633,7 +7633,7 @@ export interface V1ResourcesFailure {
  */
 export interface V1ResourcesStarted {
     /**
-     * 
+     * Addresses represents the exposed ports on a container.
      * @type {Array<V1Address>}
      * @memberof V1ResourcesStarted
      */
@@ -7652,7 +7652,7 @@ export interface V1ResourcesStarted {
  */
 export interface V1ResourcesStopped {
     /**
-     * 
+     * ResourcesFailure contains information about restored resources' failure.
      * @type {V1ResourcesFailure}
      * @memberof V1ResourcesStopped
      */
@@ -7665,25 +7665,25 @@ export interface V1ResourcesStopped {
  */
 export interface V1ResourcesSummary {
     /**
-     * 
+     * ResourcesID is the ID of some set of resources.
      * @type {string}
      * @memberof V1ResourcesSummary
      */
     resourcesId?: string;
     /**
-     * 
+     * ResourcesType is the type of some set of resources. This should be purely informational.
      * @type {string}
      * @memberof V1ResourcesSummary
      */
     resourcesType?: string;
     /**
-     * 
+     * AllocationID is the ID of an allocation of a task.
      * @type {string}
      * @memberof V1ResourcesSummary
      */
     allocationId?: string;
     /**
-     * 
+     * ID, an identifier for an agent, maps to the associated devices.
      * @type {{ [key: string]: ResourcesSummaryDevices; }}
      * @memberof V1ResourcesSummary
      */
@@ -7701,7 +7701,7 @@ export interface V1ResourcesSummary {
      */
     started?: V1ResourcesStarted;
     /**
-     * 
+     * ResourcesStopped contains the information needed by tasks from container stopped.
      * @type {V1ResourcesStopped}
      * @memberof V1ResourcesSummary
      */
@@ -23701,7 +23701,7 @@ export const TasksApiFetchParamCreator = function (configuration?: Configuration
         },
         /**
          * 
-         * @summary Get all tasks
+         * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -23922,7 +23922,7 @@ export const TasksApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Get all tasks
+         * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -24020,7 +24020,7 @@ export const TasksApiFactory = function (configuration?: Configuration, fetch?: 
         },
         /**
          * 
-         * @summary Get all tasks
+         * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -24096,7 +24096,7 @@ export class TasksApi extends BaseAPI {
     
     /**
      * 
-     * @summary Get all tasks
+     * @summary Get all tasks.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TasksApi

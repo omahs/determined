@@ -1342,7 +1342,7 @@ service Determined {
     };
   }
 
-  // Get all tasks
+  // Get all tasks.
   rpc GetTasks(GetTasksRequest) returns (GetTasksResponse) {
     option (google.api.http) = {
       get: "/api/v1/tasks"

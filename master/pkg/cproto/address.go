@@ -32,9 +32,9 @@ func (a *Address) Proto() *taskv1.Address {
 		return nil
 	}
 	return &taskv1.Address{
-		ContainerIp: a.ContainerIP,
+		ContainerIp:   a.ContainerIP,
 		ContainerPort: int32(a.ContainerPort),
-		HostIp: a.HostIP,
-		HostPort: int32(a.HostPort),
+		HostIp:        a.HostIP,
+		HostPort:      int32(a.HostPort),
 	}
 }

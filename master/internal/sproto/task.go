@@ -137,10 +137,10 @@ func (p *ProxyPortConfig) Proto() *taskv1.ProxyPortConfig {
 		return nil
 	}
 
-	return &taskv1.ProxyPortConfig {
-		ServiceId: p.ServiceID,
-		Port: int32(p.Port),
-		ProxyTcp: p.ProxyTCP,
+	return &taskv1.ProxyPortConfig{
+		ServiceId:       p.ServiceID,
+		Port:            int32(p.Port),
+		ProxyTcp:        p.ProxyTCP,
 		Unauthenticated: p.Unauthenticated,
 	}
 }
@@ -157,21 +157,20 @@ func (a *AllocationSummary) Proto() *taskv1.AllocationSummary {
 		pbResources = append(pbResources, pbResourcesSummary)
 	}
 
-	pbAllocationSummary := taskv1.AllocationSummary {
-		TaskId: string(a.TaskID),
-		AllocationId: string(a.AllocationID),
-		Name: a.Name,
+	pbAllocationSummary := taskv1.AllocationSummary{
+		TaskId:         string(a.TaskID),
+		AllocationId:   string(a.AllocationID),
+		Name:           a.Name,
 		RegisteredTime: timestamppb.New(a.RegisteredTime),
-		ResourcePool: a.ResourcePool,
-		SlotsNeeded:  int32((a.SlotsNeeded)),
-		Resources: pbResources,
-		SchedulerType: a.SchedulerType,
+		ResourcePool:   a.ResourcePool,
+		SlotsNeeded:    int32((a.SlotsNeeded)),
+		Resources:      pbResources,
+		SchedulerType:  a.SchedulerType,
 	}
 
 	if a.Priority != nil {
 		pbPriority := int32(*a.Priority)
 		pbAllocationSummary.Priority = &pbPriority
-
 	}
 
 	if a.ProxyPorts != nil {
@@ -300,13 +299,13 @@ func (r *ResourcesSummary) Proto() *taskv1.ResourcesSummary {
 		pbAgentDevices[string(agentID)] = &pbDevices
 	}
 
-	pbResourcesSummary := taskv1.ResourcesSummary {
-		ResourcesId: string(r.ResourcesID),
+	pbResourcesSummary := taskv1.ResourcesSummary{
+		ResourcesId:   string(r.ResourcesID),
 		ResourcesType: string(r.ResourcesType),
-		AllocationId: string(r.AllocationID),
-		AgentDevices: pbAgentDevices,
-		Started: r.Started.Proto(),
-		Exited: r.Exited.Proto(),
+		AllocationId:  string(r.AllocationID),
+		AgentDevices:  pbAgentDevices,
+		Started:       r.Started.Proto(),
+		Exited:        r.Exited.Proto(),
 	}
 
 	if r.ContainerID != nil {
@@ -318,9 +317,9 @@ func (r *ResourcesSummary) Proto() *taskv1.ResourcesSummary {
 }
 
 // Slots returns slot count for the resources.
-func (s ResourcesSummary) Slots() int {
+func (r ResourcesSummary) Slots() int {
 	var res int
-	for _, devs := range s.AgentDevices {
+	for _, devs := range r.AgentDevices {
 		res += len(devs)
 	}
 	return res

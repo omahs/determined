@@ -11,19 +11,6 @@ from determined.common.api import authentication, bindings
 from determined.common.declarative_argparse import Arg, Cmd, Group
 
 
-def to_snake(s: str) -> str:
-    return re.sub(r"([A-Z]\w+$)", "_\\1", s).lower()
-
-
-def convert_dict(d: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
-    """Recursively convert all keys in the dictionary from camel case to snake case"""
-    if isinstance(d, list):
-        return [convert_dict(i) if isinstance(i, (dict, list)) else i for i in d]
-    return {
-        to_snake(a): convert_dict(b) if isinstance(b, (dict, list)) else b for a, b in d.items()
-    }
-
-
 def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
     def agent_info(t: Dict[str, Any]) -> Union[str, List[str]]:
         resources = t.get("resources", [])
@@ -36,9 +23,6 @@ def render_tasks(args: Namespace, tasks: Dict[str, Dict[str, Any]]) -> None:
         return agents
 
     if args.json:
-        # The protocol buffer compiler generates camelCase JSON keys by default.
-        # Convert them to snake_case to match echo endpoint's behavior.
-        print(json.dumps(convert_dict(tasks), indent=4))
         return
 
     headers = [

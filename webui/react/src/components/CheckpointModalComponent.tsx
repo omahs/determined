@@ -3,9 +3,10 @@ import { ModalFuncProps } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
-import HumanReadableNumber from 'components/HumanReadableNumber';
 import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
+import HumanReadableNumber from 'components/HumanReadableNumber';
 import Button from 'components/kit/Button';
+import { Modal, useModal } from 'components/kit/Modal';
 import Link from 'components/Link';
 import { paths } from 'routes/utils';
 import { detApi } from 'services/apiConfig';
@@ -23,7 +24,6 @@ import { checkpointSize } from 'utils/workload';
 
 import css from './CheckpointModalComponent.module.scss';
 // modal
-import {Modal, useModal} from 'components/kit/Modal';
 
 export interface Props {
   checkpoint: CheckpointWorkloadExtended | CoreApiGenericCheckpoint | undefined;
@@ -77,8 +77,13 @@ const renderResource = (resource: string, size: string): React.ReactNode => {
   );
 };
 
-const CheckpointModalComponent: React.FC<Props> = ({ onClose, checkpoint, config, searcherValidation }: Props) => {
-  const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent); 
+const CheckpointModalComponent: React.FC<Props> = ({
+  onClose,
+  checkpoint,
+  config,
+  searcherValidation,
+}: Props) => {
+  const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
 
   const handleCancel = useCallback(() => onClose?.(ModalCloseReason.Cancel), [onClose]);
   const handleOk = useCallback(() => onClose?.(ModalCloseReason.Ok), [onClose]);
@@ -88,83 +93,82 @@ const CheckpointModalComponent: React.FC<Props> = ({ onClose, checkpoint, config
     readStream(detApi.Checkpoint.deleteCheckpoints({ checkpointUuids: [checkpoint.uuid] }));
   }, [checkpoint]);
 
-    if (!checkpoint?.experimentId || !checkpoint?.resources) return null;
+  if (!checkpoint?.experimentId || !checkpoint?.resources) return null;
 
-    const state = checkpoint.state;
-    const totalSize = humanReadableBytes(checkpointSize(checkpoint));
+  const state = checkpoint.state;
+  const totalSize = humanReadableBytes(checkpointSize(checkpoint));
 
-    const searcherMetric = searcherValidation;
-    const checkpointResources = checkpoint.resources;
-    const resources = Object.keys(checkpoint.resources)
-      .sort((a, b) => checkpointResources[a] - checkpointResources[b])
-      .map((key) => ({ name: key, size: humanReadableBytes(checkpointResources[key]) }));
+  const searcherMetric = searcherValidation;
+  const checkpointResources = checkpoint.resources;
+  const resources = Object.keys(checkpoint.resources)
+    .sort((a, b) => checkpointResources[a] - checkpointResources[b])
+    .map((key) => ({ name: key, size: humanReadableBytes(checkpointResources[key]) }));
 
-    return (
-      <>
+  return (
+    <>
       <Modal
-       cancel
-       submit={{
-        text: 'Register Checkpoint',
-        handler: handleOk,
-       }}
-       title='Best Checkpoint'
-      >
-         <div className={css.base}>
-        {renderRow(
-          'Source',
-          <div className={css.source}>
-            <Link path={paths.experimentDetails(checkpoint.experimentId)}>
-              Experiment {checkpoint.experimentId}
-            </Link>
-            {checkpoint.trialId && (
-              <>
-                <span className={css.sourceDivider} />
-                <Link path={paths.trialDetails(checkpoint.trialId, checkpoint.experimentId)}>
-                  Trial {checkpoint.trialId}
-                </Link>
-              </>
-            )}
-            <span className={css.sourceDivider} />
-            <span>Batch {checkpoint.totalBatches}</span>
-          </div>,
-        )}
-        {renderRow('State', <Badge state={state} type={BadgeType.State} />)}
-        {checkpoint.uuid && renderRow('UUID', checkpoint.uuid)}
-        {renderRow('Location', getStorageLocation(config, checkpoint))}
-        {searcherMetric &&
-          renderRow(
-            'Validation Metric',
-            <>
-              <HumanReadableNumber num={searcherMetric} />
-              {`(${config.searcher.metric})`}
-            </>,
-          )}
-        {'endTime' in checkpoint &&
-          checkpoint?.endTime &&
-          renderRow('Ended', formatDatetime(checkpoint.endTime))}
-        {renderRow(
-          'Total Size',
-          <div className={css.size}>
-            <span>{totalSize}</span>
-            {checkpoint.uuid && (
-              <Button danger type="text" onClick={() => CheckpointDeleteModal.open()}>
-                {'Request Checkpoint Deletion'}
-              </Button>
-            )}
-          </div>,
-        )}
-        {resources.length !== 0 &&
-          renderRow(
-            'Resources',
-            <div className={css.resources}>
-              {resources.map((resource) => renderResource(resource.name, resource.size))}
+        cancel
+        submit={{
+          handler: handleOk,
+          text: 'Register Checkpoint',
+        }}
+        title="Best Checkpoint">
+        <div className={css.base}>
+          {renderRow(
+            'Source',
+            <div className={css.source}>
+              <Link path={paths.experimentDetails(checkpoint.experimentId)}>
+                Experiment {checkpoint.experimentId}
+              </Link>
+              {checkpoint.trialId && (
+                <>
+                  <span className={css.sourceDivider} />
+                  <Link path={paths.trialDetails(checkpoint.trialId, checkpoint.experimentId)}>
+                    Trial {checkpoint.trialId}
+                  </Link>
+                </>
+              )}
+              <span className={css.sourceDivider} />
+              <span>Batch {checkpoint.totalBatches}</span>
             </div>,
           )}
-          </div>
+          {renderRow('State', <Badge state={state} type={BadgeType.State} />)}
+          {checkpoint.uuid && renderRow('UUID', checkpoint.uuid)}
+          {renderRow('Location', getStorageLocation(config, checkpoint))}
+          {searcherMetric &&
+            renderRow(
+              'Validation Metric',
+              <>
+                <HumanReadableNumber num={searcherMetric} />
+                {`(${config.searcher.metric})`}
+              </>,
+            )}
+          {'endTime' in checkpoint &&
+            checkpoint?.endTime &&
+            renderRow('Ended', formatDatetime(checkpoint.endTime))}
+          {renderRow(
+            'Total Size',
+            <div className={css.size}>
+              <span>{totalSize}</span>
+              {checkpoint.uuid && (
+                <Button danger type="text" onClick={() => CheckpointDeleteModal.open()}>
+                  {'Request Checkpoint Deletion'}
+                </Button>
+              )}
+            </div>,
+          )}
+          {resources.length !== 0 &&
+            renderRow(
+              'Resources',
+              <div className={css.resources}>
+                {resources.map((resource) => renderResource(resource.name, resource.size))}
+              </div>,
+            )}
+        </div>
       </Modal>
       {checkpoint.uuid && <CheckpointDeleteModal.Component checkpoints={checkpoint.uuid} />}
-      </>
-    );
+    </>
+  );
 };
 
 export default CheckpointModalComponent;

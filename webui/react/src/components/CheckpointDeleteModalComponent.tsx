@@ -7,6 +7,7 @@ import { readStream } from 'services/utils';
 import useModal, { ModalHooks as Hooks, ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { pluralizer } from 'shared/utils/string';
 import handleError from 'utils/error';
+
 import { Modal } from './kit/Modal';
 
 export interface Props {
@@ -15,8 +16,7 @@ export interface Props {
   initialModalProps?: ModalFuncProps;
 }
 
-const CheckpointDeleteModal: React.FC<Props> = ({ onClose, checkpoints}: Props) =>  {
-
+const CheckpointDeleteModal: React.FC<Props> = ({ onClose, checkpoints }: Props) => {
   const numCheckpoints = useMemo(() => {
     if (Array.isArray(checkpoints)) return checkpoints.length;
     return 1;
@@ -33,23 +33,21 @@ const CheckpointDeleteModal: React.FC<Props> = ({ onClose, checkpoints}: Props) 
     onClose?.(ModalCloseReason.Ok);
   }, [checkpoints, onClose]);
 
-return (
-<Modal
-cancel
-icon="warning-large"
-danger
-title='Confirm Checkpoint Deletion'
-submit={{
-  text: 'Request Delete',
-  handler: () => handleDelete()
-}}
->
-{`Are you sure you want to request deletion for 
+  return (
+    <Modal
+      cancel
+      danger
+      icon="warning-large"
+      submit={{
+        handler: () => handleDelete(),
+        text: 'Request Delete',
+      }}
+      title="Confirm Checkpoint Deletion">
+      {`Are you sure you want to request deletion for 
 ${numCheckpoints} ${pluralizer(numCheckpoints, 'checkpoint')}?
 This action may complete or fail without further notification.`}
-</Modal>
-)
-
+    </Modal>
+  );
 };
 
 export default CheckpointDeleteModal;

@@ -1,13 +1,13 @@
+import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import React, { useCallback, useMemo } from 'react';
 
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
 import Card from 'components/kit/Card';
+import { useModal } from 'components/kit/Modal';
 import OverviewStats from 'components/OverviewStats';
 import Section from 'components/Section';
 import TimeAgo from 'components/TimeAgo';
-import CheckpointModalComponent from 'components/CheckpointModalComponent';
-import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
-import { useModal } from 'components/kit/Modal';
-import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { humanReadableBytes } from 'shared/utils/string';
@@ -19,9 +19,8 @@ interface Props {
 }
 
 const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
-
-  const CheckpointModal = useModal(CheckpointModalComponent); 
-  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent); 
+  const CheckpointModal = useModal(CheckpointModalComponent);
+  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const bestCheckpoint: CheckpointWorkloadExtended | undefined = useMemo(() => {
     if (!trial) return;
     const cp = trial.bestAvailableCheckpoint;
@@ -40,7 +39,6 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
     return humanReadableBytes(totalBytes);
   }, [trial?.totalCheckpointSize]);
 
-  
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
       if (reason === ModalCloseReason.Ok && bestCheckpoint?.uuid) {
@@ -49,7 +47,6 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
     },
     [bestCheckpoint],
   );
-  
 
   return (
     <Section>
@@ -70,7 +67,11 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
             <OverviewStats title="Best Checkpoint" onClick={() => CheckpointModal.open()}>
               Batch {bestCheckpoint.totalBatches}
             </OverviewStats>
-            <CheckpointModal.Component checkpoint={bestCheckpoint} config={experiment.config} onClose={handleOnCloseCheckpoint}/>
+            <CheckpointModal.Component
+              checkpoint={bestCheckpoint}
+              config={experiment.config}
+              onClose={handleOnCloseCheckpoint}
+            />
             <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} />
           </>
         )}

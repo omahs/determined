@@ -1,7 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import { ChartGrid, ChartsProps, Serie } from 'components/kit/LineChart';
 import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
+import { useModal } from 'components/kit/Modal';
 import { UPlotPoint } from 'components/UPlot/types';
 import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlugin';
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
@@ -20,9 +22,8 @@ import {
   TrialDetails,
 } from 'types';
 import handleError from 'utils/error';
-import { useModal } from 'components/kit/Modal';
 import { metricSorter, metricToKey } from 'utils/metric';
-import CheckpointModalComponent from 'components/CheckpointModalComponent';
+
 import { Settings, settingsConfigForExperiment } from './TrialDetailsOverview.settings';
 import TrialDetailsWorkloads from './TrialDetailsWorkloads';
 import { useTrialMetrics } from './useTrialMetrics';
@@ -44,7 +45,7 @@ type XAxisVal = number;
 export type CheckpointsDict = Record<XAxisVal, CheckpointWorkloadExtended>;
 
 const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => {
-  const CheckpointModal = useModal(CheckpointModalComponent); 
+  const CheckpointModal = useModal(CheckpointModalComponent);
   const showExperimentArtifacts = usePermissions().canViewExperimentArtifacts({
     workspace: { id: experiment.workspaceId },
   });
@@ -229,7 +230,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
           )}
         </>
       ) : null}
-      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config}/>
+      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} />
     </>
   );
 };

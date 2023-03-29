@@ -7,7 +7,6 @@ import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlug
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
 import { tooltipsPlugin } from 'components/UPlot/UPlotChart/tooltipsPlugin2';
 import useMetricNames from 'hooks/useMetricNames';
-import { useCheckpointFlow } from 'hooks/useModal/Checkpoint/useCheckpointFlow';
 import usePermissions from 'hooks/usePermissions';
 import { useSettings } from 'hooks/useSettings';
 import TrialInfoBox from 'pages/TrialDetails/TrialInfoBox';
@@ -21,8 +20,9 @@ import {
   TrialDetails,
 } from 'types';
 import handleError from 'utils/error';
+import { useModal } from 'components/kit/Modal';
 import { metricSorter, metricToKey } from 'utils/metric';
-
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import { Settings, settingsConfigForExperiment } from './TrialDetailsOverview.settings';
 import TrialDetailsWorkloads from './TrialDetailsWorkloads';
 import { useTrialMetrics } from './useTrialMetrics';
@@ -44,6 +44,7 @@ type XAxisVal = number;
 export type CheckpointsDict = Record<XAxisVal, CheckpointWorkloadExtended>;
 
 const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => {
+  const CheckpointModal = useModal(CheckpointModalComponent); 
   const showExperimentArtifacts = usePermissions().canViewExperimentArtifacts({
     workspace: { id: experiment.workspaceId },
   });
@@ -61,12 +62,6 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         : undefined,
     [trial],
   );
-
-  const { contextHolders, openCheckpoint } = useCheckpointFlow({
-    checkpoint,
-    config: experiment.config,
-    title: `Best checkpoint for Trial ${trial?.id}`,
-  });
 
   const { metrics, data, scale, setScale } = useTrialMetrics(trial);
 
@@ -143,7 +138,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         const selectedCheckpoint =
           xVal !== undefined ? checkpointsDict[Math.floor(xVal)] : undefined;
         if (selectedCheckpoint) {
-          openCheckpoint();
+          CheckpointModal.open();
         }
       };
 
@@ -175,7 +170,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
       });
     });
     return out;
-  }, [pairedMetrics, data, xAxis, checkpointsDict, openCheckpoint]);
+  }, [pairedMetrics, data, xAxis, checkpointsDict]);
 
   const handleMetricNamesError = useCallback(
     (e: unknown) => {
@@ -234,9 +229,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
           )}
         </>
       ) : null}
-      {contextHolders.map((contextHolder, i) => (
-        <React.Fragment key={i}>{contextHolder}</React.Fragment>
-      ))}
+      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config}/>
     </>
   );
 };

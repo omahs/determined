@@ -4,7 +4,9 @@ import Card from 'components/kit/Card';
 import OverviewStats from 'components/OverviewStats';
 import Section from 'components/Section';
 import TimeAgo from 'components/TimeAgo';
-import useModalCheckpoint from 'hooks/useModal/Checkpoint/useModalCheckpoint';
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
+import { useModal } from 'components/kit/Modal';
 import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
@@ -17,6 +19,9 @@ interface Props {
 }
 
 const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
+
+  const CheckpointModal = useModal(CheckpointModalComponent); 
+  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent); 
   const bestCheckpoint: CheckpointWorkloadExtended | undefined = useMemo(() => {
     if (!trial) return;
     const cp = trial.bestAvailableCheckpoint;
@@ -35,45 +40,16 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
     return humanReadableBytes(totalBytes);
   }, [trial?.totalCheckpointSize]);
 
-  const {
-    contextHolder: modalCheckpointRegisterContextHolder,
-    modalOpen: openModalCheckpointRegister,
-  } = useModalCheckpointRegister({
-    onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
-      if (checkpoints) openModalCreateModel({ checkpoints });
-    },
-  });
-
-  const handleOnCloseCreateModel = useCallback(
-    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      if (checkpoints) openModalCheckpointRegister({ checkpoints, selectedModelName: modelName });
-    },
-    [openModalCheckpointRegister],
-  );
-
-  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
-    useModalModelCreate({ onClose: handleOnCloseCreateModel });
-
+  
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
       if (reason === ModalCloseReason.Ok && bestCheckpoint?.uuid) {
-        openModalCheckpointRegister({ checkpoints: bestCheckpoint.uuid });
+        CheckpointRegisterModal.open();
       }
     },
-    [bestCheckpoint, openModalCheckpointRegister],
+    [bestCheckpoint],
   );
-
-  const { contextHolder: modalCheckpointContextHolder, modalOpen: openModalCheckpoint } =
-    useModalCheckpoint({
-      checkpoint: bestCheckpoint,
-      config: experiment.config,
-      onClose: handleOnCloseCheckpoint,
-      title: 'Best Checkpoint',
-    });
-
-  const handleModalCheckpointClick = useCallback(() => {
-    openModalCheckpoint();
-  }, [openModalCheckpoint]);
+  
 
   return (
     <Section>
@@ -89,14 +65,13 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
         {totalCheckpointsSize && (
           <OverviewStats title="Checkpoints">{`${trial?.checkpointCount} (${totalCheckpointsSize})`}</OverviewStats>
         )}
-        {bestCheckpoint && (
+        {bestCheckpoint && bestCheckpoint.uuid && (
           <>
-            <OverviewStats title="Best Checkpoint" onClick={handleModalCheckpointClick}>
+            <OverviewStats title="Best Checkpoint" onClick={() => CheckpointModal.open()}>
               Batch {bestCheckpoint.totalBatches}
             </OverviewStats>
-            {modalCheckpointContextHolder}
-            {modalCheckpointRegisterContextHolder}
-            {modalModelCreateContextHolder}
+            <CheckpointModal.Component checkpoint={bestCheckpoint} config={experiment.config} onClose={handleOnCloseCheckpoint}/>
+            <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} />
           </>
         )}
       </Card.Group>

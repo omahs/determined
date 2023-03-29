@@ -19,16 +19,16 @@ import { Metadata, ModelItem } from 'types';
 import { notification } from 'utils/dialogApi';
 import handleError from 'utils/error';
 
-import css from './useModalCheckpointRegister.module.scss';
+import css from './CheckpointRegisterModal.module.scss';
+
+import { Modal } from 'components/kit/Modal';
 
 interface Props {
   onClose?: (reason?: ModalCloseReason, checkpoints?: string[]) => void;
-}
-
-interface ModalOpenProps {
   checkpoints: string | string[];
   selectedModelName?: string;
 }
+
 
 interface ModalState {
   checkpoints?: string[];
@@ -39,11 +39,6 @@ interface ModalState {
   tags: string[];
   versionDescription: string;
   versionName: string;
-  visible: boolean;
-}
-
-interface ModalHooks extends Omit<Hooks, 'modalOpen'> {
-  modalOpen: (openProps: ModalOpenProps) => void;
 }
 
 const INITIAL_MODAL_STATE = {
@@ -53,13 +48,11 @@ const INITIAL_MODAL_STATE = {
   tags: [],
   versionDescription: '',
   versionName: '',
-  visible: false,
 };
 
-const useModalCheckpointRegister = ({ onClose }: Props = {}): ModalHooks => {
+const CheckpointRegisterModalComponent: React.FC<Props> = ({ checkpoints, selectedModelName, onClose }: Props) => {
   const [canceler] = useState(new AbortController());
   const [modalState, setModalState] = useState<ModalState>(INITIAL_MODAL_STATE);
-  const prevModalState = usePrevious(modalState, undefined);
 
   const { canCreateModelVersion } = usePermissions();
 
@@ -198,7 +191,6 @@ const useModalCheckpointRegister = ({ onClose }: Props = {}): ModalHooks => {
   );
 
   const fetchModels = useCallback(async () => {
-    if (!modalState.visible) return;
     try {
       const response = await getModels(
         {
@@ -222,46 +214,64 @@ const useModalCheckpointRegister = ({ onClose }: Props = {}): ModalHooks => {
         type: ErrorType.Api,
       });
     }
-  }, [canceler.signal, modalState.visible]);
+  }, [canceler.signal]);
+  
+  // const getModalProps = useCallback(
+  //   (state: ModalState): Partial<ModalFuncProps> => {
+  //     const { selectedModelName } = state;
 
-  const modalOpen = useCallback(
-    async ({ checkpoints, selectedModelName }: ModalOpenProps) => {
-      setModalState({
-        ...INITIAL_MODAL_STATE,
-        visible: true,
-      });
-      await fetchModels();
-      setModalState((prev) => ({
-        ...prev,
-        checkpoints: Array.isArray(checkpoints) ? checkpoints : [checkpoints],
-        selectedModelName,
-      }));
-    },
-    [fetchModels],
-  );
+  //     const modalProps = {
+  //       className: css.base,
+  //       closable: true,
+  //       content: getModalContent(state),
+  //       icon: null,
+  //       maskClosable: true,
+  //       okButtonProps: { disabled: selectedModelName == null },
+  //       okText: 'Register Checkpoint',
+  //       onCancel: handleCancel,
+  //       onOk: () => handleOk(state),
+  //       title: 'Register Checkpoint',
+  //     };
+
+  //     return modalProps;
+  //   },
+  //   [getModalContent, handleCancel, handleOk],
+  // );
+
+  useEffect(() => {
+    fetchModels();
+  }, [fetchModels]);
+
+  useEffect(() => {
+    return () => canceler.abort();
+  }, [canceler]);
 
   const handleCancel = useCallback(() => modalClose(), [modalClose]);
 
-  const getModalContent = useCallback(
-    (state: ModalState): React.ReactNode => {
       const {
-        selectedModelName,
         versionDescription,
         tags,
         metadata,
         versionName,
         expandDetails,
-        checkpoints,
-      } = state;
+      } = modalState;
 
       // We always render the form regardless of mode to provide a reference to it.
       return (
+        <Modal
+         cancel
+         submit={{
+          text: 'Register Checkpoint',
+          handler: () => handleOk(modalState),
+         }}
+         title='Register Checkpoint'
+        >
         <div className={css.base}>
           <p className={css.directions}>Save this checkpoint to the Model Registry</p>
           <div>
             <div className={css.selectModelRow}>
               <h2>Select Model</h2>
-              <p onClick={() => launchNewModelModal(state)}>New Model</p>
+              <p onClick={() => launchNewModelModal(modalState)}>New Model</p>
             </div>
             <Select
               optionFilterProp="label"
@@ -269,22 +279,22 @@ const useModalCheckpointRegister = ({ onClose }: Props = {}): ModalHooks => {
               placeholder="Select a model..."
               showSearch
               style={{ width: '100%' }}
-              value={selectedModelName}
+              value={modalState.selectedModelName}
               onChange={updateModel}
             />
           </div>
-          {selectedModelName && (
+          {modalState.selectedModelName && (
             <>
               <div className={css.separator} />
               <div>
                 <h2>Version Name</h2>
                 <Input
-                  disabled={checkpoints?.length != null && checkpoints.length > 1}
+                  disabled={modalState.checkpoints?.length != null && modalState.checkpoints.length > 1}
                   placeholder={`Version ${selectedModelNumVersions + 1}`}
                   value={versionName}
                   onChange={updateVersionName}
                 />
-                {checkpoints?.length != null && checkpoints.length > 1 && (
+                {modalState.checkpoints?.length != null && modalState.checkpoints.length > 1 && (
                   <p>Cannot specify version name when batch registering.</p>
                 )}
               </div>
@@ -321,61 +331,9 @@ const useModalCheckpointRegister = ({ onClose }: Props = {}): ModalHooks => {
             </>
           )}
         </div>
+        </Modal>
       );
-    },
-    [
-      launchNewModelModal,
-      modelOptions,
-      openDetails,
-      selectedModelNumVersions,
-      updateMetadata,
-      updateModel,
-      updateTags,
-      updateVersionDescription,
-      updateVersionName,
-    ],
-  );
 
-  const getModalProps = useCallback(
-    (state: ModalState): Partial<ModalFuncProps> => {
-      const { selectedModelName } = state;
-
-      const modalProps = {
-        className: css.base,
-        closable: true,
-        content: getModalContent(state),
-        icon: null,
-        maskClosable: true,
-        okButtonProps: { disabled: selectedModelName == null },
-        okText: 'Register Checkpoint',
-        onCancel: handleCancel,
-        onOk: () => handleOk(state),
-        title: 'Register Checkpoint',
-      };
-
-      return modalProps;
-    },
-    [getModalContent, handleCancel, handleOk],
-  );
-
-  useEffect(() => {
-    fetchModels();
-  }, [fetchModels]);
-
-  useEffect(() => {
-    return () => canceler.abort();
-  }, [canceler]);
-
-  /**
-   * When modal props changes are detected, such as modal content
-   * title, and buttons, update the modal.
-   */
-  useEffect(() => {
-    if (isEqual(modalState, prevModalState) || !modalState.visible) return;
-    openOrUpdate(getModalProps(modalState));
-  }, [getModalProps, modalState, openOrUpdate, prevModalState]);
-
-  return { modalClose, modalOpen, ...modalHook };
 };
 
-export default useModalCheckpointRegister;
+export default CheckpointRegisterModalComponent;

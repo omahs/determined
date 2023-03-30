@@ -56,6 +56,45 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
   const [canceler] = useState(new AbortController());
   const [modalState, setModalState] = useState<ModalState>(INITIAL_MODAL_STATE);
 
+  const fetchModels = useCallback(async () => {
+    try {
+      const response = await getModels(
+        {
+          archived: false,
+          orderBy: 'ORDER_BY_DESC',
+          sortBy: validateDetApiEnum(
+            V1GetModelsRequestSortBy,
+            V1GetModelsRequestSortBy.LASTUPDATEDTIME,
+          ),
+        },
+        { signal: canceler.signal },
+      );
+      setModalState((prev) => {
+        if (isEqual(prev.models, response.models)) return prev;
+        return { ...prev, models: response.models };
+      });
+    } catch (e) {
+      handleError(e, {
+        publicSubject: 'Unable to fetch models.',
+        silent: true,
+        type: ErrorType.Api,
+      });
+    }
+  }, [canceler.signal]);
+
+  useEffect(() => {
+        setModalState({
+          ...INITIAL_MODAL_STATE,
+        })
+        fetchModels();
+        setModalState((prev) => ({
+          ...prev,
+          checkpoints: Array.isArray(checkpoints) ? checkpoints : [checkpoints],
+          selectedModelName,
+        }));
+      }, [fetchModels])
+
+      
   const { canCreateModelVersion } = usePermissions();
 
   const handleClose = useCallback(
@@ -85,6 +124,8 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
     async (state: ModalState) => {
       const { selectedModelName, versionDescription, tags, metadata, versionName, checkpoints } =
         state;
+        alert(selectedModelName)
+        alert(checkpoints)
       if (!selectedModelName || !checkpoints) return;
       try {
         if (checkpoints.length === 1) {
@@ -100,7 +141,11 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
             modelName: selectedModelName,
           });
 
-          if (!response) return;
+          if (!response){
+            alert("huh");
+            console.log(response);
+            return ;
+          }
 
           modalClose(ModalCloseReason.Ok);
 
@@ -191,32 +236,6 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
     },
     [modalClose, onClose],
   );
-
-  const fetchModels = useCallback(async () => {
-    try {
-      const response = await getModels(
-        {
-          archived: false,
-          orderBy: 'ORDER_BY_DESC',
-          sortBy: validateDetApiEnum(
-            V1GetModelsRequestSortBy,
-            V1GetModelsRequestSortBy.LASTUPDATEDTIME,
-          ),
-        },
-        { signal: canceler.signal },
-      );
-      setModalState((prev) => {
-        if (isEqual(prev.models, response.models)) return prev;
-        return { ...prev, models: response.models };
-      });
-    } catch (e) {
-      handleError(e, {
-        publicSubject: 'Unable to fetch models.',
-        silent: true,
-        type: ErrorType.Api,
-      });
-    }
-  }, [canceler.signal]);
 
   // const getModalProps = useCallback(
   //   (state: ModalState): Partial<ModalFuncProps> => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
@@ -18,6 +18,7 @@ interface Props {
 }
 
 const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
+  const [checkpoint, setCheckpoints] = useState<string[]>();
   const CheckpointModal = useModal(CheckpointModalComponent);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const bestCheckpoint: CheckpointWorkloadExtended | undefined = useMemo(() => {
@@ -37,6 +38,10 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
     if (!totalBytes) return;
     return humanReadableBytes(totalBytes);
   }, [trial?.totalCheckpointSize]);
+
+  const onClose = (reason?: ModalCloseReason, checkpoints?: string[]) => {
+    if (checkpoints) setCheckpoints(checkpoints);
+  }
 
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
@@ -71,7 +76,7 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
               config={experiment.config}
               onClose={handleOnCloseCheckpoint}
             />
-            <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} />
+            <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} onClose={onClose}/>
           </>
         )}
       </Card.Group>

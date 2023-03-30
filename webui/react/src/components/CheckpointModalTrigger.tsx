@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 
 import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
@@ -23,11 +23,15 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   title,
   children,
 }: Props) => {
+  const [modelName, setModelName] = useState<string>();
   const CheckpointModal = useModal(CheckpointModalComponent);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
+  // maybe need to set
+  // const [checkpoints, setCheckpoints] = useState(checkpoint);
 
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+      if (modelName) setModelName(modelName)
       if (checkpoints) CheckpointRegisterModal.open();
     },
     [],
@@ -49,6 +53,10 @@ const CheckpointModalTrigger: React.FC<Props> = ({
     CheckpointModal.open();
   }, []);
 
+  const onClose = (reason?: ModalCloseReason, checkpoints?: string[]) => {
+    if (checkpoints) openModalCreateModel({ checkpoints })
+  }
+
   return (
     <>
       <span onClick={handleModalCheckpointClick}>
@@ -61,11 +69,12 @@ const CheckpointModalTrigger: React.FC<Props> = ({
         )}
       </span>
       {modalModelCreateContextHolder}
-      {checkpoint.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
+      {checkpoint.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} selectedModelName={modelName} onClose={onClose}/>}
       <CheckpointModal.Component
         checkpoint={checkpoint}
         config={experiment.config}
         onClose={handleOnCloseCheckpoint}
+        title={title}
       />
     </>
   );

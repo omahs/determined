@@ -23,7 +23,6 @@ import {
 import { checkpointSize } from 'utils/workload';
 
 import css from './CheckpointModalComponent.module.scss';
-// modal
 
 export interface Props {
   checkpoint: CheckpointWorkloadExtended | CoreApiGenericCheckpoint | undefined;
@@ -31,6 +30,7 @@ export interface Props {
   config: ExperimentConfig;
   onClose?: (reason?: ModalCloseReason) => Promise<void> | void;
   searcherValidation?: number;
+  title?: string;
 }
 
 const getStorageLocation = (
@@ -82,16 +82,11 @@ const CheckpointModalComponent: React.FC<Props> = ({
   checkpoint,
   config,
   searcherValidation,
+  title,
 }: Props) => {
   const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
 
-  const handleCancel = useCallback(() => onClose?.(ModalCloseReason.Cancel), [onClose]);
   const handleOk = useCallback(() => onClose?.(ModalCloseReason.Ok), [onClose]);
-
-  const handleDelete = useCallback(() => {
-    if (!checkpoint?.uuid) return;
-    readStream(detApi.Checkpoint.deleteCheckpoints({ checkpointUuids: [checkpoint.uuid] }));
-  }, [checkpoint]);
 
   if (!checkpoint?.experimentId || !checkpoint?.resources) return null;
 
@@ -112,7 +107,8 @@ const CheckpointModalComponent: React.FC<Props> = ({
           handler: handleOk,
           text: 'Register Checkpoint',
         }}
-        title="Best Checkpoint">
+        title={title ?? "Best Checkpoint"}
+        onClose={onClose}>
         <div className={css.base}>
           {renderRow(
             'Source',

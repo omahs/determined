@@ -52,15 +52,16 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [checkpoints, setCheckpoints] = useState<CoreApiGenericCheckpoint[]>();
+  const [modelName, setModelName] = useState<string>();
   const [canceler] = useState(new AbortController());
 
   const config = useMemo(() => configForExperiment(experiment.id), [experiment.id]);
   const { settings, updateSettings } = useSettings<Settings>(config);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
-  const modelName = 'NEEDS TO GET SET ON CLOSE';
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+      if (modelName) setModelName(modelName)
       if (checkpoints) CheckpointRegisterModal.open();
     },
     [],

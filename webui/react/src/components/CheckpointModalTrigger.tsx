@@ -63,7 +63,7 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   }, []);
 
   const onClose = (reason?: ModalCloseReason, checkpoints?: string[]) => {
-    modelCreateModal.open()
+    modelCreateModal.open();
   };
 
   return (

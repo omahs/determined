@@ -51,6 +51,7 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [checkpoints, setCheckpoints] = useState<CoreApiGenericCheckpoint[]>();
+  const [registerCheckpoints, setRegisterCheckpoints] = useState<string[]>();
   const [modelName, setModelName] = useState<string>();
   const [canceler] = useState(new AbortController());
 
@@ -102,13 +103,21 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
     [handleStateFilterApply, handleStateFilterReset, settings.state],
   );
 
-  const handleRegisterCheckpoint = useCallback(() => {
-    CheckpointRegisterModal.open();
-  }, [CheckpointRegisterModal]);
+  const handleRegisterCheckpoint = useCallback(
+    (checkpoints: string[]) => {
+      setRegisterCheckpoints(checkpoints);
+      CheckpointRegisterModal.open();
+    },
+    [CheckpointRegisterModal],
+  );
 
-  const handleDeleteCheckpoint = useCallback(() => {
-    CheckpointDeleteModal.open();
-  }, [CheckpointDeleteModal]);
+  const handleDeleteCheckpoint = useCallback(
+    (checkpoints: string[]) => {
+      setRegisterCheckpoints(checkpoints);
+      CheckpointDeleteModal.open();
+    },
+    [CheckpointDeleteModal],
+  );
 
   const dropDownOnTrigger = useCallback(
     (checkpoints: string | string[]) => {
@@ -330,16 +339,14 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
           <SkeletonTable columns={columns.length} />
         )}
       </Section>
-      {checkpoints && (
+      {registerCheckpoints && (
         <CheckpointRegisterModal.Component
-          checkpoints={checkpoints.map((c) => c.uuid)}
+          checkpoints={registerCheckpoints}
           selectedModelName={modelName}
           onClose={() => modelCreateModal.open()}
         />
       )}
-      {checkpoints && (
-        <CheckpointDeleteModal.Component checkpoints={checkpoints.map((c) => c.uuid)} />
-      )}
+      {registerCheckpoints && <CheckpointDeleteModal.Component checkpoints={registerCheckpoints} />}
       <modelCreateModal.Component onClose={handleOnCloseCreateModel} />
     </>
   );

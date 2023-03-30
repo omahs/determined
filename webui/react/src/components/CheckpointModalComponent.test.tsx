@@ -22,11 +22,11 @@ const { experiment, checkpoint } = generateTestExperimentData();
 
 const Container: React.FC = () => {
   const CheckpointModal = useModal(CheckpointModalComponent);
-    <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} />;
   const handleClick = useCallback(() => CheckpointModal.open(), [CheckpointModal]);
   return (
     <UIProvider>
       <Button onClick={handleClick}>{MODAL_TRIGGER_TEXT}</Button>
+      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} />;
     </UIProvider>
   );
 };

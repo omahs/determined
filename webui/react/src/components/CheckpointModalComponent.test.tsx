@@ -6,9 +6,8 @@ import Button from 'components/kit/Button';
 import { StoreProvider as UIProvider } from 'shared/contexts/stores/UI';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { generateTestExperimentData } from 'storybook/shared/generateTestData';
-
-import useModalCheckpoint, { Props } from './useModalCheckpoint';
-
+import { useModal } from 'components/kit/Modal';
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
 const TEST_MODAL_TITLE = 'Checkpoint Modal Test';
 const MODAL_TRIGGER_TEXT = 'Open Checkpoint Modal';
 const REGISTER_CHECKPOINT_TEXT = 'Register Checkpoint';
@@ -21,28 +20,25 @@ vi.mock('services/api', () => ({
 
 const { experiment, checkpoint } = generateTestExperimentData();
 
-const Container: React.FC<Partial<Props>> = (props: Partial<Props> = {}) => {
-  const { contextHolder, modalOpen } = useModalCheckpoint({
-    checkpoint: checkpoint,
-    config: experiment.config,
-    title: TEST_MODAL_TITLE,
-    ...props,
-  });
-
-  const handleClick = useCallback(() => modalOpen(), [modalOpen]);
+const Container: React.FC = () => {
+  const CheckpointModal = useModal(CheckpointModalComponent);
+  <CheckpointModal.Component
+  checkpoint={checkpoint}
+  config={experiment.config}
+/>
+  const handleClick = useCallback(() => CheckpointModal.open(), []);
 
   return (
     <UIProvider>
       <Button onClick={handleClick}>{MODAL_TRIGGER_TEXT}</Button>
-      {contextHolder}
     </UIProvider>
   );
 };
 
-const setup = async (props: Partial<Props> = {}) => {
+const setup = async () => {
   const user = userEvent.setup();
 
-  render(<Container {...props} />);
+  render(<Container />);
 
   await user.click(screen.getByText(MODAL_TRIGGER_TEXT));
 
@@ -58,7 +54,7 @@ describe('useModalCheckpoint', () => {
 
   it('should close modal', async () => {
     const onClose = vi.fn();
-    const user = await setup({ onClose });
+    const user = await setup();
 
     await screen.findByText(TEST_MODAL_TITLE);
 
@@ -73,7 +69,7 @@ describe('useModalCheckpoint', () => {
 
   it('should call `onClose` handler with Okay', async () => {
     const onClose = vi.fn();
-    const user = await setup({ onClose });
+    const user = await setup();
 
     await screen.findByText(TEST_MODAL_TITLE);
 

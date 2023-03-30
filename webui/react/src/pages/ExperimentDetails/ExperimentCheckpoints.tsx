@@ -13,8 +13,6 @@ import {
 } from 'components/Table/Table';
 import TableBatch from 'components/Table/TableBatch';
 import TableFilterDropdown from 'components/Table/TableFilterDropdown';
-import useModalCheckpointDelete from 'hooks/useModal/Checkpoint/useModalCheckpointDelete';
-import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import { UpdateSettings, useSettings } from 'hooks/useSettings';
 import { getExperimentCheckpoints } from 'services/api';
@@ -35,6 +33,10 @@ import {
 } from 'types';
 import { canActionCheckpoint, getActionsForCheckpointsUnion } from 'utils/checkpoint';
 import handleError from 'utils/error';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
+import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
+import Card from 'components/kit/Card';
+import { useModal } from 'components/kit/Modal';
 
 import { configForExperiment, Settings } from './ExperimentCheckpoints.settings';
 import { columns as defaultColumns } from './ExperimentCheckpoints.table';
@@ -47,6 +49,8 @@ interface Props {
 const batchActions = [checkpointAction.Register, checkpointAction.Delete];
 
 const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) => {
+ 
+  
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [checkpoints, setCheckpoints] = useState<CoreApiGenericCheckpoint[]>();
@@ -54,30 +58,18 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
 
   const config = useMemo(() => configForExperiment(experiment.id), [experiment.id]);
   const { settings, updateSettings } = useSettings<Settings>(config);
-
-  const {
-    contextHolder: modalCheckpointRegisterContextHolder,
-    modalOpen: openModalCheckpointRegister,
-  } = useModalCheckpointRegister({
-    onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
-      if (checkpoints) openModalCreateModel({ checkpoints });
-    },
-  });
-
+  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
+  const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
+  const modelName = "NEEDS TO GET SET ON CLOSE"
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      if (checkpoints) openModalCheckpointRegister({ checkpoints, selectedModelName: modelName });
+      if (checkpoints) CheckpointRegisterModal.open()
     },
-    [openModalCheckpointRegister],
+    [],
   );
 
   const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
     useModalModelCreate({ onClose: handleOnCloseCreateModel });
-
-  const {
-    contextHolder: modalCheckpointDeleteContextHolder,
-    modalOpen: openModalCheckpointDelete,
-  } = useModalCheckpointDelete({});
 
   const clearSelected = useCallback(() => {
     updateSettings({ row: undefined });
@@ -114,16 +106,16 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
 
   const handleRegisterCheckpoint = useCallback(
     (checkpoints: string[]) => {
-      openModalCheckpointRegister({ checkpoints });
+      CheckpointRegisterModal.open();
     },
-    [openModalCheckpointRegister],
+    [],
   );
 
   const handleDeleteCheckpoint = useCallback(
     (checkpoints: string[]) => {
-      openModalCheckpointDelete({ checkpoints });
+      CheckpointDeleteModal.open();
     },
-    [openModalCheckpointDelete],
+    [],
   );
 
   const dropDownOnTrigger = useCallback(
@@ -346,9 +338,9 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
           <SkeletonTable columns={columns.length} />
         )}
       </Section>
+      { checkpoints && <CheckpointRegisterModal.Component checkpoints={checkpoints.map(c => c.uuid)} selectedModelName={modelName} /> }
+      { checkpoints && <CheckpointDeleteModal.Component checkpoints={checkpoints.map(c => c.uuid)}/> }
       {modalModelCreateContextHolder}
-      {modalCheckpointRegisterContextHolder}
-      {modalCheckpointDeleteContextHolder}
     </>
   );
 };

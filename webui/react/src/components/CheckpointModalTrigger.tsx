@@ -2,12 +2,13 @@ import React, { useCallback } from 'react';
 
 import Button from 'components/kit/Button';
 import Tooltip from 'components/kit/Tooltip';
-import useModalCheckpoint from 'hooks/useModal/Checkpoint/useModalCheckpoint';
-import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import Icon from 'shared/components/Icon/Icon';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { CheckpointWorkloadExtended, CoreApiGenericCheckpoint, ExperimentBase } from 'types';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
+import { useModal } from 'components/kit/Modal';
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
 
 interface Props {
   checkpoint: CheckpointWorkloadExtended | CoreApiGenericCheckpoint;
@@ -22,20 +23,14 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   title,
   children,
 }: Props) => {
-  const {
-    contextHolder: modalCheckpointRegisterContextHolder,
-    modalOpen: openModalCheckpointRegister,
-  } = useModalCheckpointRegister({
-    onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
-      if (checkpoints) openModalCreateModel({ checkpoints });
-    },
-  });
+  const CheckpointModal = useModal(CheckpointModalComponent);
+  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
 
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      if (checkpoints) openModalCheckpointRegister({ checkpoints, selectedModelName: modelName });
+      if (checkpoints) CheckpointRegisterModal.open();
     },
-    [openModalCheckpointRegister],
+    [],
   );
 
   const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
@@ -44,23 +39,15 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
       if (reason === ModalCloseReason.Ok && checkpoint.uuid) {
-        openModalCheckpointRegister({ checkpoints: checkpoint.uuid });
+        CheckpointRegisterModal.open();
       }
     },
-    [checkpoint, openModalCheckpointRegister],
+    [checkpoint],
   );
 
-  const { contextHolder: modalCheckpointContextHolder, modalOpen: openModalCheckpoint } =
-    useModalCheckpoint({
-      checkpoint,
-      config: experiment.config,
-      onClose: handleOnCloseCheckpoint,
-      title,
-    });
-
   const handleModalCheckpointClick = useCallback(() => {
-    openModalCheckpoint();
-  }, [openModalCheckpoint]);
+    CheckpointModal.open();
+  }, []);
 
   return (
     <>
@@ -73,9 +60,13 @@ const CheckpointModalTrigger: React.FC<Props> = ({
           </Tooltip>
         )}
       </span>
-      {modalCheckpointContextHolder}
-      {modalCheckpointRegisterContextHolder}
       {modalModelCreateContextHolder}
+      {checkpoint.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
+      <CheckpointModal.Component
+              checkpoint={checkpoint}
+              config={experiment.config}
+              onClose={handleOnCloseCheckpoint}
+            />
     </>
   );
 };

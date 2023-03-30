@@ -1,4 +1,3 @@
-import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import React, { useCallback, useMemo } from 'react';
 
 import CheckpointModalComponent from 'components/CheckpointModalComponent';

@@ -22,7 +22,7 @@ const CheckpointDeleteModal: React.FC<Props> = ({ onClose, checkpoints }: Props)
     return 1;
   }, [checkpoints]);
 
-  const handleCancel = useCallback(() => onClose?.(ModalCloseReason.Cancel), [onClose]);
+  // const handleCancel = useCallback(() => onClose?.(ModalCloseReason.Cancel), [onClose]);
 
   const handleDelete = useCallback(() => {
     readStream(

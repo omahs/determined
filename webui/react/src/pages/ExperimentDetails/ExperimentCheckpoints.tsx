@@ -5,8 +5,8 @@ import Badge, { BadgeType } from 'components/Badge';
 import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
 import CheckpointModalTrigger from 'components/CheckpointModalTrigger';
 import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
-import Card from 'components/kit/Card';
 import { useModal } from 'components/kit/Modal';
+import ModelCreateModal from 'components/ModelCreateModal';
 import Section from 'components/Section';
 import InteractiveTable, { ContextMenuProps } from 'components/Table/InteractiveTable';
 import SkeletonTable from 'components/Table/SkeletonTable';
@@ -17,7 +17,6 @@ import {
 } from 'components/Table/Table';
 import TableBatch from 'components/Table/TableBatch';
 import TableFilterDropdown from 'components/Table/TableFilterDropdown';
-import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import { UpdateSettings, useSettings } from 'hooks/useSettings';
 import { getExperimentCheckpoints } from 'services/api';
 import { Checkpointv1State, V1GetExperimentCheckpointsRequestSortBy } from 'services/api-ts-sdk';
@@ -59,6 +58,22 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
   const { settings, updateSettings } = useSettings<Settings>(config);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
+
+  const modelCreateModal = useModal(ModelCreateModal);
+
+  // const {
+  //   contextHolder: modalCheckpointRegisterContextHolder,
+  //   modalOpen: openModalCheckpointRegister,
+  // } = useModalCheckpointRegister({
+  //   onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
+  //     // TODO: fix the behavior along with checkpoint modal migration
+  //     // It used to open checkpoint modal again after creating a model,
+  //     // but it doesn't with new create model modal since we don't use context holder anymore.
+  //     // This should be able to fix it along with checkpoint modal migration.
+  //     if (checkpoints) modelCreateModal.open();
+  //   },
+  // });
+
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
       if (modelName) setModelName(modelName);
@@ -66,9 +81,6 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
     },
     [],
   );
-
-  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
-    useModalModelCreate({ onClose: handleOnCloseCreateModel });
 
   const clearSelected = useCallback(() => {
     updateSettings({ row: undefined });
@@ -340,7 +352,7 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
       {checkpoints && (
         <CheckpointDeleteModal.Component checkpoints={checkpoints.map((c) => c.uuid)} />
       )}
-      {modalModelCreateContextHolder}
+      <modelCreateModal.Component onClose={handleOnCloseCreateModel} />
     </>
   );
 };

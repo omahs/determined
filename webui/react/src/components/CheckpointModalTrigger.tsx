@@ -5,7 +5,7 @@ import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModal
 import Button from 'components/kit/Button';
 import { useModal } from 'components/kit/Modal';
 import Tooltip from 'components/kit/Tooltip';
-import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
+import ModelCreateModal from 'components/ModelCreateModal';
 import Icon from 'shared/components/Icon/Icon';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { CheckpointWorkloadExtended, CoreApiGenericCheckpoint, ExperimentBase } from 'types';
@@ -23,9 +23,25 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   title,
   children,
 }: Props) => {
+
   const [modelName, setModelName] = useState<string>();
   const CheckpointModal = useModal(CheckpointModalComponent);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
+  const modelCreateModal = useModal(ModelCreateModal);
+
+  // const {
+  //   contextHolder: modalCheckpointRegisterContextHolder,
+  //   modalOpen: openModalCheckpointRegister,
+  // } = useModalCheckpointRegister({
+  //   onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
+  //     // TODO: fix the behavior along with checkpoint modal migration
+  //     // It used to open checkpoint modal again after creating a model,
+  //     // but it doesn't with new create model modal since we don't use context holder anymore.
+  //     // This should be able to fix it along with checkpoint modal migration.
+  //     if (checkpoints) modelCreateModal.open();
+  //   },
+  // });
+
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
       if (modelName) setModelName(modelName);
@@ -33,9 +49,6 @@ const CheckpointModalTrigger: React.FC<Props> = ({
     },
     [],
   );
-
-  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
-    useModalModelCreate({ onClose: handleOnCloseCreateModel });
 
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
@@ -65,7 +78,6 @@ const CheckpointModalTrigger: React.FC<Props> = ({
           </Tooltip>
         )}
       </span>
-      {modalModelCreateContextHolder}
       {checkpoint.uuid && (
         <CheckpointRegisterModal.Component
           checkpoints={checkpoint.uuid}
@@ -79,6 +91,7 @@ const CheckpointModalTrigger: React.FC<Props> = ({
         title={title}
         onClose={handleOnCloseCheckpoint}
       />
+      <modelCreateModal.Component onClose={handleOnCloseCreateModel} />
     </>
   );
 };

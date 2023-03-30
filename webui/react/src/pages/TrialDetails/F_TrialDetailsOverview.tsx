@@ -10,7 +10,6 @@ import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlug
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
 import { tooltipsPlugin } from 'components/UPlot/UPlotChart/tooltipsPlugin2';
 import useMetricNames from 'hooks/useMetricNames';
-import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import usePermissions from 'hooks/usePermissions';
 import { useSettings } from 'hooks/useSettings';
 import TrialInfoBox from 'pages/TrialDetails/TrialInfoBox';
@@ -85,13 +84,6 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
     },
     [],
   );
-
-  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
-    useModalModelCreate({ onClose: handleOnCloseCreateModel });
-
-  const handleOnCloseCheckpointRegister = (reason?: ModalCloseReason, checkpoints?: string[]) => {
-    if (checkpoints) openModalCreateModel({ checkpoints });
-  };
 
   const { metrics, data, scale, setScale } = useTrialMetrics(trial);
 
@@ -266,7 +258,6 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         onClose={handleOnCloseCheckpoint}
       />
       {checkpoint?.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
-      {modalModelCreateContextHolder}
     </>
   );
 };

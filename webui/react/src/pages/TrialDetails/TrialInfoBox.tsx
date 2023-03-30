@@ -4,10 +4,10 @@ import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
 import Card from 'components/kit/Card';
 import { useModal } from 'components/kit/Modal';
+import ModelCreateModal from 'components/ModelCreateModal';
 import OverviewStats from 'components/OverviewStats';
 import Section from 'components/Section';
 import TimeAgo from 'components/TimeAgo';
-import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { humanReadableBytes } from 'shared/utils/string';
 import { CheckpointWorkloadExtended, ExperimentBase, TrialDetails } from 'types';
@@ -37,6 +37,16 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
     if (!totalBytes) return;
     return humanReadableBytes(totalBytes);
   }, [trial?.totalCheckpointSize]);
+
+  const modelCreateModal = useModal(ModelCreateModal);
+
+  const handleOnCloseCreateModel = useCallback(
+    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+      if (checkpoints) CheckpointRegisterModal.open();
+    },
+    [],
+  );
+
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
       if (reason === ModalCloseReason.Ok && bestCheckpoint?.uuid) {
@@ -71,6 +81,7 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
               onClose={handleOnCloseCheckpoint}
             />
             <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} />
+            <modelCreateModal.Component onClose={handleOnCloseCreateModel} />
           </>
         )}
       </Card.Group>

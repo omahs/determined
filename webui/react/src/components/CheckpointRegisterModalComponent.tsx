@@ -83,18 +83,17 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
   }, [canceler.signal]);
 
   useEffect(() => {
-        setModalState({
-          ...INITIAL_MODAL_STATE,
-        })
-        fetchModels();
-        setModalState((prev) => ({
-          ...prev,
-          checkpoints: Array.isArray(checkpoints) ? checkpoints : [checkpoints],
-          selectedModelName,
-        }));
-      }, [fetchModels])
+    setModalState({
+      ...INITIAL_MODAL_STATE,
+    });
+    fetchModels();
+    setModalState((prev) => ({
+      ...prev,
+      checkpoints: Array.isArray(checkpoints) ? checkpoints : [checkpoints],
+      selectedModelName,
+    }));
+  }, [fetchModels]);
 
-      
   const { canCreateModelVersion } = usePermissions();
 
   const handleClose = useCallback(
@@ -124,8 +123,6 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
     async (state: ModalState) => {
       const { selectedModelName, versionDescription, tags, metadata, versionName, checkpoints } =
         state;
-        alert(selectedModelName)
-        alert(checkpoints)
       if (!selectedModelName || !checkpoints) return;
       try {
         if (checkpoints.length === 1) {
@@ -141,11 +138,7 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
             modelName: selectedModelName,
           });
 
-          if (!response){
-            alert("huh");
-            console.log(response);
-            return ;
-          }
+          if (!response) return;
 
           modalClose(ModalCloseReason.Ok);
 

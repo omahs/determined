@@ -14,6 +14,7 @@ import { useSettings } from 'hooks/useSettings';
 import TrialInfoBox from 'pages/TrialDetails/TrialInfoBox';
 import Spinner from 'shared/components/Spinner';
 import { ErrorType } from 'shared/utils/error';
+import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import {
   CheckpointWorkloadExtended,
   ExperimentBase,
@@ -27,6 +28,9 @@ import { metricSorter, metricToKey } from 'utils/metric';
 import { Settings, settingsConfigForExperiment } from './TrialDetailsOverview.settings';
 import TrialDetailsWorkloads from './TrialDetailsWorkloads';
 import { useTrialMetrics } from './useTrialMetrics';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
+
+import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 
 export interface Props {
   experiment: ExperimentBase;
@@ -45,7 +49,9 @@ type XAxisVal = number;
 export type CheckpointsDict = Record<XAxisVal, CheckpointWorkloadExtended>;
 
 const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => {
+  const [selectedModelName, setSelectedModelName] = useState<string>();
   const CheckpointModal = useModal(CheckpointModalComponent);
+  const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const showExperimentArtifacts = usePermissions().canViewExperimentArtifacts({
     workspace: { id: experiment.workspaceId },
   });
@@ -63,6 +69,29 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         : undefined,
     [trial],
   );
+  
+  const handleOnCloseCheckpoint = useCallback(
+    (reason?: ModalCloseReason) => {
+      if (reason === ModalCloseReason.Ok && checkpoint?.uuid) {
+        CheckpointRegisterModal.open();
+      }
+    },
+    [checkpoint],
+  );
+  
+  const handleOnCloseCreateModel = useCallback(
+    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+      setSelectedModelName(modelName)
+      if (checkpoints) CheckpointRegisterModal.open();
+    },
+    [],
+  );
+
+  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } = useModalModelCreate({ onClose: handleOnCloseCreateModel });
+
+  const handleOnCloseCheckpointRegister = (reason?: ModalCloseReason, checkpoints?: string[]) => {
+    if (checkpoints) openModalCreateModel({ checkpoints });
+  }
 
   const { metrics, data, scale, setScale } = useTrialMetrics(trial);
 
@@ -230,7 +259,9 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
           )}
         </>
       ) : null}
-      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} />
+      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} title={`Best checkpoint for Trial ${trial?.id}`} onClose={handleOnCloseCheckpoint} />
+      { checkpoint?.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
+      {modalModelCreateContextHolder}
     </>
   );
 };

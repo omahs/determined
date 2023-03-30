@@ -61,7 +61,7 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
   const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      if (modelName) setModelName(modelName)
+      if (modelName) setModelName(modelName);
       if (checkpoints) CheckpointRegisterModal.open();
     },
     [],

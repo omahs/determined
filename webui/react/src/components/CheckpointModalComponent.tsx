@@ -107,7 +107,7 @@ const CheckpointModalComponent: React.FC<Props> = ({
           handler: handleOk,
           text: 'Register Checkpoint',
         }}
-        title={title ?? "Best Checkpoint"}
+        title={title ?? 'Best Checkpoint'}
         onClose={onClose}>
         <div className={css.base}>
           {renderRow(

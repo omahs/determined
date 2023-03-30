@@ -23,7 +23,6 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   title,
   children,
 }: Props) => {
-
   const [modelName, setModelName] = useState<string>();
   const CheckpointModal = useModal(CheckpointModalComponent);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
@@ -64,7 +63,7 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   }, []);
 
   const onClose = (reason?: ModalCloseReason, checkpoints?: string[]) => {
-    if (checkpoints) openModalCreateModel({ checkpoints });
+    modelCreateModal.open()
   };
 
   return (

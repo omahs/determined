@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 
 import CheckpointModalComponent from 'components/CheckpointModalComponent';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
 import { ChartGrid, ChartsProps, Serie } from 'components/kit/LineChart';
 import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
 import { useModal } from 'components/kit/Modal';
@@ -9,12 +10,13 @@ import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlug
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
 import { tooltipsPlugin } from 'components/UPlot/UPlotChart/tooltipsPlugin2';
 import useMetricNames from 'hooks/useMetricNames';
+import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import usePermissions from 'hooks/usePermissions';
 import { useSettings } from 'hooks/useSettings';
 import TrialInfoBox from 'pages/TrialDetails/TrialInfoBox';
 import Spinner from 'shared/components/Spinner';
-import { ErrorType } from 'shared/utils/error';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
+import { ErrorType } from 'shared/utils/error';
 import {
   CheckpointWorkloadExtended,
   ExperimentBase,
@@ -28,9 +30,6 @@ import { metricSorter, metricToKey } from 'utils/metric';
 import { Settings, settingsConfigForExperiment } from './TrialDetailsOverview.settings';
 import TrialDetailsWorkloads from './TrialDetailsWorkloads';
 import { useTrialMetrics } from './useTrialMetrics';
-import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
-
-import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 
 export interface Props {
   experiment: ExperimentBase;
@@ -69,7 +68,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         : undefined,
     [trial],
   );
-  
+
   const handleOnCloseCheckpoint = useCallback(
     (reason?: ModalCloseReason) => {
       if (reason === ModalCloseReason.Ok && checkpoint?.uuid) {
@@ -78,20 +77,21 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
     },
     [checkpoint],
   );
-  
+
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      setSelectedModelName(modelName)
+      setSelectedModelName(modelName);
       if (checkpoints) CheckpointRegisterModal.open();
     },
     [],
   );
 
-  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } = useModalModelCreate({ onClose: handleOnCloseCreateModel });
+  const { contextHolder: modalModelCreateContextHolder, modalOpen: openModalCreateModel } =
+    useModalModelCreate({ onClose: handleOnCloseCreateModel });
 
   const handleOnCloseCheckpointRegister = (reason?: ModalCloseReason, checkpoints?: string[]) => {
     if (checkpoints) openModalCreateModel({ checkpoints });
-  }
+  };
 
   const { metrics, data, scale, setScale } = useTrialMetrics(trial);
 
@@ -259,8 +259,13 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
           )}
         </>
       ) : null}
-      <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} title={`Best checkpoint for Trial ${trial?.id}`} onClose={handleOnCloseCheckpoint} />
-      { checkpoint?.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
+      <CheckpointModal.Component
+        checkpoint={checkpoint}
+        config={experiment.config}
+        title={`Best checkpoint for Trial ${trial?.id}`}
+        onClose={handleOnCloseCheckpoint}
+      />
+      {checkpoint?.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
       {modalModelCreateContextHolder}
     </>
   );

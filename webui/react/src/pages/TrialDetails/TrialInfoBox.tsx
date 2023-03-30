@@ -70,9 +70,7 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
               config={experiment.config}
               onClose={handleOnCloseCheckpoint}
             />
-            <CheckpointRegisterModal.Component
-              checkpoints={bestCheckpoint.uuid}
-            />
+            <CheckpointRegisterModal.Component checkpoints={bestCheckpoint.uuid} />
           </>
         )}
       </Card.Group>

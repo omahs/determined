@@ -2491,7 +2491,7 @@ workflows:
           context: gcp-ci
           filters:
             branches:
-              only: master
+              only: DET-9231-run-ci
           requires:
             - package-and-push-system-dev
           matrix:

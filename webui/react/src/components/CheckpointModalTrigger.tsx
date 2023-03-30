@@ -1,14 +1,14 @@
 import React, { useCallback } from 'react';
 
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
 import Button from 'components/kit/Button';
+import { useModal } from 'components/kit/Modal';
 import Tooltip from 'components/kit/Tooltip';
 import useModalModelCreate from 'hooks/useModal/Model/useModalModelCreate';
 import Icon from 'shared/components/Icon/Icon';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { CheckpointWorkloadExtended, CoreApiGenericCheckpoint, ExperimentBase } from 'types';
-import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
-import { useModal } from 'components/kit/Modal';
-import CheckpointModalComponent from 'components/CheckpointModalComponent';
 
 interface Props {
   checkpoint: CheckpointWorkloadExtended | CoreApiGenericCheckpoint;
@@ -63,10 +63,10 @@ const CheckpointModalTrigger: React.FC<Props> = ({
       {modalModelCreateContextHolder}
       {checkpoint.uuid && <CheckpointRegisterModal.Component checkpoints={checkpoint.uuid} />}
       <CheckpointModal.Component
-              checkpoint={checkpoint}
-              config={experiment.config}
-              onClose={handleOnCloseCheckpoint}
-            />
+        checkpoint={checkpoint}
+        config={experiment.config}
+        onClose={handleOnCloseCheckpoint}
+      />
     </>
   );
 };

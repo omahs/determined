@@ -2,12 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, { useCallback } from 'react';
 
+import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import Button from 'components/kit/Button';
+import { useModal } from 'components/kit/Modal';
 import { StoreProvider as UIProvider } from 'shared/contexts/stores/UI';
 import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { generateTestExperimentData } from 'storybook/shared/generateTestData';
-import { useModal } from 'components/kit/Modal';
-import CheckpointModalComponent from 'components/CheckpointModalComponent';
 const TEST_MODAL_TITLE = 'Checkpoint Modal Test';
 const MODAL_TRIGGER_TEXT = 'Open Checkpoint Modal';
 const REGISTER_CHECKPOINT_TEXT = 'Register Checkpoint';
@@ -22,10 +22,7 @@ const { experiment, checkpoint } = generateTestExperimentData();
 
 const Container: React.FC = () => {
   const CheckpointModal = useModal(CheckpointModalComponent);
-  <CheckpointModal.Component
-  checkpoint={checkpoint}
-  config={experiment.config}
-/>
+    <CheckpointModal.Component checkpoint={checkpoint} config={experiment.config} />;
   const handleClick = useCallback(() => CheckpointModal.open(), []);
 
   return (

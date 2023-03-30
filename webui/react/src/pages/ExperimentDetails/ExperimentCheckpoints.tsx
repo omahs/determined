@@ -2,7 +2,11 @@ import { FilterDropdownProps } from 'antd/es/table/interface';
 import React, { Key, useCallback, useEffect, useMemo, useState } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
+import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
 import CheckpointModalTrigger from 'components/CheckpointModalTrigger';
+import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
+import Card from 'components/kit/Card';
+import { useModal } from 'components/kit/Modal';
 import Section from 'components/Section';
 import InteractiveTable, { ContextMenuProps } from 'components/Table/InteractiveTable';
 import SkeletonTable from 'components/Table/SkeletonTable';
@@ -33,10 +37,6 @@ import {
 } from 'types';
 import { canActionCheckpoint, getActionsForCheckpointsUnion } from 'utils/checkpoint';
 import handleError from 'utils/error';
-import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
-import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
-import Card from 'components/kit/Card';
-import { useModal } from 'components/kit/Modal';
 
 import { configForExperiment, Settings } from './ExperimentCheckpoints.settings';
 import { columns as defaultColumns } from './ExperimentCheckpoints.table';
@@ -49,8 +49,6 @@ interface Props {
 const batchActions = [checkpointAction.Register, checkpointAction.Delete];
 
 const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) => {
- 
-  
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [checkpoints, setCheckpoints] = useState<CoreApiGenericCheckpoint[]>();
@@ -60,10 +58,10 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
   const { settings, updateSettings } = useSettings<Settings>(config);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const CheckpointDeleteModal = useModal(CheckpointDeleteModalComponent);
-  const modelName = "NEEDS TO GET SET ON CLOSE"
+  const modelName = 'NEEDS TO GET SET ON CLOSE';
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      if (checkpoints) CheckpointRegisterModal.open()
+      if (checkpoints) CheckpointRegisterModal.open();
     },
     [],
   );
@@ -104,19 +102,13 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
     [handleStateFilterApply, handleStateFilterReset, settings.state],
   );
 
-  const handleRegisterCheckpoint = useCallback(
-    (checkpoints: string[]) => {
-      CheckpointRegisterModal.open();
-    },
-    [],
-  );
+  const handleRegisterCheckpoint = useCallback((checkpoints: string[]) => {
+    CheckpointRegisterModal.open();
+  }, []);
 
-  const handleDeleteCheckpoint = useCallback(
-    (checkpoints: string[]) => {
-      CheckpointDeleteModal.open();
-    },
-    [],
-  );
+  const handleDeleteCheckpoint = useCallback((checkpoints: string[]) => {
+    CheckpointDeleteModal.open();
+  }, []);
 
   const dropDownOnTrigger = useCallback(
     (checkpoints: string | string[]) => {
@@ -338,8 +330,15 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
           <SkeletonTable columns={columns.length} />
         )}
       </Section>
-      { checkpoints && <CheckpointRegisterModal.Component checkpoints={checkpoints.map(c => c.uuid)} selectedModelName={modelName} /> }
-      { checkpoints && <CheckpointDeleteModal.Component checkpoints={checkpoints.map(c => c.uuid)}/> }
+      {checkpoints && (
+        <CheckpointRegisterModal.Component
+          checkpoints={checkpoints.map((c) => c.uuid)}
+          selectedModelName={modelName}
+        />
+      )}
+      {checkpoints && (
+        <CheckpointDeleteModal.Component checkpoints={checkpoints.map((c) => c.uuid)} />
+      )}
       {modalModelCreateContextHolder}
     </>
   );

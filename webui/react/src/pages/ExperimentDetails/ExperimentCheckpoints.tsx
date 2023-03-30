@@ -61,25 +61,12 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
 
   const modelCreateModal = useModal(ModelCreateModal);
 
-  // const {
-  //   contextHolder: modalCheckpointRegisterContextHolder,
-  //   modalOpen: openModalCheckpointRegister,
-  // } = useModalCheckpointRegister({
-  //   onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
-  //     // TODO: fix the behavior along with checkpoint modal migration
-  //     // It used to open checkpoint modal again after creating a model,
-  //     // but it doesn't with new create model modal since we don't use context holder anymore.
-  //     // This should be able to fix it along with checkpoint modal migration.
-  //     if (checkpoints) modelCreateModal.open();
-  //   },
-  // });
-
   const handleOnCloseCreateModel = useCallback(
     (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
       if (modelName) setModelName(modelName);
       if (checkpoints) CheckpointRegisterModal.open();
     },
-    [],
+    [CheckpointRegisterModal],
   );
 
   const clearSelected = useCallback(() => {
@@ -115,13 +102,13 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
     [handleStateFilterApply, handleStateFilterReset, settings.state],
   );
 
-  const handleRegisterCheckpoint = useCallback((checkpoints: string[]) => {
+  const handleRegisterCheckpoint = useCallback(() => {
     CheckpointRegisterModal.open();
-  }, []);
+  }, [CheckpointRegisterModal]);
 
-  const handleDeleteCheckpoint = useCallback((checkpoints: string[]) => {
+  const handleDeleteCheckpoint = useCallback(() => {
     CheckpointDeleteModal.open();
-  }, []);
+  }, [CheckpointDeleteModal]);
 
   const dropDownOnTrigger = useCallback(
     (checkpoints: string | string[]) => {
@@ -347,6 +334,7 @@ const ExperimentCheckpoints: React.FC<Props> = ({ experiment, pageRef }: Props) 
         <CheckpointRegisterModal.Component
           checkpoints={checkpoints.map((c) => c.uuid)}
           selectedModelName={modelName}
+          onClose={() => modelCreateModal.open()}
         />
       )}
       {checkpoints && (

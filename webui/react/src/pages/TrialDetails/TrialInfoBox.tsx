@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
 import CheckpointModalComponent from 'components/CheckpointModalComponent';
 import CheckpointRegisterModalComponent from 'components/CheckpointRegisterModalComponent';
@@ -41,10 +41,10 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
   const modelCreateModal = useModal(ModelCreateModal);
 
   const handleOnCloseCreateModel = useCallback(
-    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+    (reason?: ModalCloseReason, checkpoints?: string[]) => {
       if (checkpoints) CheckpointRegisterModal.open();
     },
-    [],
+    [CheckpointRegisterModal],
   );
 
   const handleOnCloseCheckpoint = useCallback(
@@ -53,7 +53,7 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
         CheckpointRegisterModal.open();
       }
     },
-    [bestCheckpoint],
+    [bestCheckpoint, CheckpointRegisterModal],
   );
 
   return (
@@ -70,7 +70,7 @@ const TrialInfoBox: React.FC<Props> = ({ trial, experiment }: Props) => {
         {totalCheckpointsSize && (
           <OverviewStats title="Checkpoints">{`${trial?.checkpointCount} (${totalCheckpointsSize})`}</OverviewStats>
         )}
-        {bestCheckpoint && bestCheckpoint.uuid && (
+        {bestCheckpoint?.uuid && (
           <>
             <OverviewStats title="Best Checkpoint" onClick={() => CheckpointModal.open()}>
               Batch {bestCheckpoint.totalBatches}

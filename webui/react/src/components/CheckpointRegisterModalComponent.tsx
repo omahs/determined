@@ -1,4 +1,4 @@
-import { ModalFuncProps, Select } from 'antd';
+import { Select } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Input from 'components/kit/Input';
@@ -10,8 +10,7 @@ import usePermissions from 'hooks/usePermissions';
 import { paths } from 'routes/utils';
 import { getModels, postModelVersion } from 'services/api';
 import { V1GetModelsRequestSortBy } from 'services/api-ts-sdk';
-import useModal, { ModalHooks as Hooks, ModalCloseReason } from 'shared/hooks/useModal/useModal';
-import usePrevious from 'shared/hooks/usePrevious';
+import useModal, { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { isEqual } from 'shared/utils/data';
 import { ErrorType } from 'shared/utils/error';
 import { validateDetApiEnum } from 'shared/utils/service';
@@ -92,7 +91,7 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
       checkpoints: Array.isArray(checkpoints) ? checkpoints : [checkpoints],
       selectedModelName,
     }));
-  }, [fetchModels]);
+  }, [checkpoints, selectedModelName, fetchModels]);
 
   const { canCreateModelVersion } = usePermissions();
 
@@ -104,7 +103,7 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
     [onClose],
   );
 
-  const { modalClose, modalOpen: openOrUpdate, ...modalHook } = useModal({ onClose: handleClose });
+  const { modalClose } = useModal({ onClose: handleClose });
 
   const selectedModelNumVersions = useMemo(() => {
     return (
@@ -229,29 +228,6 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
     },
     [modalClose, onClose],
   );
-
-  // const getModalProps = useCallback(
-  //   (state: ModalState): Partial<ModalFuncProps> => {
-  //     const { selectedModelName } = state;
-
-  //     const modalProps = {
-  //       className: css.base,
-  //       closable: true,
-  //       content: getModalContent(state),
-  //       icon: null,
-  //       maskClosable: true,
-  //       okButtonProps: { disabled: selectedModelName == null },
-  //       okText: 'Register Checkpoint',
-  //       onCancel: handleCancel,
-  //       onOk: () => handleOk(state),
-  //       title: 'Register Checkpoint',
-  //     };
-
-  //     return modalProps;
-  //   },
-  //   [getModalContent, handleCancel, handleOk],
-  // );
-
   useEffect(() => {
     fetchModels();
   }, [fetchModels]);
@@ -259,8 +235,6 @@ const CheckpointRegisterModalComponent: React.FC<Props> = ({
   useEffect(() => {
     return () => canceler.abort();
   }, [canceler]);
-
-  const handleCancel = useCallback(() => modalClose(), [modalClose]);
 
   const { versionDescription, tags, metadata, versionName, expandDetails } = modalState;
 

@@ -1,6 +1,4 @@
-import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { ModalFuncProps } from 'antd';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
 import CheckpointDeleteModalComponent from 'components/CheckpointDeleteModalComponent';
@@ -9,9 +7,7 @@ import Button from 'components/kit/Button';
 import { Modal, useModal } from 'components/kit/Modal';
 import Link from 'components/Link';
 import { paths } from 'routes/utils';
-import { detApi } from 'services/apiConfig';
-import { readStream } from 'services/utils';
-import { ModalCloseReason, ModalHooks } from 'shared/hooks/useModal/useModal';
+import { ModalCloseReason } from 'shared/hooks/useModal/useModal';
 import { formatDatetime } from 'shared/utils/datetime';
 import { humanReadableBytes } from 'shared/utils/string';
 import {

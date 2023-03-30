@@ -47,7 +47,6 @@ type XAxisVal = number;
 export type CheckpointsDict = Record<XAxisVal, CheckpointWorkloadExtended>;
 
 const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => {
-  const [selectedModelName, setSelectedModelName] = useState<string>();
   const CheckpointModal = useModal(CheckpointModalComponent);
   const CheckpointRegisterModal = useModal(CheckpointRegisterModalComponent);
   const showExperimentArtifacts = usePermissions().canViewExperimentArtifacts({
@@ -74,15 +73,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
         CheckpointRegisterModal.open();
       }
     },
-    [checkpoint],
-  );
-
-  const handleOnCloseCreateModel = useCallback(
-    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
-      setSelectedModelName(modelName);
-      if (checkpoints) CheckpointRegisterModal.open();
-    },
-    [],
+    [checkpoint, CheckpointRegisterModal],
   );
 
   const { metrics, data, scale, setScale } = useTrialMetrics(trial);
@@ -192,7 +183,7 @@ const TrialDetailsOverview: React.FC<Props> = ({ experiment, trial }: Props) => 
       });
     });
     return out;
-  }, [pairedMetrics, data, xAxis, checkpointsDict]);
+  }, [pairedMetrics, data, xAxis, checkpointsDict, CheckpointModal]);
 
   const handleMetricNamesError = useCallback(
     (e: unknown) => {

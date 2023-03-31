@@ -57,7 +57,7 @@ const WorkspaceCard: React.FC<Props> = ({ workspace, fetchWorkspaces }: Props) =
             </p>
             <div className={css.avatarRow}>
               <div className={css.avatar}>
-                <Spinner conditionalRender spinning={Loadable.isLoading(user)}>
+                <Spinner conditionalRender spinning={Loadable.isNotLoaded(user)}>
                   {Loadable.isLoaded(user) && <Avatar user={user.data} />}
                 </Spinner>
               </div>

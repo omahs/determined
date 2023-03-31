@@ -103,7 +103,7 @@ const ModalForm: React.FC<Props> = ({ form, user, viewOnly, roles }) => {
           <Form.Item label={ROLE_LABEL} name={ROLE_NAME}>
             <Select
               disabled={(user !== undefined && roles === null) || viewOnly}
-              loading={Loadable.isLoading(knownRoles)}
+              loading={Loadable.isNotLoaded(knownRoles)}
               mode="multiple"
               optionFilterProp="children"
               placeholder={viewOnly ? 'No Roles Added' : 'Add Roles'}

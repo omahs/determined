@@ -89,7 +89,7 @@ export const LineChart: React.FC<LineChartProps> = ({
   yTickValues,
 }: LineChartProps) => {
   const series = Loadable.isLoadable(propSeries) ? Loadable.getOrElse([], propSeries) : propSeries;
-  const isLoading = Loadable.isLoadable(propSeries) && Loadable.isLoading(propSeries);
+  const isLoading = Loadable.isLoadable(propSeries) && Loadable.isNotLoaded(propSeries);
 
   const hasPopulatedSeries: boolean = useMemo(
     () => !!series.find((serie) => serie.data[xAxis]?.length),
@@ -313,7 +313,7 @@ export const ChartGrid: React.FC<GroupProps> = React.memo(
     const chartsProps = Loadable.isLoadable(propChartsProps)
       ? Loadable.getOrElse([], propChartsProps)
       : propChartsProps;
-    const isLoading = Loadable.isLoadable(propChartsProps) && Loadable.isLoading(propChartsProps);
+    const isLoading = Loadable.isLoadable(propChartsProps) && Loadable.isNotLoaded(propChartsProps);
 
     // X-Axis control
     const xAxisOptions = useMemo(() => {

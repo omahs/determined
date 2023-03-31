@@ -53,7 +53,7 @@ const JobQueue: React.FC<Props> = ({ bodyNoPadding, selectedRp, jobState }) => {
   const resourcePools = useObservable(useClusterStore().resourcePools);
   const [managingJob, setManagingJob] = useState<Job>();
   const [rpStats, setRpStats] = useState<RPStats[]>(() => {
-    if (Loadable.isLoading(resourcePools)) return [];
+    if (Loadable.isNotLoaded(resourcePools)) return [];
 
     return resourcePools.data.map(
       (rp) =>

@@ -54,7 +54,7 @@ const ResourcepoolDetailInner: React.FC = () => {
   const agents = Loadable.getOrElse([], useObservable(useClusterStore().agents));
 
   const pool = useMemo(() => {
-    if (Loadable.isLoading(resourcePools)) return;
+    if (Loadable.isNotLoaded(resourcePools)) return;
 
     return resourcePools.data.find((pool) => pool.name === poolname);
   }, [poolname, resourcePools]);
@@ -174,7 +174,7 @@ const ResourcepoolDetailInner: React.FC = () => {
     ];
   }, [pool, poolStats, renderPoolConfig]);
 
-  if (!pool || Loadable.isLoading(resourcePools)) return <Spinner spinning />;
+  if (!pool || Loadable.isNotLoaded(resourcePools)) return <Spinner spinning />;
 
   return (
     <Page className={css.poolDetailPage}>

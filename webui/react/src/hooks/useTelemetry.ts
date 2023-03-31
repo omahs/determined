@@ -95,7 +95,7 @@ class Telemetry {
         });
         this.isIdentified = true;
       } else if (
-        (this.isIdentified && Loadable.isLoading(auth)) ||
+        (this.isIdentified && Loadable.isNotLoaded(auth)) ||
         (Loadable.isLoaded(auth) && !auth.data.isAuthenticated)
       ) {
         this.reset();

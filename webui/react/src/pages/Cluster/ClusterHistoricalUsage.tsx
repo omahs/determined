@@ -136,7 +136,7 @@ const ClusterHistoricalUsage: React.FC = () => {
             />
           )}
         </Section>
-        <Section bodyBorder loading={Loadable.isLoading(users)} title="Compute Hours by User">
+        <Section bodyBorder loading={Loadable.isNotLoaded(users)} title="Compute Hours by User">
           {chartSeries && (
             <ClusterHistoricalUsageChart
               groupBy={chartSeries.groupedBy}

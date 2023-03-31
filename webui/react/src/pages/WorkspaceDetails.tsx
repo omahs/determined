@@ -262,7 +262,7 @@ const WorkspaceDetails: React.FC = () => {
     return () => canceler.abort();
   }, [canceler]);
 
-  if (!workspace || Loadable.isLoading(users)) {
+  if (!workspace || Loadable.isNotLoaded(users)) {
     return <Spinner spinning tip={`Loading workspace ${workspaceId} details...`} />;
   } else if (isNaN(id)) {
     return <Message title={`Invalid Workspace ID ${workspaceId}`} />;

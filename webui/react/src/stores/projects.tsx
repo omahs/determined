@@ -133,7 +133,7 @@ export const useWorkspaceProjects = (
   let loadedWorkspaceId: number;
 
   if (Loadable.isLoadable(workspaceId)) {
-    if (Loadable.isLoading(workspaceId)) {
+    if (Loadable.isNotLoaded(workspaceId)) {
       return NotLoaded;
     } else {
       loadedWorkspaceId = workspaceId.data;

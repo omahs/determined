@@ -47,3 +47,4 @@ types-six
 types-tabulate
 types-termcolor
 types-toml
+boto3-stubs[cloudformation,ec2,cloudwatch]

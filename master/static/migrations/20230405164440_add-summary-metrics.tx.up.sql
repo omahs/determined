@@ -4,7 +4,7 @@ DO $$ DECLARE start_timestamp timestamptz := NOW(); BEGIN
 
 ALTER TABLE trials
     ADD COLUMN IF NOT EXISTS summary_metrics jsonb NOT NULL DEFAULT '{}',
-    ADD COLUMN IF NOT EXISTS summary_metrics_timestamp timestamptz DEFAULT NULL;
+    ADD COLUMN IF NOT EXISTS summary_metrics_timestamp timestamptz;
 
 -- Invalidate summary_metrics_timestamp for trials that have a metric added since.
 WITH max_training as (

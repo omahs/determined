@@ -29,6 +29,7 @@ UPDATE trials SET summary_metrics_timestamp = NULL FROM max_validation WHERE
      summary_metrics_timestamp IS NOT NULL AND
      last_reported_metric > summary_metrics_timestamp;
 
+-- Returns pairs of metric names and trial_ids and if they are numeric or not.
 WITH training_trial_metrics as (
 SELECT
     name,
@@ -60,11 +61,14 @@ where metric_type IS NOT NULL
 GROUP BY name, trial_id
 ORDER BY trial_id, name
 ),
+-- Filters to only numeric metrics.
 training_numeric_trial_metrics as (
 SELECT name, trial_id
 FROM training_trial_metrics
 WHERE nonumbers IS NULL
 ),
+-- Calculates count, sum, min, max on each numeric metric name and trial ID pair.
+-- Also adds just the name for non numeric metrics to ensure we record every metric.
 training_trial_metric_aggs as (
 SELECT
     name,
@@ -88,6 +92,9 @@ SELECT
 FROM training_trial_metrics
 WHERE nonumbers IS NOT NULL
 ),
+-- Gets the last reported metric for each trial. Note if we report
+-- {"a": 1} and {"b": 1} we consider {"b": 1} to be the last reported
+-- metric and "a"'s last will be NULL.
 latest_training as (
   SELECT s.trial_id,
     unpacked.key as name,
@@ -104,6 +111,7 @@ latest_training as (
     ) s, jsonb_each(s.metrics->'avg_metrics') unpacked
   WHERE s.rank = 1
 ),
+-- Adds the last reported metric to training the aggregation.
 training_combined_latest_agg as (SELECT
     coalesce(lt.trial_id, tma.trial_id) as trial_id,
     coalesce(lt.name, tma.name) as name,
@@ -115,6 +123,7 @@ training_combined_latest_agg as (SELECT
 FROM latest_training lt FULL OUTER JOIN training_trial_metric_aggs tma ON
     lt.trial_id = tma.trial_id AND lt.name = tma.name
 ),
+-- Turns each rows into a JSONB object.
 training_trial_metrics_final as (
     SELECT
         trial_id, jsonb_collect(jsonb_build_object(
@@ -129,6 +138,7 @@ training_trial_metrics_final as (
     FROM training_combined_latest_agg
     GROUP BY trial_id
 ),
+-- We repeat the same process as above to validation metrics.
 validation_trial_metrics as (
 SELECT
     name,
@@ -229,6 +239,7 @@ validation_trial_metrics_final as (
     FROM validation_combined_latest_agg
     GROUP BY trial_id
 ),
+-- Combine both training and validation metrics into a single JSON object.
 validation_training_combined_json as (
     SELECT
     coalesce(ttm.trial_id, vtm.trial_id) as trial_id,
@@ -249,10 +260,12 @@ validation_training_combined_json as (
     FROM training_trial_metrics_final ttm FULL OUTER JOIN validation_trial_metrics_final vtm
     ON ttm.trial_id = vtm.trial_id
 )
+-- Updates trials with this training and validation object.
 UPDATE trials SET
     summary_metrics = vtcj.summary_metrics
 FROM validation_training_combined_json vtcj WHERE vtcj.trial_id = trials.id;
 
+-- Set the timestamp to the time we started this migration.
 UPDATE trials SET
     summary_metrics_timestamp = start_timestamp;
 

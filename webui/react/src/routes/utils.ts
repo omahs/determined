@@ -123,6 +123,9 @@ export const paths = {
   logout: (): string => {
     return '/logout';
   },
+  modelHub: (): string => {
+    return '/model-hub';
+  },
   modelDetails: (modelNameOrId: string): string => {
     return `/models/${encodeURIComponent(modelNameOrId)}`;
   },

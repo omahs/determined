@@ -260,6 +260,12 @@ const routes: RouteConfig[] = [
     path: '/design',
     title: 'Design Kit',
   },
+  {
+    id: 'modelHub',
+    needAuth: false,
+    path: '/model-hub',
+    title: 'Model Hub',
+  },
 ];
 
 export default routes;

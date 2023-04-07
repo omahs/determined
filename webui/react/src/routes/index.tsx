@@ -12,6 +12,7 @@ import ExperimentDetails from 'pages/ExperimentDetails';
 import InteractiveTask from 'pages/InteractiveTask';
 import ModelDetails from 'pages/ModelDetails';
 import ModelRegistry from 'pages/ModelRegistry';
+import ModelHub from 'pages/ModelHub';
 import ModelVersionDetails from 'pages/ModelVersionDetails';
 import ProjectDetails from 'pages/ProjectDetails';
 import Reload from 'pages/Reload';
@@ -43,6 +44,7 @@ const routeComponentMap: Record<string, React.ReactNode> = {
   jobs: <Deprecated />,
   modelDetails: <ModelDetails />,
   models: <ModelRegistry />,
+  modelHub: <ModelHub />,
   modelVersionDetails: <ModelVersionDetails />,
   projectDetails: <ProjectDetails key="projectdetails" />,
   reload: <Reload />,

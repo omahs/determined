@@ -317,6 +317,10 @@ func TestSummaryMetricsMigration(t *testing.T) {
 		`[{"a":1.0, "b":-0.5}, {"a":1.5,"b":0.0}, {"a":2.0}]`,
 		`[{"val_loss": 1.5}]`,
 	)
+
+	require.NotNil(t, nil)
+	return
+
 	expectedNumericMetrics := map[string]summaryMetrics{
 		"a": {Min: 1.0, Max: 2.0, Sum: 1.0 + 1.5 + 2.0, Count: 3, Last: "2"},
 		"b": {Min: -0.5, Max: 0.0, Sum: -0.5 + 0.0, Count: 2}, // empty last.

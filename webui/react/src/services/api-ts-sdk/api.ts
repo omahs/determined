@@ -141,43 +141,6 @@ export const Experimentv1State = {
 } as const
 export type Experimentv1State = ValueOf<typeof Experimentv1State>
 /**
- * Hyperparameter importance as computed with respect for one specific metric.
- * @export
- * @interface GetHPImportanceResponseMetricHPImportance
- */
-export interface GetHPImportanceResponseMetricHPImportance {
-    /**
-     * A map between hyperparameter names and their relative importance.
-     * @type {{ [key: string]: number; }}
-     * @memberof GetHPImportanceResponseMetricHPImportance
-     */
-    hpImportance?: { [key: string]: number; };
-    /**
-     * The approximate portion of the experiment that was complete when the data was read.
-     * @type {number}
-     * @memberof GetHPImportanceResponseMetricHPImportance
-     */
-    experimentProgress?: number;
-    /**
-     * A description of why computation failed. Empty unless the state is (or was) 'failed'.
-     * @type {string}
-     * @memberof GetHPImportanceResponseMetricHPImportance
-     */
-    error?: string;
-    /**
-     * Whether or not a request to compute results for this metric is queued.
-     * @type {boolean}
-     * @memberof GetHPImportanceResponseMetricHPImportance
-     */
-    pending?: boolean;
-    /**
-     * Whether or not results for this metric are currently being computed.
-     * @type {boolean}
-     * @memberof GetHPImportanceResponseMetricHPImportance
-     */
-    inProgress?: boolean;
-}
-/**
  * - PRODUCT_UNSPECIFIED: Not a Cloud Community offering  - PRODUCT_COMMUNITY: Determined Cloud, Community Edition
  * @export
  * @enum {string}
@@ -334,25 +297,6 @@ export interface RuntimeStreamError {
      * @memberof RuntimeStreamError
      */
     details?: Array<ProtobufAny>;
-}
-/**
- * 
- * @export
- * @interface StreamResultOfV1GetHPImportanceResponse
- */
-export interface StreamResultOfV1GetHPImportanceResponse {
-    /**
-     * 
-     * @type {V1GetHPImportanceResponse}
-     * @memberof StreamResultOfV1GetHPImportanceResponse
-     */
-    result?: V1GetHPImportanceResponse;
-    /**
-     * 
-     * @type {RuntimeStreamError}
-     * @memberof StreamResultOfV1GetHPImportanceResponse
-     */
-    error?: RuntimeStreamError;
 }
 /**
  * 
@@ -1913,13 +1857,6 @@ export interface V1CompleteValidateAfterOperation {
     searcherMetric?: any;
 }
 /**
- * 
- * @export
- * @interface V1ComputeHPImportanceResponse
- */
-export interface V1ComputeHPImportanceResponse {
-}
-/**
  * Container is a Docker container that is either scheduled to run or is currently running on a set of slots.
  * @export
  * @interface V1Container
@@ -2213,6 +2150,38 @@ export interface V1DeleteCheckpointsResponse {
  * @interface V1DeleteExperimentResponse
  */
 export interface V1DeleteExperimentResponse {
+}
+/**
+ * Delete multiple experiments.
+ * @export
+ * @interface V1DeleteExperimentsRequest
+ */
+export interface V1DeleteExperimentsRequest {
+    /**
+     * Selecting experiments by id.
+     * @type {Array<number>}
+     * @memberof V1DeleteExperimentsRequest
+     */
+    experimentIds: Array<number>;
+    /**
+     * Targets all experiments matching filters.
+     * @type {V1BulkExperimentFilters}
+     * @memberof V1DeleteExperimentsRequest
+     */
+    filters?: V1BulkExperimentFilters;
+}
+/**
+ * Response to DeleteExperimentsRequest.
+ * @export
+ * @interface V1DeleteExperimentsResponse
+ */
+export interface V1DeleteExperimentsResponse {
+    /**
+     * Details on success or error for each experiment.
+     * @type {Array<V1ExperimentActionResult>}
+     * @memberof V1DeleteExperimentsResponse
+     */
+    results: Array<V1ExperimentActionResult>;
 }
 /**
  * DeleteGroupResponse is the body of the response for the call to delete a group.
@@ -2636,6 +2605,12 @@ export interface V1Experiment {
      * @memberof V1Experiment
      */
     bestTrialSearcherMetric?: number;
+    /**
+     * Id of experiment's best trial, calculated by the best searcher metrics value of trial's best validation.
+     * @type {number}
+     * @memberof V1Experiment
+     */
+    bestTrialId?: number;
 }
 /**
  * Message for results of individual experiments in a multi-experiment action.
@@ -3265,25 +3240,6 @@ export interface V1GetGroupsResponse {
      * @memberof V1GetGroupsResponse
      */
     pagination?: V1Pagination;
-}
-/**
- * 
- * @export
- * @interface V1GetHPImportanceResponse
- */
-export interface V1GetHPImportanceResponse {
-    /**
-     * A map of training metric names to their respective entries.
-     * @type {{ [key: string]: GetHPImportanceResponseMetricHPImportance; }}
-     * @memberof V1GetHPImportanceResponse
-     */
-    trainingMetrics: { [key: string]: GetHPImportanceResponseMetricHPImportance; };
-    /**
-     * A map of validation metric names to their respective entries.
-     * @type {{ [key: string]: GetHPImportanceResponseMetricHPImportance; }}
-     * @memberof V1GetHPImportanceResponse
-     */
-    validationMetrics: { [key: string]: GetHPImportanceResponseMetricHPImportance; };
 }
 /**
  * Response to GetJobQueueStatsRequest.
@@ -4937,6 +4893,12 @@ export interface V1LaunchTensorboardRequest {
      * @memberof V1LaunchTensorboardRequest
      */
     workspaceId?: number;
+    /**
+     * Targets all experiments matching filters.
+     * @type {V1BulkExperimentFilters}
+     * @memberof V1LaunchTensorboardRequest
+     */
+    filters?: V1BulkExperimentFilters;
 }
 /**
  * Response to LaunchTensorboardRequest.
@@ -12725,6 +12687,45 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
         },
         /**
          * 
+         * @summary Delete multiple experiments.
+         * @param {V1DeleteExperimentsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperiments(body: V1DeleteExperimentsRequest, options: any = {}): FetchArgs {
+            // verify required parameter 'body' is not null or undefined
+            if (body === null || body === undefined) {
+                throw new RequiredError('body','Required parameter body was null or undefined when calling deleteExperiments.');
+            }
+            const localVarPath = `/api/v1/experiments/delete`;
+            const localVarUrlObj = url.parse(localVarPath, true);
+            const localVarRequestOptions = { method: 'DELETE', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            
+            localVarUrlObj.query = { ...localVarUrlObj.query, ...localVarQueryParameter, ...options.query };
+            // fix override query string Detail: https://stackoverflow.com/a/7517673/1077943
+            localVarUrlObj.search = null;
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: url.format(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Get the requested experiment.
          * @param {number} experimentId The id of the experiment.
          * @param {*} [options] Override http request option.
@@ -13746,10 +13747,11 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options: any = {}): FetchArgs {
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options: any = {}): FetchArgs {
             const localVarPath = `/api/v1/experiments-search`;
             const localVarUrlObj = url.parse(localVarPath, true);
             const localVarRequestOptions = { method: 'GET', ...options };
@@ -13774,6 +13776,10 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
             
             if (limit !== undefined) {
                 localVarQueryParameter['limit'] = limit
+            }
+            
+            if (sort !== undefined) {
+                localVarQueryParameter['sort'] = sort
             }
             
             localVarUrlObj.query = { ...localVarUrlObj.query, ...localVarQueryParameter, ...options.query };
@@ -14254,6 +14260,25 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Delete multiple experiments.
+         * @param {V1DeleteExperimentsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperiments(body: V1DeleteExperimentsRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1DeleteExperimentsResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).deleteExperiments(body, options);
+            return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
          * @summary Get the requested experiment.
          * @param {number} experimentId The id of the experiment.
          * @param {*} [options] Override http request option.
@@ -14713,11 +14738,12 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1SearchExperimentsResponse> {
-            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).searchExperiments(projectId, offset, limit, options);
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1SearchExperimentsResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).searchExperiments(projectId, offset, limit, sort, options);
             return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -14953,6 +14979,16 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          */
         deleteExperiment(experimentId: number, options?: any) {
             return ExperimentsApiFp(configuration).deleteExperiment(experimentId, options)(fetch, basePath);
+        },
+        /**
+         * 
+         * @summary Delete multiple experiments.
+         * @param {V1DeleteExperimentsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperiments(body: V1DeleteExperimentsRequest, options?: any) {
+            return ExperimentsApiFp(configuration).deleteExperiments(body, options)(fetch, basePath);
         },
         /**
          * 
@@ -15217,11 +15253,12 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any) {
-            return ExperimentsApiFp(configuration).searchExperiments(projectId, offset, limit, options)(fetch, basePath);
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any) {
+            return ExperimentsApiFp(configuration).searchExperiments(projectId, offset, limit, sort, options)(fetch, basePath);
         },
         /**
          * 
@@ -15419,6 +15456,18 @@ export class ExperimentsApi extends BaseAPI {
      */
     public deleteExperiment(experimentId: number, options?: any) {
         return ExperimentsApiFp(this.configuration).deleteExperiment(experimentId, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Delete multiple experiments.
+     * @param {V1DeleteExperimentsRequest} body
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ExperimentsApi
+     */
+    public deleteExperiments(body: V1DeleteExperimentsRequest, options?: any) {
+        return ExperimentsApiFp(this.configuration).deleteExperiments(body, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -15728,12 +15777,13 @@ export class ExperimentsApi extends BaseAPI {
      * @param {number} [projectId] ID of the project to look at.
      * @param {number} [offset] How many experiments to skip before including in the results.
      * @param {number} [limit] How many results to show.
+     * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof ExperimentsApi
      */
-    public searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any) {
-        return ExperimentsApiFp(this.configuration).searchExperiments(projectId, offset, limit, options)(this.fetch, this.basePath)
+    public searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any) {
+        return ExperimentsApiFp(this.configuration).searchExperiments(projectId, offset, limit, sort, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -16180,43 +16230,6 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
         },
         /**
          * 
-         * @summary Trigger the computation of hyperparameter importance on-demand for a specific metric on a specific experiment. The status and results can be retrieved with GetHPImportance.
-         * @param {number} experimentId The id of the experiment.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        computeHPImportance(experimentId: number, options: any = {}): FetchArgs {
-            // verify required parameter 'experimentId' is not null or undefined
-            if (experimentId === null || experimentId === undefined) {
-                throw new RequiredError('experimentId','Required parameter experimentId was null or undefined when calling computeHPImportance.');
-            }
-            const localVarPath = `/api/v1/experiments/{experimentId}/hyperparameter-importance`
-                .replace(`{${"experimentId"}}`, encodeURIComponent(String(experimentId)));
-            const localVarUrlObj = url.parse(localVarPath, true);
-            const localVarRequestOptions = { method: 'POST', ...options };
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-            
-            // authentication BearerToken required
-            if (configuration && configuration.apiKey) {
-                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
-                    ? configuration.apiKey("Authorization")
-                    : configuration.apiKey;
-                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
-            }
-            
-            localVarUrlObj.query = { ...localVarUrlObj.query, ...localVarQueryParameter, ...options.query };
-            // fix override query string Detail: https://stackoverflow.com/a/7517673/1077943
-            localVarUrlObj.search = null;
-            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
-            
-            return {
-                url: url.format(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
          * @summary Create an experiment.
          * @param {V1CreateExperimentRequest} body
          * @param {*} [options] Override http request option.
@@ -16474,48 +16487,6 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
             localVarUrlObj.search = null;
             localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             localVarRequestOptions.body = JSON.stringify(body)
-            
-            return {
-                url: url.format(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Retrieve the latest computation of hyperparameter importance. Currently this is triggered for training loss (if emitted) and the searcher metric after 10% increments in an experiment's progress, but no more than every 10 minutes.
-         * @param {number} experimentId The id of the experiment.
-         * @param {number} [periodSeconds] Seconds to wait when polling for updates.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHPImportance(experimentId: number, periodSeconds?: number, options: any = {}): FetchArgs {
-            // verify required parameter 'experimentId' is not null or undefined
-            if (experimentId === null || experimentId === undefined) {
-                throw new RequiredError('experimentId','Required parameter experimentId was null or undefined when calling getHPImportance.');
-            }
-            const localVarPath = `/api/v1/experiments/{experimentId}/hyperparameter-importance`
-                .replace(`{${"experimentId"}}`, encodeURIComponent(String(experimentId)));
-            const localVarUrlObj = url.parse(localVarPath, true);
-            const localVarRequestOptions = { method: 'GET', ...options };
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-            
-            // authentication BearerToken required
-            if (configuration && configuration.apiKey) {
-                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
-                    ? configuration.apiKey("Authorization")
-                    : configuration.apiKey;
-                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
-            }
-            
-            if (periodSeconds !== undefined) {
-                localVarQueryParameter['periodSeconds'] = periodSeconds
-            }
-            
-            localVarUrlObj.query = { ...localVarUrlObj.query, ...localVarQueryParameter, ...options.query };
-            // fix override query string Detail: https://stackoverflow.com/a/7517673/1077943
-            localVarUrlObj.search = null;
-            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             
             return {
                 url: url.format(localVarUrlObj),
@@ -17384,10 +17355,11 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options: any = {}): FetchArgs {
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options: any = {}): FetchArgs {
             const localVarPath = `/api/v1/experiments-search`;
             const localVarUrlObj = url.parse(localVarPath, true);
             const localVarRequestOptions = { method: 'GET', ...options };
@@ -17412,6 +17384,10 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
             
             if (limit !== undefined) {
                 localVarQueryParameter['limit'] = limit
+            }
+            
+            if (sort !== undefined) {
+                localVarQueryParameter['sort'] = sort
             }
             
             localVarUrlObj.query = { ...localVarUrlObj.query, ...localVarQueryParameter, ...options.query };
@@ -17833,25 +17809,6 @@ export const InternalApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
-         * @summary Trigger the computation of hyperparameter importance on-demand for a specific metric on a specific experiment. The status and results can be retrieved with GetHPImportance.
-         * @param {number} experimentId The id of the experiment.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        computeHPImportance(experimentId: number, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1ComputeHPImportanceResponse> {
-            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).computeHPImportance(experimentId, options);
-            return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
-                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        return response.json();
-                    } else {
-                        throw response;
-                    }
-                });
-            };
-        },
-        /**
-         * 
          * @summary Create an experiment.
          * @param {V1CreateExperimentRequest} body
          * @param {*} [options] Override http request option.
@@ -17973,26 +17930,6 @@ export const InternalApiFp = function (configuration?: Configuration) {
          */
         getGroups(body: V1GetGroupsRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetGroupsResponse> {
             const localVarFetchArgs = InternalApiFetchParamCreator(configuration).getGroups(body, options);
-            return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
-                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        return response.json();
-                    } else {
-                        throw response;
-                    }
-                });
-            };
-        },
-        /**
-         * 
-         * @summary Retrieve the latest computation of hyperparameter importance. Currently this is triggered for training loss (if emitted) and the searcher metric after 10% increments in an experiment's progress, but no more than every 10 minutes.
-         * @param {number} experimentId The id of the experiment.
-         * @param {number} [periodSeconds] Seconds to wait when polling for updates.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHPImportance(experimentId: number, periodSeconds?: number, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<StreamResultOfV1GetHPImportanceResponse> {
-            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).getHPImportance(experimentId, periodSeconds, options);
             return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -18395,11 +18332,12 @@ export const InternalApiFp = function (configuration?: Configuration) {
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1SearchExperimentsResponse> {
-            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).searchExperiments(projectId, offset, limit, options);
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1SearchExperimentsResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).searchExperiments(projectId, offset, limit, sort, options);
             return (fetch: FetchAPI = portableFetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -18598,16 +18536,6 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
         },
         /**
          * 
-         * @summary Trigger the computation of hyperparameter importance on-demand for a specific metric on a specific experiment. The status and results can be retrieved with GetHPImportance.
-         * @param {number} experimentId The id of the experiment.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        computeHPImportance(experimentId: number, options?: any) {
-            return InternalApiFp(configuration).computeHPImportance(experimentId, options)(fetch, basePath);
-        },
-        /**
-         * 
          * @summary Create an experiment.
          * @param {V1CreateExperimentRequest} body
          * @param {*} [options] Override http request option.
@@ -18675,17 +18603,6 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
          */
         getGroups(body: V1GetGroupsRequest, options?: any) {
             return InternalApiFp(configuration).getGroups(body, options)(fetch, basePath);
-        },
-        /**
-         * 
-         * @summary Retrieve the latest computation of hyperparameter importance. Currently this is triggered for training loss (if emitted) and the searcher metric after 10% increments in an experiment's progress, but no more than every 10 minutes.
-         * @param {number} experimentId The id of the experiment.
-         * @param {number} [periodSeconds] Seconds to wait when polling for updates.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getHPImportance(experimentId: number, periodSeconds?: number, options?: any) {
-            return InternalApiFp(configuration).getHPImportance(experimentId, periodSeconds, options)(fetch, basePath);
         },
         /**
          * 
@@ -18908,11 +18825,12 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
          * @param {number} [projectId] ID of the project to look at.
          * @param {number} [offset] How many experiments to skip before including in the results.
          * @param {number} [limit] How many results to show.
+         * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any) {
-            return InternalApiFp(configuration).searchExperiments(projectId, offset, limit, options)(fetch, basePath);
+        searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any) {
+            return InternalApiFp(configuration).searchExperiments(projectId, offset, limit, sort, options)(fetch, basePath);
         },
         /**
          * 
@@ -19083,18 +19001,6 @@ export class InternalApi extends BaseAPI {
     
     /**
      * 
-     * @summary Trigger the computation of hyperparameter importance on-demand for a specific metric on a specific experiment. The status and results can be retrieved with GetHPImportance.
-     * @param {number} experimentId The id of the experiment.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof InternalApi
-     */
-    public computeHPImportance(experimentId: number, options?: any) {
-        return InternalApiFp(this.configuration).computeHPImportance(experimentId, options)(this.fetch, this.basePath)
-    }
-    
-    /**
-     * 
      * @summary Create an experiment.
      * @param {V1CreateExperimentRequest} body
      * @param {*} [options] Override http request option.
@@ -19175,19 +19081,6 @@ export class InternalApi extends BaseAPI {
      */
     public getGroups(body: V1GetGroupsRequest, options?: any) {
         return InternalApiFp(this.configuration).getGroups(body, options)(this.fetch, this.basePath)
-    }
-    
-    /**
-     * 
-     * @summary Retrieve the latest computation of hyperparameter importance. Currently this is triggered for training loss (if emitted) and the searcher metric after 10% increments in an experiment's progress, but no more than every 10 minutes.
-     * @param {number} experimentId The id of the experiment.
-     * @param {number} [periodSeconds] Seconds to wait when polling for updates.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof InternalApi
-     */
-    public getHPImportance(experimentId: number, periodSeconds?: number, options?: any) {
-        return InternalApiFp(this.configuration).getHPImportance(experimentId, periodSeconds, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -19449,12 +19342,13 @@ export class InternalApi extends BaseAPI {
      * @param {number} [projectId] ID of the project to look at.
      * @param {number} [offset] How many experiments to skip before including in the results.
      * @param {number} [limit] How many results to show.
+     * @param {string} [sort] Sort parameters in the format <col1>=(asc|desc),<col2>=(asc|desc).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof InternalApi
      */
-    public searchExperiments(projectId?: number, offset?: number, limit?: number, options?: any) {
-        return InternalApiFp(this.configuration).searchExperiments(projectId, offset, limit, options)(this.fetch, this.basePath)
+    public searchExperiments(projectId?: number, offset?: number, limit?: number, sort?: string, options?: any) {
+        return InternalApiFp(this.configuration).searchExperiments(projectId, offset, limit, sort, options)(this.fetch, this.basePath)
     }
     
     /**

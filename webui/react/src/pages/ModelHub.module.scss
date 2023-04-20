@@ -1,3 +1,25 @@
-.base {
-  width: 75%;
+.center {
+  display: flex;
+  margin: 100px auto 0 auto;
+}
+
+.dragger {
+  margin: 20px;
+}
+
+.fileInfo{
+  background-color: var(--theme-surface);
+  border-radius: var(--theme-border-radius-weak);
+  box-shadow: 0 1.6px 3.6px 1.6px rgb(0 0 0 / 13%);
+  color: var(--theme-surface-on);
+  padding: 15px 0 2px 15px;
+  position: relative;
+  transition: background-color var(--transition-duration);
+  transition-delay: var(--transition-delay);
+  margin-bottom: 15px;
+ p {
+  display: inline-block;
+  padding-right: 12px;
+  // font-weight: 500;
+ }
 }

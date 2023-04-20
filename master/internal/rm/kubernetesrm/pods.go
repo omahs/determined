@@ -937,11 +937,14 @@ func (p *pods) handleGetAgentsRequest(ctx *actor.Context) {
 // pool has no quotas configured, it uses the whole cluster's info. Otherwise, it uses namespaces'
 // quotas to derive that info.
 func (p *pods) summarize(ctx *actor.Context) (map[string]model.AgentSummary, error) {
+	ctx.Log().Warn("summarize start")
 	namespaceToQuota := make(map[string]k8sV1.ResourceQuota)
 
 	// Look up quotas for our resource pools' namespaces.
 	for namespace := range p.namespaceToPoolName {
+		ctx.Log().Warnf("summarize quota %s start", namespace)
 		quotaList, err := p.quotaInterfaces[namespace].List(context.TODO(), metaV1.ListOptions{})
+		ctx.Log().Warnf("summarize quota %s end", namespace)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, err
 		} else if k8serrors.IsNotFound(err) || quotaList == nil {
@@ -960,6 +963,8 @@ func (p *pods) summarize(ctx *actor.Context) (map[string]model.AgentSummary, err
 		namespaceToQuota[namespace] = relevantQuotas[0]
 	}
 
+	ctx.Log().Warn("summarize 10")
+
 	// If there's only one resource pool configured and it doesn't have a quota, summarize using the
 	// whole cluster.
 	if len(p.namespaceToPoolName) == 1 {
@@ -974,13 +979,18 @@ func (p *pods) summarize(ctx *actor.Context) (map[string]model.AgentSummary, err
 		}
 	}
 
+	ctx.Log().Warn("summarize 20")
+
 	containers := p.containersPerResourcePool()
+	ctx.Log().Warn("summarize 30")
 	summaries := make(map[string]model.AgentSummary, len(p.namespaceToPoolName))
+	ctx.Log().Warn("summarize 40")
 	for namespace, poolName := range p.namespaceToPoolName {
 		slots := model.SlotsSummary{}
 		numContainers := containers[poolName]
 		var registeredTime time.Time
 		if quota, quotaExists := namespaceToQuota[namespace]; quotaExists {
+			ctx.Log().Warn("summarize 40 - inner")
 			slots = make(map[string]model.SlotSummary)
 			registeredTime = quota.CreationTimestamp.Time
 
@@ -1031,6 +1041,7 @@ func (p *pods) summarize(ctx *actor.Context) (map[string]model.AgentSummary, err
 		}
 	}
 
+	ctx.Log().Warn("summarize end")
 	return summaries, nil
 }
 

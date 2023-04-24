@@ -262,6 +262,7 @@ def master_up(
             device_requests=None,
             ports={"8080": f"{port}"},
             network=NETWORK_NAME,
+            hostname="determined-master",
         )
 
         # Connect to the network separately to set alias.

@@ -141,8 +141,7 @@ def test_custom_etc() -> None:
 def test_agent_config_path() -> None:
     master_host = "localhost"
     master_port = "8080"
-    cluster_name = "test_agent_config_path"
-    master_name = f"{cluster_name}_determined-master_1"
+    master_name = "test_agent_config_path"
     conf.MASTER_IP = master_host
     conf.MASTER_PORT = master_port
     master_up(["--master-name", master_name])
@@ -234,8 +233,7 @@ def test_agents_made() -> None:
 def test_master_up_down() -> None:
     master_host = "localhost"
     master_port = "8080"
-    cluster_name = "test_master_up_down"
-    master_name = f"{cluster_name}_determined-master_1"
+    master_name = "test_master_up_down"
     conf.MASTER_IP = master_host
     conf.MASTER_PORT = master_port
 
@@ -259,8 +257,7 @@ def test_agent_up_down() -> None:
     agent_name = "test_agent-determined-agent"
     conf.MASTER_IP = master_host
     conf.MASTER_PORT = master_port
-    cluster_name = "test_agent_up_down"
-    master_name = f"{cluster_name}_determined-master_1"
+    master_name = "test_agent_up_down"
 
     master_up(["--master-name", master_name])
     agent_up(["--agent-name", agent_name])
@@ -284,8 +281,7 @@ def test_stress_agents_reconnect(steps: int, num_agents: int, should_disconnect:
     random.seed(42)
     master_host = "localhost"
     master_port = "8080"
-    cluster_name = "test_stress_agents_reconnect"
-    master_name = f"{cluster_name}_determined-master_1"
+    master_name = "test_stress_agents_reconnect"
     conf.MASTER_IP = master_host
     conf.MASTER_PORT = master_port
     master_up(["--master-name", master_name])

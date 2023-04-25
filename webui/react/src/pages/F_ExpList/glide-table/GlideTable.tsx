@@ -49,10 +49,26 @@ import { placeholderMenuItems, TableActionMenu, TableActionMenuProps } from './m
 import { useTableTooltip } from './tooltip';
 import { getTheme } from './utils';
 
+interface Group {
+  column: ExperimentColumn;
+  orderBy: 'asc' | 'desc';
+}
+
+interface GroupRow<T> {
+  depth: number;
+  type: 'Group' | 'Data';
+  data?: T;
+  group?: {
+    name: unknown;
+    collapsed: boolean;
+  };
+}
+
 export interface GlideTableProps {
   clearSelectionTrigger?: number;
   colorMap: MapOfIdsToColors;
   data: Loadable<ExperimentItem>[];
+  groups?: Group[];
   fetchExperiments: () => Promise<void>;
   handleScroll?: (r: Rectangle) => void;
   height: number;
@@ -91,6 +107,7 @@ const STATIC_COLUMNS: ExperimentColumn[] = ['selected', 'name'];
 export const GlideTable: React.FC<GlideTableProps> = ({
   data,
   fetchExperiments,
+  groups,
   clearSelectionTrigger,
   setSelectedExperimentIds,
   sortableColumnIds,
@@ -186,6 +203,50 @@ export const GlideTable: React.FC<GlideTableProps> = ({
     [navigate, selectAll, selection.rows, columnWidths, users, darkLight, appTheme],
   );
 
+  // /api/v1/experiments?sortBy=duration|asc,time|asc
+  const renderData = useMemo(() => {
+    if (!groups) return data;
+
+    const gData: GroupRow<ExperimentItem>[] = [];
+    let currentGroup: unknown;
+    data.forEach((d, index) => {
+      const exp = Loadable.getOrElse(undefined, d);
+      if (exp == null) return;
+
+      const column = columnDefs[groups[0].column].renderer(exp, index);
+      if (!('data' in column)) return;
+
+      const groupValue: unknown = column.data;
+
+      // If the current group is not set or is different from the next data row group
+      if (!currentGroup || currentGroup !== groupValue) {
+        currentGroup = groupValue;
+
+        const newGroup: GroupRow<ExperimentItem> = {
+          depth: 0,
+          group: {
+            collapsed: false,
+            name: groupValue,
+          },
+          type: 'Group',
+        };
+        gData.push(newGroup);
+      }
+
+      // Get latest group and add cell
+    });
+    return gData;
+  }, [columnDefs, data, groups]);
+
+  /**
+   * duration
+   * 1hr
+   * 1hr
+   * 2hr
+   * 2hr
+   * 2hr
+   */
+
   const headerIcons = useMemo(() => getHeaderIcons(appTheme), [appTheme]);
 
   const { tooltip, onItemHovered, closeTooltip } = useTableTooltip({
@@ -198,16 +259,16 @@ export const GlideTable: React.FC<GlideTableProps> = ({
     (row: number): Partial<Theme> | undefined => {
       const baseRowTheme = { borderColor: appTheme.stageStrong };
       // to put a border on the bottom row (actually the top of the row below it)
-      if (row === data.length) return baseRowTheme;
+      if (row === renderData.length) return baseRowTheme;
       // avoid showing 'empty rows' below data
-      if (!data[row]) return;
-      const rowColorTheme = Loadable.match(data[row], {
+      if (!renderData[row]) return;
+      const rowColorTheme = Loadable.match(renderData[row], {
         Loaded: (record) => (colorMap[record.id] ? { accentColor: colorMap[record.id] } : {}),
         NotLoaded: () => ({}),
       });
       return { ...baseRowTheme, ...rowColorTheme };
     },
-    [colorMap, data, appTheme],
+    [colorMap, renderData, appTheme],
   );
 
   const onColumnResize: DataEditorProps['onColumnResize'] = useCallback(
@@ -247,24 +308,52 @@ export const GlideTable: React.FC<GlideTableProps> = ({
     [columnIds, setSelectAll],
   );
 
+  // const getGroupCellContent = (cell: Item): GridCell => {
+  //   const [colIdx, rowIdx] = cell;
+  //   const columnId = columnIds[colIdx];
+  //   if (columnId === 'name') {
+  //     return {
+  //       data: renderData[rowIdx].group?.data,
+  //       kind: GridCellKind.Custom,
+  //     };
+  //   } else {
+  //     return {
+  //       data: '',
+  //       kind: GridCellKind.Custom,
+  //     };
+  //   }
+  // };
+  const getDataCellContent = useCallback(
+    (cell: Item) => {
+      const [col, row] = cell;
+      const columnId = columnIds[col];
+      return Loadable.match(data[row], {
+        Loaded: (rowData) => {
+          return columnDefs[columnId].renderer(rowData, row);
+        },
+        NotLoaded: () =>
+          ({
+            allowOverlay: true,
+            copyData: '',
+            data: { kind: 'spinner-cell' },
+            kind: GridCellKind.Custom,
+          } as GridCell),
+      });
+    },
+    [columnDefs, columnIds, data],
+  );
+
   const getCellContent: DataEditorProps['getCellContent'] = React.useCallback(
     (cell: Item): GridCell => {
-      const [colIdx, rowIdx] = cell;
-      const columnId = columnIds[colIdx];
-      const row = data[rowIdx];
-      if (row && Loadable.isLoaded(row)) {
-        return columnDefs[columnId].renderer(row.data, rowIdx);
-      }
-      return {
-        allowOverlay: true,
-        copyData: '',
-        data: {
-          kind: 'spinner-cell',
-        },
-        kind: GridCellKind.Custom,
-      };
+      // if (renderData) {
+      //   const row = renderData[cell[1]];
+      //   return row.type === 'Group'
+      //     ? getGroupCellContent(cell)
+      //     : getDataCellContent(cell, row.depth);
+      // }
+      return getDataCellContent(cell);
     },
-    [data, columnIds, columnDefs],
+    [getDataCellContent],
   );
 
   const onCellClicked: DataEditorProps['onCellClicked'] = useCallback(
@@ -362,7 +451,7 @@ export const GlideTable: React.FC<GlideTableProps> = ({
         height={height}
         ref={gridRef}
         rowHeight={40}
-        rows={data.length}
+        rows={renderData.length}
         smoothScrollX
         smoothScrollY
         theme={theme}

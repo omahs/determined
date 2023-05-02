@@ -124,11 +124,11 @@ export const paths = {
   logout: (): string => {
     return '/logout';
   },
-  modelHub: (): string => {
-    return '/model-hub';
-  },
   modelDetails: (modelNameOrId: string): string => {
     return `/models/${encodeURIComponent(modelNameOrId)}`;
+  },
+  modelHub: (): string => {
+    return '/model-hub';
   },
   modelList: (): string => {
     return '/models';
@@ -207,12 +207,9 @@ export const handlePath = (
     external?: boolean;
     onClick?: AnyMouseEventHandler;
     path?: string;
-    popout?: boolean;
+    popout?: boolean | 'tab' | 'window';
   } = {},
 ): void => {
-  // FIXME As of v17, e.persist() doesn’t do anything because the SyntheticEvent is no longer
-  // pooled.
-  // event.persist();
   event.preventDefault();
 
   const href = options.path ? linkPath(options.path, options.external) : undefined;
@@ -221,7 +218,12 @@ export const handlePath = (
     options.onClick(event);
   } else if (href) {
     if (isNewTabClickEvent(event) || options.popout) {
-      openBlank(href);
+      /**
+       * `location=0` forces a new window instead of a tab to open.
+       * https://stackoverflow.com/questions/726761/javascript-open-in-a-new-window-not-tab
+       */
+      const windowFeatures = options.popout === 'window' ? 'location=0' : undefined;
+      openBlank(href, undefined, windowFeatures);
     } else {
       routeAll(href);
     }

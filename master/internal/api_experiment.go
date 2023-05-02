@@ -51,6 +51,7 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/trialv1"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
+	structpbmap "google.golang.org/protobuf/types/known/structpb"
 )
 
 // Catches information on active running experiments.
@@ -1260,8 +1261,6 @@ func (a *apiServer) MetricNames(req *apiv1.MetricNamesRequest,
 
 	seenTrain := make(map[string]bool)
 	seenValid := make(map[string]bool)
-	var tStartTime time.Time
-	var vStartTime time.Time
 
 	var timeSinceLastAuth time.Time
 	var searcherMetric string
@@ -1281,15 +1280,11 @@ func (a *apiServer) MetricNames(req *apiv1.MetricNamesRequest,
 
 		var response apiv1.MetricNamesResponse
 		response.SearcherMetric = searcherMetric
-
-		newTrain, newValid, tEndTime, vEndTime, err := a.m.db.MetricNames(experimentID,
-			tStartTime, vStartTime)
+		newTrain, newValid, err := db.MetricNames(resp.Context(), experimentID)
 		if err != nil {
 			return errors.Wrapf(err,
 				"error fetching metric names for experiment: %d", experimentID)
 		}
-		tStartTime = tEndTime
-		vStartTime = vEndTime
 
 		for _, name := range newTrain {
 			if seen := seenTrain[name]; !seen {
@@ -1491,9 +1486,9 @@ func (a *apiServer) TrialsSnapshot(req *apiv1.TrialsSnapshotRequest,
 	}
 }
 
-func (a *apiServer) topTrials(experimentID int, maxTrials int, s expconf.LegacySearcher) (
-	trials []int32, err error,
-) {
+func (a *apiServer) topTrials(
+	ctx context.Context, experimentID int, maxTrials int, s expconf.LegacySearcher,
+) (trials []int32, err error) {
 	type Ranking int
 	const (
 		ByMetricOfInterest Ranking = 1
@@ -1526,7 +1521,7 @@ func (a *apiServer) topTrials(experimentID int, maxTrials int, s expconf.LegacyS
 	}
 	switch ranking {
 	case ByMetricOfInterest:
-		return a.m.db.TopTrialsByMetric(experimentID, maxTrials, s.Metric, s.SmallerIsBetter)
+		return db.TopTrialsByMetric(ctx, experimentID, maxTrials, s.Metric, s.SmallerIsBetter)
 	case ByTrainingLength:
 		return a.m.db.TopTrialsByTrainingLength(experimentID, maxTrials, s.Metric, s.SmallerIsBetter)
 	default:
@@ -1563,14 +1558,15 @@ func (a *apiServer) fetchTrialSample(trialID int32, metricName string, metricTyp
 	}
 	switch metricType {
 	case apiv1.MetricType_METRIC_TYPE_TRAINING:
-		metricID = "training"
+		metricID = "training" //nolint:goconst
 	case apiv1.MetricType_METRIC_TYPE_VALIDATION:
-		metricID = "validation"
+		metricID = "validation" //nolint:goconst
 	default:
 		panic("Invalid metric type")
 	}
 	metricMeasurements, err = trials.MetricsTimeSeries(trialID, startTime,
-		metricName, startBatches, endBatches, xAxisLabelMetrics, maxDatapoints,
+		[]string{metricName},
+		startBatches, endBatches, xAxisLabelMetrics, maxDatapoints,
 		"batches", nil, metricID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error fetching time series of metrics")
@@ -1582,9 +1578,13 @@ func (a *apiServer) fetchTrialSample(trialID int32, metricName string, metricTyp
 
 	if !seenBefore {
 		for _, in := range metricMeasurements {
+			valueMap, err := structpbmap.NewStruct(in.Values)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to parse metric values")
+			}
 			out := apiv1.DataPoint{
 				Batches: int32(in.Batches),
-				Value:   in.Value,
+				Values:  valueMap,
 				Time:    timestamppb.New(in.Time),
 				Epoch:   in.Epoch,
 			}
@@ -1651,7 +1651,7 @@ func (a *apiServer) TrialsSample(req *apiv1.TrialsSampleRequest,
 
 		seenThisRound := make(map[int32]bool)
 
-		trialIDs, err := a.topTrials(experimentID, maxTrials, searcherConfig)
+		trialIDs, err := a.topTrials(resp.Context(), experimentID, maxTrials, searcherConfig)
 		if err != nil {
 			return errors.Wrapf(err, "error determining top trials")
 		}

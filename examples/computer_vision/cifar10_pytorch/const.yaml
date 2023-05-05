@@ -11,7 +11,7 @@ searcher:
   name: single
   metric: validation_error
   max_length:
-    epochs: 32
+    epochs: 1
 entrypoint: model_def:CIFARTrial
 min_validation_period:
   epochs: 1

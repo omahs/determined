@@ -6,14 +6,14 @@ import pathlib
 import torch
 import torch.distributed as dist
 
-from determined import core
+from determined import core, pytorch
 from determined.common import set_logger
-from determined.pytorch import adapt_batch_sampler, samplers
+from determined.pytorch import adapt_batch_sampler
 from torch.utils.data import BatchSampler, Dataset, DataLoader, SequentialSampler
 from typing import Any, Callable, List, Optional, Union
 
 TorchModel = Union[torch.nn.Module, torch.jit.ScriptModule]
-PredictionPostprocessFn = Callable[[Any, str, str], None]
+PredictionPostprocessFn = Callable[[Any, str, str, Optional[pytorch.Reducer]], None]
 ModelInputTensorSelector = Callable[[Any], torch.Tensor]
 
 set_logger(False)
@@ -83,7 +83,7 @@ def _default_torch_tensor_selector(item: Any) -> torch.Tensor:
     item_iterator = None
     try:
         item_iterator = iter(item)
-    except TypeError as te:
+    except TypeError:
         raise Exception(
             "Dataset item does not contain torch.Tensor for inference. "
             + "Please check __get sitem__ method of your Torch dataset"
@@ -99,7 +99,8 @@ def _default_torch_tensor_selector(item: Any) -> torch.Tensor:
                 # Torch tensor field found already
                 raise Exception(
                     "Dataset __getitem__ method returns multiple torch.Tensor,"
-                    + "please pass in custom selector or modify dataset to only return one torch.Tensor"
+                    + "please pass in custom selector or modify dataset to only "
+                    + "return one torch.Tensor"
                 )
 
     return torch_tensor
@@ -159,8 +160,8 @@ def torch_run_batch_inference(
     post_process_and_save_predictions: Optional[PredictionPostprocessFn] = None,
     batch_size: int = 64,
     dataloader_num_workers: int = 2,
+    metrics_reducer: pytorch.Reducer = None,
 ):
-
     data_persist_interval = 10
     output_directory = pathlib.Path(output_directory)
 
@@ -200,15 +201,21 @@ def torch_run_batch_inference(
 
     output_buffer = []
 
-    for local_batch_idx, X in enumerate(dataloader):
+    last_output_file_id = 0
 
+    local_batch_idx = 0
+
+    for local_batch_idx, X in enumerate(dataloader):
         logging.info(f"Currently processing batch {local_batch_idx + skip}")
         _predict_batch(X, model, model_input_tensor_selector, output_buffer, device)
 
         if (local_batch_idx + 1) % data_persist_interval == 0:
             output_file_id = int((local_batch_idx + 1 + skip) / data_persist_interval)
+            last_output_file_id = output_file_id
             filename = f"prediction_output_{output_file_id}_worker_{rank}"
-            post_process_and_save_predictions(output_buffer, filename, output_directory)
+            post_process_and_save_predictions(
+                output_buffer, filename, output_directory, metrics_reducer
+            )
             output_buffer = []
 
             _synchronize_and_checkpoint(rank, local_batch_idx, core_context)
@@ -221,8 +228,17 @@ def torch_run_batch_inference(
                 return
 
     # Process any remaining prediction output
-    filename = f"prediction_output_last_worker_{rank}"
-    post_process_and_save_predictions(output_buffer, filename, output_directory)
+    filename = f"prediction_output_{last_output_file_id + 1}_worker_{rank}"
+    post_process_and_save_predictions(output_buffer, filename, output_directory, metrics_reducer)
+
+    # [TODO]: Update to use unified metrics phase 2 API when ready
+    if metrics_reducer is not None:
+        metrics = core_context.distributed.gather(metrics_reducer.per_slot_reduce())
+        if rank == 0:
+            output = metrics_reducer.cross_slot_reduce(metrics)
+            core_context.train.report_validation_metrics(
+                steps_completed=local_batch_idx + 1 + skip, metrics=output
+            )
 
     _report_progress_to_master(dummy_searcher_op, rank, 1)
 

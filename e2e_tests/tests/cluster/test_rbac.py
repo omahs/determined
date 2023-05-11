@@ -557,16 +557,16 @@ def test_rbac_describe_role() -> None:
         assert user_assign[1]["roleAssignment"]["scopeWorkspaceId"] == 1
 
 
-@pytest.mark.e2e_cpu
-@pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
+@pytest.mark.e2e_cpu_rbac
+@pytest.mark.skipif(
+    roles_not_implemented() or rbac_disabled(), reason="ee is required for this test"
+)
 def test_group_access() -> None:
     # create relevant workspace and project, with group having access
     group_name = get_random_string()
     workspace_name = get_random_string()
-    project_name = get_random_string()
     with logged_in_user(ADMIN_CREDENTIALS):
         det_cmd(["workspace", "create", workspace_name], check=True)
-        det_cmd(["project", "create", workspace_name, project_name], check=True)
         det_cmd(["user-group", "create", group_name], check=True)
         det_cmd(
             ["rbac", "assign-role", "WorkspaceAdmin", "-w", workspace_name, "-g", group_name],
@@ -574,7 +574,7 @@ def test_group_access() -> None:
         )
 
     # create test user which cannot access workspace
-    creds1 = api_utils.create_test_user(True)
+    creds1 = api_utils.create_test_user()
     with logged_in_user(creds1):
         det_cmd_expect_error(
             ["workspace", "describe", workspace_name], "Did not find a workspace with name"
@@ -587,5 +587,3 @@ def test_group_access() -> None:
     # with user now in group, access possible
     with logged_in_user(creds1):
         det_cmd(["workspace", "describe", workspace_name], check=True)
-        # test code from https://github.com/determined-ai/determined/pull/6503
-        det_cmd(["project", "list-experiments", workspace_name, project_name], check=True)

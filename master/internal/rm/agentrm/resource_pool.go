@@ -539,8 +539,8 @@ func (rp *resourcePool) Receive(ctx *actor.Context) error {
 				rp.agentStatesCache = nil
 			}()
 
-			rp.pruneTaskList(ctx)
 			toAllocate, toRelease := rp.scheduler.Schedule(ctx, rp)
+			toAllocate = rp.pruneTaskList(ctx, toAllocate)
 			if len(toAllocate) > 0 || len(toRelease) > 0 {
 				ctx.Log().
 					WithField("toAllocate", len(toAllocate)).
@@ -843,13 +843,16 @@ func (rp *resourcePool) refreshAgentStateCacheFor(ctx *actor.Context, agents []*
 	}
 }
 
-func (rp *resourcePool) pruneTaskList(ctx *actor.Context) {
+func (rp *resourcePool) pruneTaskList(
+	ctx *actor.Context,
+	toAllocate []*sproto.AllocateRequest,
+) []*sproto.AllocateRequest {
 	if rp.provisioner == nil {
-		return
+		return toAllocate
 	}
 	err := rp.provisioner.GetError()
 	if err == nil {
-		return
+		return toAllocate
 	}
 
 	before := rp.taskList.Len()
@@ -857,15 +860,20 @@ func (rp *resourcePool) pruneTaskList(ctx *actor.Context) {
 	ctx.Log().WithError(err).WithField("slotCount", slotCount).Error("provisioner in error state")
 	var refsToRemove = []*actor.Ref{}
 	var groupsToNotify = map[*actor.Ref]bool{}
-	for it := rp.taskList.Iterator(); it.Next(); {
-		task := it.Value()
+	newAllocate := []*sproto.AllocateRequest{}
+	for _, task := range toAllocate {
+		// for it := rp.taskList.Iterator(); it.Next(); {
+		// it := rp.taskList.TaskByID()
+		// task := it.Value()
 		ref := task.AllocationRef
 		if tasklist.AssignmentIsScheduled(rp.taskList.Allocation(ref)) {
 			ctx.Log().Debugf("task %s already in progress", task.AllocationID)
+			newAllocate = append(newAllocate, task)
 			continue
 		}
 		if task.SlotsNeeded <= slotCount {
 			ctx.Log().Debugf("task %s can be scheduled with number of available slots", task.AllocationID)
+			newAllocate = append(newAllocate, task)
 			continue
 		}
 		ctx.Log().WithError(err).Warnf("removing task %s from task list", task.AllocationID)
@@ -883,4 +891,6 @@ func (rp *resourcePool) pruneTaskList(ctx *actor.Context) {
 	}
 	after := rp.taskList.Len()
 	ctx.Log().WithField("before", before).WithField("after", after).Warn("pruned task list")
+
+	return newAllocate
 }

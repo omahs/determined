@@ -121,7 +121,7 @@ const NavigationSideBar: React.FC = () => {
   const currentUser = Loadable.getOrElse(undefined, useObservable(userStore.currentUser));
 
   const info = useObservable(determinedStore.info);
-  const { ui } = useUI();
+  const { actions: uiActions, ui } = useUI();
 
   const { settings, updateSettings } = useSettings<Settings>(settingsConfig);
 
@@ -189,8 +189,9 @@ const NavigationSideBar: React.FC = () => {
   }, [canAccessUncategorized, canEditWebhooks, info.branding]);
 
   const handleCollapse = useCallback(() => {
+    settings.navbarCollapsed ? uiActions.expandNavSideBar() : uiActions.collapseNavSideBar();
     updateSettings({ navbarCollapsed: !settings.navbarCollapsed });
-  }, [settings.navbarCollapsed, updateSettings]);
+  }, [settings.navbarCollapsed, uiActions, updateSettings]);
 
   const { canAdministrateUsers } = usePermissions();
 

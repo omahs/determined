@@ -12,6 +12,7 @@ interface StateUI {
   darkLight: DarkLight;
   isPageHidden: boolean;
   mode: Mode;
+  navSideBarCollapsed: boolean;
   showChrome: boolean;
   showSpinner: boolean;
   theme: Theme;
@@ -22,12 +23,15 @@ const initUI: StateUI = {
   darkLight: DarkLight.Light,
   isPageHidden: false,
   mode: Mode.System,
+  navSideBarCollapsed: false,
   showChrome: true,
   showSpinner: false,
   theme: {} as Theme,
 };
 
 const StoreActionUI = {
+  CollapseNavSideBar: 'CollapseNavSideBar',
+  ExpandNavSideBar: 'ExpandNavSideBar',
   HideUIChrome: 'HideUIChrome',
   HideUISpinner: 'HideUISpinner',
   SetMode: 'SetMode',
@@ -38,6 +42,8 @@ const StoreActionUI = {
 } as const;
 
 type ActionUI =
+  | { type: typeof StoreActionUI.CollapseNavSideBar }
+  | { type: typeof StoreActionUI.ExpandNavSideBar }
   | { type: typeof StoreActionUI.HideUIChrome }
   | { type: typeof StoreActionUI.HideUISpinner }
   | { type: typeof StoreActionUI.SetMode; value: Mode }
@@ -48,6 +54,14 @@ type ActionUI =
 
 class UIActions {
   constructor(private dispatch: Dispatch<ActionUI>) {}
+
+  public collapseNavSideBar = (): void => {
+    this.dispatch({ type: StoreActionUI.CollapseNavSideBar });
+  };
+
+  public expandNavSideBar = (): void => {
+    this.dispatch({ type: StoreActionUI.ExpandNavSideBar });
+  };
 
   public hideChrome = (): void => {
     this.dispatch({ type: StoreActionUI.HideUIChrome });
@@ -87,6 +101,12 @@ class UIActions {
  */
 const reducerUI = (state: StateUI, action: ActionUI): Partial<StateUI> | void => {
   switch (action.type) {
+    case StoreActionUI.CollapseNavSideBar:
+      if (state.navSideBarCollapsed) return;
+      return { navSideBarCollapsed: true };
+    case StoreActionUI.ExpandNavSideBar:
+      if (!state.navSideBarCollapsed) return;
+      return { navSideBarCollapsed: false };
     case StoreActionUI.HideUIChrome:
       if (!state.showChrome) return;
       return { showChrome: false };

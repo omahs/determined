@@ -1,7 +1,7 @@
 .base {
   display: flex;
   flex-direction: column;
-  padding: 16px 16px 0;
+  padding: 16px;
   width: 100%;
 
   .header {
@@ -9,12 +9,12 @@
     display: flex;
   }
   .title {
-    color: var(--theme-colors-monochrome-3);
+    color: var(--theme-stage-on);
     font-size: 20px;
     font-weight: 400;
   }
   .subTitle {
-    color: var(--theme-colors-monochrome-7);
+    color: var(--theme-stage-on-weak);
     font-size: 14px;
     padding-left: 8px;
   }
@@ -25,7 +25,6 @@
   }
 }
 .sticky {
-  background-color: var(--theme-colors-monochrome-17);
-  border-bottom: solid var(--theme-stroke-width) var(--theme-colors-monochrome-12);
-  padding: 16px;
+  background-color: var(--theme-stage-weak);
+  border-bottom: solid var(--theme-stroke-width) var(--theme-stage-border-weak);
 }

@@ -189,9 +189,8 @@ const NavigationSideBar: React.FC = () => {
   }, [canAccessUncategorized, canEditWebhooks, info.branding]);
 
   const handleCollapse = useCallback(() => {
-    settings.navbarCollapsed ? uiActions.expandNavSideBar() : uiActions.collapseNavSideBar();
     updateSettings({ navbarCollapsed: !settings.navbarCollapsed });
-  }, [settings.navbarCollapsed, uiActions, updateSettings]);
+  }, [settings.navbarCollapsed, updateSettings]);
 
   const { canAdministrateUsers } = usePermissions();
 
@@ -212,6 +211,13 @@ const NavigationSideBar: React.FC = () => {
     }
     return items;
   }, [canAdministrateUsers]);
+
+  /**
+   * Detects changes to navbarCollapsed value in settings and updates UI store.
+   */
+  useEffect(() => {
+    settings.navbarCollapsed ? uiActions.collapseNavSideBar() : uiActions.expandNavSideBar();
+  }, [settings.navbarCollapsed, uiActions]);
 
   if (!showNavigation) return null;
 

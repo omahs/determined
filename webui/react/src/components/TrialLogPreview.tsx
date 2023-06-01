@@ -14,6 +14,8 @@ import { readStream } from 'services/utils';
 import { formatDatetime } from 'shared/utils/datetime';
 import { LogLevel, RunState, TrialDetails } from 'types';
 
+import useUI from '../shared/contexts/stores/UI';
+
 import css from './TrialLogPreview.module.scss';
 
 interface Props {
@@ -32,11 +34,13 @@ const TrialLogPreview: React.FC<Props> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const nonEmptyLogFound = useRef(false);
   const [logEntry, setLogEntry] = useState<LogEntry>();
+  const { ui } = useUI();
 
   const classes = [css.base];
   const charMeasures = useGetCharMeasureInContainer(containerRef);
   const dateTimeWidth = charMeasures.width * MAX_DATETIME_LENGTH;
 
+  if (ui.navSideBarCollapsed) classes.push(css.navSideBarCollapsed);
   if (hidePreview || !logEntry) classes.push(css.hidePreview);
 
   const fetchTrialLogs = useCallback((trialId: number, time: string, canceler: AbortController) => {

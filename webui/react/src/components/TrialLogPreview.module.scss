@@ -3,6 +3,7 @@ $preview-transition-in: height 0.2s ease-in-out;
 $preview-transition-out: height 0s;
 
 .base {
+  position: relative;
   transition: $preview-transition-in;
 
   .preview {
@@ -11,11 +12,11 @@ $preview-transition-out: height 0s;
     bottom: 0;
     cursor: pointer;
     height: $preview-height;
-    left: calc(var(--nav-side-bar-width-max) + 32px - 0.1rem);
+    left: var(--nav-side-bar-width-max);
     overflow: hidden;
     position: fixed;
     transition: $preview-transition-in;
-    width: calc(100vw - var(--nav-side-bar-width-max) - 60px);
+    width: calc(100vw - var(--nav-side-bar-width-max));
     z-index: 99;
   }
   .preview:hover {
@@ -37,5 +38,11 @@ $preview-transition-out: height 0s;
     border-width: 0;
     height: 0;
     transition: $preview-transition-out;
+  }
+}
+.base.navSideBarCollapsed {
+  .preview {
+    left: var(--nav-side-bar-width-min);
+    width: calc(100vw - var(--nav-side-bar-width-min));
   }
 }

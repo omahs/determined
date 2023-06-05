@@ -10,10 +10,8 @@
     padding: 16px;
   }
   .body {
-    align-items: center;
-    flex-shrink: 0;
-    height: max-content;
-    min-height: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
     padding: 16px;
     width: 100%;
   }

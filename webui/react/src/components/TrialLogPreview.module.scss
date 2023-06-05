@@ -3,9 +3,16 @@ $preview-transition-in: height 0.2s ease-in-out;
 $preview-transition-out: height 0s;
 
 .base {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   position: relative;
   transition: $preview-transition-in;
 
+  &:first-child {
+    height: calc(100% - #{$preview-height});
+    transition: $preview-transition-in;
+  }
   .preview {
     background-color: var(--theme-surface);
     border-top: solid var(--theme-stroke-width) var(--theme-surface-border);
@@ -34,6 +41,10 @@ $preview-transition-out: height 0s;
   height: 100%;
   transition: $preview-transition-out;
 
+  &:first-child {
+    height: 100%;
+    transition: $preview-transition-out;
+  }
   .preview {
     border-width: 0;
     height: 0;

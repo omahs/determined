@@ -21,6 +21,8 @@ import { isSingleTrialExperiment } from 'utils/experiment';
 import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
+import css from './ExperimentDetails.module.scss';
+
 type Params = {
   experimentId: string;
 };
@@ -137,14 +139,14 @@ const ExperimentDetails: React.FC = () => {
             onTrialUpdate={handleSingleTrialUpdate}
           />
         ) : (
-          <>
+          <div className={css.withInfoBox}>
             <TrialInfoBoxMultiTrial experiment={experiment} />
             <ExperimentMultiTrialTabs
               experiment={experiment}
               fetchExperimentDetails={fetchExperimentDetails}
               pageRef={pageRef}
             />
-          </>
+          </div>
         ))}
     </Page>
   );

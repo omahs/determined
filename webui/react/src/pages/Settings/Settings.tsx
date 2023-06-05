@@ -6,7 +6,7 @@ import { paths } from 'routes/utils';
 
 const Settings: React.FC = () => (
   <Page
-    bodyNoPadding
+    // bodyNoPadding
     breadcrumb={[
       {
         breadcrumbName: 'Settings',

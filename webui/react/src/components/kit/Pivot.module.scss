@@ -3,11 +3,13 @@
 /* Tabs */
 
 .base {
-  &:global(.ant-tabs) {
-    height: 100%;
-  }
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: auto;
+
   &:global(.ant-tabs > .ant-tabs-content-holder) {
-    height: 100%;
+    overflow: auto;
   }
   &:global(.ant-tabs .ant-tabs-tab-active > .ant-tabs-tab-btn) {
     text-shadow: none;

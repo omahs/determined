@@ -348,7 +348,7 @@ const CodeEditor: React.FC<Props> = ({
         </div>
       )}
       <Section
-        bodyNoPadding
+        // bodyNoPadding
         bodyScroll={height === '100%'}
         className={sectionClasses.join(' ')}
         maxHeight>

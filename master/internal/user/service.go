@@ -11,11 +11,14 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
+	"github.com/determined-ai/determined/master/internal/config"
+
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
 
 	"github.com/determined-ai/determined/master/internal/api"
-
 	"github.com/determined-ai/determined/master/internal/authz"
 	detContext "github.com/determined-ai/determined/master/internal/context"
 	"github.com/determined-ai/determined/master/internal/db"
@@ -119,6 +122,14 @@ type Service struct {
 func InitService(db *db.PgDB, system *actor.System, extConfig *model.ExternalSessions) {
 	once.Do(func() {
 		userService = &Service{db, system, extConfig}
+		if extConfig != nil && userService.extConfig.Enabled() {
+			cert, err := config.GetMasterConfig().Security.TLS.ReadCertificate()
+			if err != nil {
+				log.WithError(err).Errorf("failed to read the master TLS certificate")
+				return
+			}
+			userService.extConfig.StartInvalidationPoll(cert)
+		}
 	})
 }
 

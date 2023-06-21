@@ -2,107 +2,73 @@ package kubernetesrm
 
 import (
 	"context"
-	"time"
 
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
-	watchtools "k8s.io/client-go/tools/watch"
-
-	"github.com/determined-ai/determined/master/pkg/actor/actors"
-
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	k8sV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	typedV1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"k8s.io/client-go/tools/cache"
+	watchtools "k8s.io/client-go/tools/watch"
 )
 
-const defaultInformerBackoff = 5 * time.Second
-
-// messages that are sent to the informer.
-type (
-	startInformer struct{}
-)
-
-// messages that are sent by the informer.
-type (
-	podStatusUpdate struct {
-		updatedPod *k8sV1.Pod
-	}
-)
+type podCallbackFunc func(*k8sV1.Pod)
 
 type informer struct {
+	syslog       *logrus.Entry
 	podInterface typedV1.PodInterface
-	podsHandler  *actor.Ref
+	resultChan   <-chan watch.Event
 }
 
 func newInformer(
+	ctx context.Context,
+	namespace string,
 	podInterface typedV1.PodInterface,
-	podsHandler *actor.Ref,
-) *informer {
-	return &informer{
-		podInterface: podInterface,
-		podsHandler:  podsHandler,
-	}
-}
-
-// Receive implements the actor interface.
-func (i *informer) Receive(ctx *actor.Context) error {
-	switch msg := ctx.Message().(type) {
-	case actor.PreStart:
-		ctx.Tell(ctx.Self(), startInformer{})
-
-	case startInformer:
-		i.startInformer(ctx)
-
-	case actor.PostStop:
-
-	default:
-		ctx.Log().Errorf("unexpected message %T", msg)
-		return actor.ErrUnexpectedMessage(ctx)
+) (*informer, error) {
+	if podInterface == nil {
+		return nil, errors.New("newInformer: passed podInterface is nil")
 	}
 
-	return nil
-}
-
-func (i *informer) startInformer(ctx *actor.Context) {
-	pods, err := i.podInterface.List(
-		context.TODO(), metaV1.ListOptions{LabelSelector: determinedLabel})
+	pods, err := podInterface.List(ctx, metaV1.ListOptions{LabelSelector: determinedLabel})
 	if err != nil {
-		ctx.Log().WithError(err).Warnf("error retrieving internal resource version")
-		actors.NotifyAfter(ctx, defaultInformerBackoff, startInformer{})
-		return
+		return nil, err
 	}
 
 	rw, err := watchtools.NewRetryWatcher(pods.ResourceVersion, &cache.ListWatch{
 		WatchFunc: func(options metaV1.ListOptions) (watch.Interface, error) {
-			return i.podInterface.Watch(
-				context.TODO(), metaV1.ListOptions{LabelSelector: determinedLabel})
+			options.LabelSelector = determinedLabel
+			return podInterface.Watch(ctx, options)
 		},
 	})
 	if err != nil {
-		ctx.Log().WithError(err).Warnf("error initializing pod retry watcher")
-		actors.NotifyAfter(ctx, defaultInformerBackoff, startInformer{})
-		return
+		return nil, err
 	}
 
-	ctx.Log().Info("pod informer is starting")
-	for event := range rw.ResultChan() {
+	return &informer{
+		syslog:       logrus.WithField("Informer", namespace),
+		podInterface: podInterface,
+		resultChan:   rw.ResultChan(),
+	}, nil
+}
+
+// startInformer returns the updated pod, if any.
+func (i *informer) startInformer(podHandler func(*k8sV1.Pod)) {
+	i.syslog.Info("pod informer is starting")
+	for event := range i.resultChan {
 		if event.Type == watch.Error {
-			ctx.Log().Warnf("pod informer emitted error %+v", event)
+			i.syslog.Warnf("pod informer emitted error %+v", event)
 			continue
 		}
 
 		pod, ok := event.Object.(*k8sV1.Pod)
 		if !ok {
-			ctx.Log().Warnf("error converting event of type %T to *k8sV1.Pod: %+v", event, event)
+			i.syslog.Warnf("error converting event of type %T to *k8sV1.Pod: %+v", event, event)
 			continue
 		}
 
-		ctx.Log().Debugf("informer got new pod event for pod: %s %s", pod.Name, pod.Status.Phase)
-		ctx.Tell(i.podsHandler, podStatusUpdate{updatedPod: pod})
+		i.syslog.Debugf("informer got new pod event for pod: %s %s", pod.Name, pod.Status.Phase)
+		podHandler(pod)
 	}
-
-	ctx.Log().Warn("pod informer stopped unexpectedly")
-	ctx.Tell(ctx.Self(), startInformer{})
+	i.syslog.Warn("pod informer stopped unexpectedly")
 }

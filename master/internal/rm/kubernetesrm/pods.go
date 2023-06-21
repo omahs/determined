@@ -77,8 +77,8 @@ type pods struct {
 	loggingTLSConfig model.TLSClientConfig
 	loggingConfig    model.LoggingConfig
 
-	informers                    []*actor.Ref
-	nodeInformer                 *actor.Ref
+	informers                    []*informer
+	nodeInformer                 *nodeInformer
 	eventListeners               []*actor.Ref
 	preemptionListeners          []*actor.Ref
 	resourceRequestQueue         *requestQueue
@@ -129,6 +129,11 @@ type reattachAllocationPods struct {
 type reattachPodResponse struct {
 	containerID string
 	started     *sproto.ResourcesStarted
+}
+
+// messages that are sent by the informer.
+type podStatusUpdate struct {
+	updatedPod *k8sV1.Pod
 }
 
 // Initialize creates a new global pods actor.
@@ -217,8 +222,12 @@ func (p *pods) Receive(ctx *actor.Context) error {
 			}
 		}
 
-		p.startPodInformer(ctx)
-		p.startNodeInformer(ctx)
+		err := p.startPodInformer(ctx)
+		if err != nil {
+			return err
+		}
+		p.startNodeInformer()
+
 		p.startEventListeners(ctx)
 		p.startPreemptionListeners(ctx)
 
@@ -230,10 +239,7 @@ func (p *pods) Receive(ctx *actor.Context) error {
 		}
 
 	case podStatusUpdate:
-		p.receivePodStatusUpdate(ctx, msg)
-
-	case nodeStatusUpdate:
-		p.receiveNodeStatusUpdate(ctx, msg)
+		p.receivePodStatusUpdate(ctx, msg.updatedPod)
 
 	case podEventUpdate:
 		p.receivePodEventUpdate(ctx, msg)
@@ -264,15 +270,6 @@ func (p *pods) Receive(ctx *actor.Context) error {
 		}
 
 	case actor.ChildFailed:
-		switch msg.Child {
-		case p.nodeInformer:
-			return errors.Errorf("node informer failed")
-		}
-		for _, informer := range p.informers {
-			if msg.Child == informer {
-				return errors.Errorf("pod informer failed")
-			}
-		}
 		for _, preemptionListener := range p.preemptionListeners {
 			if msg.Child == preemptionListener {
 				return errors.Errorf("preemption listener failed")
@@ -679,17 +676,21 @@ func (p *pods) deleteDoomedKubernetesResources(ctx *actor.Context) error {
 	return nil
 }
 
-func (p *pods) startPodInformer(ctx *actor.Context) {
+func (p *pods) startPodInformer(ctx *actor.Context) error {
 	for namespace := range p.namespaceToPoolName {
-		i, _ := ctx.ActorOf("pod-informer-"+namespace,
-			newInformer(p.podInterfaces[namespace], ctx.Self()),
-		)
+		i, err := newInformer(context.TODO(), namespace, p.podInterfaces[namespace])
+		if err != nil {
+			return errors.Errorf("pod informer for %s failed", namespace)
+		}
+		go i.startInformer(func(pod *k8sV1.Pod) { p.receivePodStatusUpdate(ctx, pod) })
 		p.informers = append(p.informers, i)
 	}
+	return nil
 }
 
-func (p *pods) startNodeInformer(ctx *actor.Context) {
-	p.nodeInformer, _ = ctx.ActorOf("node-informer", newNodeInformer(p.clientSet, ctx.Self()))
+func (p *pods) startNodeInformer() {
+	p.nodeInformer = newNodeInformer(p.clientSet, p.receiveNodeStatusUpdate)
+	p.nodeInformer.startNodeInformer()
 }
 
 func (p *pods) startEventListeners(ctx *actor.Context) {
@@ -758,20 +759,20 @@ func (p *pods) receiveStartTaskPod(ctx *actor.Context, msg StartTaskPod) error {
 	return nil
 }
 
-func (p *pods) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) {
-	ref, ok := p.podNameToPodHandler[msg.updatedPod.Name]
+func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
+	ref, ok := p.podNameToPodHandler[pod.Name]
 	if !ok {
-		ctx.Log().WithField("pod-name", msg.updatedPod.Name).Warn(
+		ctx.Log().WithField("pod-name", pod.Name).Warn(
 			"received pod status update for un-registered pod")
 		return
 	}
 
-	ctx.Tell(ref, msg)
+	ctx.Tell(ref, podStatusUpdate{pod})
 
-	if containerID, ok := p.podNameToContainerID[msg.updatedPod.Name]; ok {
+	if containerID, ok := p.podNameToContainerID[pod.Name]; ok {
 		if state, ok := p.containerIDToSchedulingState[containerID]; ok {
 			currState := sproto.SchedulingStateQueued
-			if msg.updatedPod.Status.Phase == "Running" {
+			if pod.Status.Phase == "Running" {
 				currState = sproto.SchedulingStateScheduled
 			}
 			if currState != state {
@@ -785,13 +786,14 @@ func (p *pods) receivePodStatusUpdate(ctx *actor.Context, msg podStatusUpdate) {
 	}
 }
 
-func (p *pods) receiveNodeStatusUpdate(ctx *actor.Context, msg nodeStatusUpdate) {
-	if msg.updatedNode != nil {
-		p.currentNodes[msg.updatedNode.Name] = msg.updatedNode
-	}
-
-	if msg.deletedNode != nil {
-		delete(p.currentNodes, msg.deletedNode.Name)
+func (p *pods) receiveNodeStatusUpdate(node *k8sV1.Node, toUpdate bool) {
+	if node != nil {
+		// TODO CAROLINA -- string match?
+		if toUpdate {
+			p.currentNodes[node.Name] = node
+		} else {
+			delete(p.currentNodes, node.Name)
+		}
 	}
 }
 

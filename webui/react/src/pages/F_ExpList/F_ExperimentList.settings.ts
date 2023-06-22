@@ -21,6 +21,7 @@ export interface F_ExperimentListSettings {
   columnWidths: Record<string, number>;
   compare: boolean;
   filterset: string; // save FilterFormSet as string
+  selectedExperimentIds: number[];
   sortString: string;
   pageLimit: number;
   pinnedColumnsCount: number;
@@ -61,6 +62,12 @@ export const settingsConfigForProject = (id: number): SettingsConfig<F_Experimen
       skipUrlEncoding: true,
       storageKey: 'pinnedColumnsCount',
       type: number,
+    },
+    selectedExperimentIds: {
+      defaultValue: [],
+      skipUrlEncoding: true,
+      storageKey: 'selectedExperimentIds',
+      type: array(number),
     },
     sortString: {
       defaultValue: '',

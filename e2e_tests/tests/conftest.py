@@ -49,7 +49,6 @@ _INTEG_MARKERS = {
     "port_registry",
     "model_hub_mmdetection_quarantine",
     "det_deploy_local_quarantine",
-    "e2e_slurm_preemption_quarantine",
 }
 
 

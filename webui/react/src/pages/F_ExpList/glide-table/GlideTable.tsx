@@ -142,6 +142,7 @@ export const GlideTable: React.FC<GlideTableProps> = ({
   rowHeight,
   selectAll,
   setSelectAll,
+  excludedExperimentIds,
   setExcludedExperimentIds,
   handleScroll,
   scrollPositionSetCount,
@@ -337,7 +338,7 @@ export const GlideTable: React.FC<GlideTableProps> = ({
         return { columns, rows };
       });
     }
-  }, [data, previousData, selectAll]);
+  }, [data, excludedExperimentIds, previousData, selectAll]);
 
   const onHeaderClicked: DataEditorProps['onHeaderClicked'] = React.useCallback(
     (col: number, { bounds, preventDefault }: HeaderClickedEventArgs) => {

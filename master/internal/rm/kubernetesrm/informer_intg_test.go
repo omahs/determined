@@ -2,7 +2,7 @@ package kubernetesrm
 
 import (
 	"context"
-	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -15,9 +15,12 @@ import (
 	typedV1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// operations is a tuple struct (name, action) for testing
+// events handled by the node informer. Name refers to the
+// node name & action refers to the Watch.Event.Type.
 type operations struct {
 	name   string
-	action string
+	action watch.EventType
 }
 
 const namespace = "default"
@@ -34,17 +37,23 @@ func initializeMockPods(
 
 func TestStartInformer(t *testing.T) {
 	cases := []struct {
-		name          string
-		testNamespace string
-		expected      error
-		podNames      []string
+		name            string
+		testNamespace   string
+		expected        error
+		podNames        []string
+		orderedPodNames []string
 	}{
 		{"informer success", namespace,
-			nil, []string{"abc"}},
-		{"informer success & event ordering", namespace,
-			nil, []string{"A", "B", "C", "D", "E"}},
+			nil, []string{"abc"}, []string{"abc"}},
+		{"informer success & event ordering success", namespace,
+			nil, []string{"A", "B", "C", "D", "E"},
+			[]string{"A", "B", "C", "D", "E"}},
+		{"informer success & event ordering failure", namespace,
+			nil, []string{"A", "B", "C", "D", "E"},
+			[]string{"A", "A", "C", "E", "D"}},
 		{"podInterface failure", "NOT",
-			errors.New("newInformer: passed podInterface is nil"), []string{}},
+			errors.New("newInformer: passed podInterface is nil"),
+			[]string{}, []string{}},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -87,7 +96,7 @@ func TestStartInformer(t *testing.T) {
 				}
 			}
 			// Sleep to allow all pod events to be handled.
-			time.Sleep(3 * time.Second)
+			time.Sleep(2 * time.Second)
 			assert.Equal(t, tt.podNames, ordering)
 			wg.Wait()
 		})
@@ -96,76 +105,74 @@ func TestStartInformer(t *testing.T) {
 
 func TestNodeInformer(t *testing.T) {
 	cases := []struct {
-		name          string
-		testNamespace string
-		expected      error
-		operations    []operations
-		output        map[string]bool
+		name       string
+		operations []operations
+		output     map[string]bool
+		expected   bool
 	}{
-		{"informer success", namespace,
-			nil, []operations{{"abc", "add"}}, map[string]bool{"abc": true}},
-		{"informer success & event ordering", namespace,
-			nil, []operations{
-				{"A", "add"}, {"B", "add"}, {"C", "add"},
-				{"A", "delete"}, {"B", "modify"}},
-			map[string]bool{"B": true, "C": true}},
+		{"informer success", []operations{{"abc", watch.Added}},
+			map[string]bool{"abc": true}, true},
+		{"informer success & event ordering success", []operations{
+			{"A", watch.Added}, {"B", watch.Added}, {"C", watch.Added},
+			{"A", watch.Deleted}, {"B", watch.Modified}},
+			map[string]bool{"B": true, "C": true}, true},
+		{"informer success & event ordering failure", []operations{
+			{"A", watch.Added}, {"B", watch.Added}, {"C", watch.Added},
+			{"A", watch.Deleted}, {"B", watch.Modified}},
+			map[string]bool{"A": true, "C": true}, false},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
 			eventChan := make(chan watch.Event)
-			currNodes := map[string]bool{}
-			// TODO CAROLINA -- either finish mocking out the clientSet or scratch it
-			mockClientSet := &mockClientSet{watcher: &mockWatcher{c: eventChan}}
-			wg.Add(len(tt.operations))
+			currNodes := make(map[string]bool, 0)
+			mockNodeInterface := &mockNodeInterface{watcher: &mockWatcher{c: eventChan}}
 
-			mockNodeHandler := func(node *k8sV1.Node, toUpdate bool) {
-				t.Logf("received node %v", node)
+			wg.Add(len(tt.operations))
+			mockNodeHandler := func(node *k8sV1.Node, action watch.EventType) {
+				t.Logf("received %v", node.Name)
 				if node != nil {
-					if toUpdate {
+					switch action {
+					case watch.Added:
 						currNodes[node.Name] = true
-					} else {
+					case watch.Modified:
+						currNodes[node.Name] = true
+					case watch.Deleted:
 						delete(currNodes, node.Name)
+					default:
+						t.Logf("Node did not expect watch.EventType %v", action)
 					}
 				}
 				wg.Done()
 			}
 
-			n := newNodeInformer(mockClientSet, mockNodeHandler)
+			// Test newNodeInformer is created.
+			n, err := newNodeInformer(context.TODO(), mockNodeInterface)
 			assert.NotNil(t, n)
-			go n.startNodeInformer()
+			assert.Nil(t, err)
+
+			// Test startNodeInformer & iterate through/apply a set of operations
+			// (podName, action) to the informer.
+			go n.startNodeInformer(mockNodeHandler)
 			for _, n := range tt.operations {
 				node := &k8sV1.Node{
 					ObjectMeta: metaV1.ObjectMeta{
 						ResourceVersion: "1",
 						Name:            n.name,
 					}}
-				fmt.Println(node)
-				if n.action == "delete" {
-					eventChan <- watch.Event{
-						Type:   watch.Deleted,
-						Object: node,
-					}
-
-				} /* else if n.action == "update" {
-					eventChan <- watch.Event{
-						Type:   watch.Modified,
-						Object: node,
-					}
-
-				} else if n.action == "add" {
-					eventChan <- watch.Event{
-						Type:   watch.Added,
-						Object: node,
-					}
-
+				eventChan <- watch.Event{
+					Type:   n.action,
+					Object: node,
 				}
-				*/
 			}
-			// assert.Equal(t, currNodes, tt.output)
-			n.stopNodeInformer()
-			_, ok := (<-n.stop)
-			assert.Equal(t, false, ok, "channel not closed properly.")
+			// Sleep to allow all node events to be handled.
+			time.Sleep(2 * time.Second)
+
+			// Assert equality between expected vs actual status
+			// of the pods.
+			equality := reflect.DeepEqual(currNodes, tt.output)
+			assert.Equal(t, tt.expected, equality)
+			wg.Wait()
 		})
 	}
 }

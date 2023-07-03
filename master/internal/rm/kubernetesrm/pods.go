@@ -17,6 +17,7 @@ import (
 	k8sV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	k8sClient "k8s.io/client-go/kubernetes"
 	typedV1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -226,7 +227,11 @@ func (p *pods) Receive(ctx *actor.Context) error {
 		if err != nil {
 			return err
 		}
-		p.startNodeInformer()
+
+		err = p.startNodeInformer()
+		if err != nil {
+			return err
+		}
 
 		p.startEventListeners(ctx)
 		p.startPreemptionListeners(ctx)
@@ -688,9 +693,14 @@ func (p *pods) startPodInformer(ctx *actor.Context) error {
 	return nil
 }
 
-func (p *pods) startNodeInformer() {
-	p.nodeInformer = newNodeInformer(p.clientSet, p.receiveNodeStatusUpdate)
-	p.nodeInformer.startNodeInformer()
+func (p *pods) startNodeInformer() error {
+	i, err := newNodeInformer(context.TODO(),
+		p.clientSet.CoreV1().Nodes())
+	if err != nil {
+		return errors.Errorf("failed to create a new node informer")
+	}
+	go i.startNodeInformer(p.receiveNodeStatusUpdate)
+	return nil
 }
 
 func (p *pods) startEventListeners(ctx *actor.Context) {
@@ -786,13 +796,16 @@ func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
 	}
 }
 
-func (p *pods) receiveNodeStatusUpdate(node *k8sV1.Node, toUpdate bool) {
+func (p *pods) receiveNodeStatusUpdate(node *k8sV1.Node, action watch.EventType) {
 	if node != nil {
-		// TODO CAROLINA -- string match?
-		if toUpdate {
+		switch action {
+		case watch.Added:
 			p.currentNodes[node.Name] = node
-		} else {
+		case watch.Modified:
+			p.currentNodes[node.Name] = node
+		case watch.Deleted:
 			delete(p.currentNodes, node.Name)
+		default:
 		}
 	}
 }

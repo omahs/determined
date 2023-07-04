@@ -99,6 +99,8 @@ type pods struct {
 	summarizeCacheLock sync.RWMutex
 	summarizeCache     summarizeResult
 	summarizeCacheTime time.Time
+	summarizePodsLock  sync.RWMutex
+	summarizeNodesLock sync.RWMutex
 
 	handleResourceError func(ctx *actor.Context) errorCallbackFunc
 }
@@ -770,6 +772,8 @@ func (p *pods) receiveStartTaskPod(ctx *actor.Context, msg StartTaskPod) error {
 }
 
 func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
 	ref, ok := p.podNameToPodHandler[pod.Name]
 	if !ok {
 		ctx.Log().WithField("pod-name", pod.Name).Warn(
@@ -797,6 +801,8 @@ func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
 }
 
 func (p *pods) receiveNodeStatusUpdate(node *k8sV1.Node, action watch.EventType) {
+	p.summarizeNodesLock.Lock()
+	defer p.summarizeNodesLock.Unlock()
 	if node != nil {
 		switch action {
 		case watch.Added:

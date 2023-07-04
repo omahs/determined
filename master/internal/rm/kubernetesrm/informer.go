@@ -53,7 +53,7 @@ func newInformer(
 }
 
 // startInformer returns the updated pod, if any.
-func (i *informer) startInformer(podHandler func(*k8sV1.Pod)) {
+func (i *informer) startInformer(cb podCallbackFunc) {
 	i.syslog.Info("pod informer is starting")
 	for event := range i.resultChan {
 		if event.Type == watch.Error {
@@ -68,7 +68,7 @@ func (i *informer) startInformer(podHandler func(*k8sV1.Pod)) {
 		}
 
 		i.syslog.Debugf("informer got new pod event for pod: %s %s", pod.Name, pod.Status.Phase)
-		podHandler(pod)
+		cb(pod)
 	}
 	i.syslog.Warn("pod informer stopped unexpectedly")
 }

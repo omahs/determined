@@ -46,7 +46,7 @@ func newNodeInformer(
 	}, nil
 }
 
-func (n *nodeInformer) startNodeInformer(nodeHandler nodeCallbackFunc) {
+func (n *nodeInformer) startNodeInformer(cb nodeCallbackFunc) {
 	n.syslog.Info("node informer is starting")
 	for event := range n.resultChan {
 		if event.Type == watch.Error {
@@ -61,7 +61,7 @@ func (n *nodeInformer) startNodeInformer(nodeHandler nodeCallbackFunc) {
 		}
 
 		n.syslog.Debugf("informer got new node event for node: %s %s", node.Name, node.Status.Phase)
-		nodeHandler(node, event.Type)
+		cb(node, event.Type)
 	}
 	n.syslog.Warn("node informer stopped unexpectedly")
 }

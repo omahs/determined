@@ -13,7 +13,20 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	typedV1 "k8s.io/client-go/kubernetes/typed/core/v1"
+
+	"github.com/determined-ai/determined/master/internal/mocks"
 )
+
+type mockWatcher struct {
+	c chan watch.Event
+}
+
+func (m *mockWatcher) Stop() {
+	close(m.c)
+}
+func (m *mockWatcher) ResultChan() <-chan watch.Event {
+	return m.c
+}
 
 // operations is a tuple struct (name, action) for testing
 // events handled by the node informer. Name refers to the
@@ -25,14 +38,48 @@ type operations struct {
 
 const namespace = "default"
 
-func initializeMockPods(
-	eventChan chan watch.Event,
-) *pods {
-	mockPodInterface := &mockPodInterface{watcher: &mockWatcher{c: eventChan}}
-	return &pods{
-		namespace:     namespace,
-		podInterfaces: map[string]typedV1.PodInterface{namespace: mockPodInterface},
+func initializeMockPodInterface(c chan watch.Event) *mocks.PodInterface {
+	ctx := context.TODO()
+	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
+	mockOptsWatch := metaV1.ListOptions{
+		LabelSelector:       determinedLabel,
+		ResourceVersion:     "1",
+		AllowWatchBookmarks: true,
 	}
+
+	mockPod := &mocks.PodInterface{}
+
+	mockPod.On("List", ctx, mockOptsList).Return(
+		&k8sV1.PodList{
+			ListMeta: metaV1.ListMeta{
+				ResourceVersion: "1",
+			}},
+		nil)
+	mockPod.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: c}, nil)
+
+	return mockPod
+}
+
+func initializeMockNodeInterface(c chan watch.Event) *mocks.NodeInterface {
+	ctx := context.TODO()
+	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
+	mockOptsWatch := metaV1.ListOptions{
+		LabelSelector:       determinedLabel,
+		ResourceVersion:     "1",
+		AllowWatchBookmarks: true,
+	}
+
+	mockNode := &mocks.NodeInterface{}
+
+	mockNode.On("List", ctx, mockOptsList).Return(
+		&k8sV1.NodeList{
+			ListMeta: metaV1.ListMeta{
+				ResourceVersion: "1",
+			}},
+		nil)
+	mockNode.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: c}, nil)
+
+	return mockNode
 }
 
 func TestStartInformer(t *testing.T) {
@@ -60,7 +107,12 @@ func TestStartInformer(t *testing.T) {
 			var wg sync.WaitGroup
 			eventChan := make(chan watch.Event)
 			ordering := make([]string, 0)
-			pods := initializeMockPods(eventChan)
+			mockPodInterface := initializeMockPodInterface(eventChan)
+
+			mockPods := &pods{
+				namespace:     namespace,
+				podInterfaces: map[string]typedV1.PodInterface{namespace: mockPodInterface},
+			}
 			mockPodHandler := func(pod *k8sV1.Pod) {
 				t.Logf("received pod %v", pod)
 				ordering = append(ordering, pod.Name)
@@ -71,16 +123,14 @@ func TestStartInformer(t *testing.T) {
 
 			// Test newInformer.
 			i, err := newInformer(context.TODO(), tt.testNamespace,
-				pods.podInterfaces[tt.testNamespace])
+				mockPods.podInterfaces[tt.testNamespace])
 			if err != nil {
 				assert.Nil(t, i)
 				assert.Error(t, tt.expected, err)
 				return
-
-			} else {
-				assert.NotNil(t, i)
-				assert.Equal(t, tt.expected, err)
 			}
+			assert.NotNil(t, i)
+			assert.Equal(t, tt.expected, err)
 
 			// Test startInformer & assert correct ordering of pod-modified events.
 			go i.startInformer(mockPodHandler)
@@ -126,12 +176,12 @@ func TestNodeInformer(t *testing.T) {
 			var wg sync.WaitGroup
 			eventChan := make(chan watch.Event)
 			currNodes := make(map[string]bool, 0)
-			mockNodeInterface := &mockNodeInterface{watcher: &mockWatcher{c: eventChan}}
+			mockNodeInterface := initializeMockNodeInterface(eventChan)
 
 			wg.Add(len(tt.operations))
 			mockNodeHandler := func(node *k8sV1.Node, action watch.EventType) {
-				t.Logf("received %v", node.Name)
-				if node != nil {
+				if node.Name != "" {
+					t.Logf("received %v", node.Name)
 					switch action {
 					case watch.Added:
 						currNodes[node.Name] = true

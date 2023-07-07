@@ -20,7 +20,7 @@ import {
 import determinedStore from 'stores/determinedInfo';
 import roleStore from 'stores/roles';
 import userStore from 'stores/users';
-import { DetailedUser, UserRole } from 'types';
+import { DetailedUser, Id, UserRole } from 'types';
 import { message } from 'utils/dialogApi';
 import { ErrorType } from 'utils/error';
 import handleError from 'utils/error';
@@ -53,7 +53,7 @@ interface FormInputs {
   [USER_NAME_NAME]: string;
   [DISPLAY_NAME_NAME]: string;
   [ADMIN_NAME]: boolean;
-  [ROLE_NAME]: number[];
+  [ROLE_NAME]: Id<'Role'>[];
   [ACTIVE_NAME]: boolean;
 }
 
@@ -94,10 +94,10 @@ const CreateUserModalComponent: React.FC<Props> = ({ onClose, user, viewOnly }: 
 
     const formData = form.getFieldsValue();
 
-    const newRoles: Set<number> = new Set(formData[ROLE_NAME]);
+    const newRoles: Set<Id<'Role'>> = new Set(formData[ROLE_NAME]);
     const oldRoles = new Set((userRoles ?? []).map((r) => r.id));
-    const rolesToAdd = filter((r: number) => !oldRoles.has(r))(newRoles);
-    const rolesToRemove = filter((r: number) => !newRoles.has(r))(oldRoles);
+    const rolesToAdd = filter((r: Id<'Role'>) => !oldRoles.has(r))(newRoles);
+    const rolesToRemove = filter((r: Id<'Role'>) => !newRoles.has(r))(oldRoles);
 
     try {
       if (user) {

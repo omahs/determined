@@ -51,12 +51,12 @@ export function generateExperimentTask(idx: number): Type.RecentExperimentTask {
     archived: false,
     parentArchived: false,
     progress,
-    projectId: 1,
+    projectId: Type.id(1),
     state: state as Type.RunState,
     url: '#',
-    userId: user.id,
+    userId: Type.id(user.id),
     username: user.username,
-    workspaceId: 1,
+    workspaceId: Type.id(1),
   };
 }
 
@@ -89,15 +89,15 @@ export const generateExperiment = (id = 1): Type.ExperimentItem => {
     },
     configRaw: config,
     hyperparameters: {},
-    id: id,
+    id: Type.id(id),
     jobId: id.toString(),
     labels: [],
     name: experimentTask.name,
     numTrials: Math.round(Math.random() * 60000),
-    projectId: 1,
+    projectId: Type.id(1),
     resourcePool: `ResourcePool-${Math.floor(Math.random() * 3)}`,
     searcherType: 'single',
-    userId: user.id,
+    userId: Type.id(user.id),
     username: user.username,
   } as Type.ExperimentItem;
 };

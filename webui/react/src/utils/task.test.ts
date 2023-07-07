@@ -1,4 +1,4 @@
-import { CommandState, CommandTask, CommandType, ExperimentTask, RunState, Task } from 'types';
+import { CommandState, CommandTask, CommandType, ExperimentTask, id, RunState, Task } from 'types';
 
 import { canBeOpened, isExperimentTask } from './task';
 
@@ -7,20 +7,20 @@ const SampleExperimentTask: ExperimentTask = {
   ...SampleTask,
   archived: false,
   parentArchived: false,
-  projectId: 0,
+  projectId: id(0),
   resourcePool: '',
   state: 'ACTIVE' as RunState,
-  userId: 345,
+  userId: id(345),
   username: '',
-  workspaceId: 0,
+  workspaceId: id(0),
 };
 const SampleCommandTask: CommandTask = {
   ...SampleTask,
   resourcePool: '',
   state: 'PENDING' as CommandState,
   type: 'COMMAND' as CommandType,
-  userId: 345,
-  workspaceId: 0,
+  userId: id(345),
+  workspaceId: id(0),
 };
 
 describe('isExperimentTask', () => {

@@ -13,6 +13,12 @@ export type Point = { x: number; y: number };
 export type Range<T = Primitive> = [T, T];
 export type Eventually<T> = T | Promise<T>;
 
+export type Named<K extends string, T> = T & { __v_tag: K };
+export const name = <K extends string, T>(value: T): Named<K, T> => value as Named<K, T>;
+
+export type Id<T extends string> = Named<T, number>;
+export const id = <T extends string>(n: number): Id<T> => name<T, number>(n);
+
 // DEPRECATED
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 export type RawJson = Record<string, any>;
@@ -116,14 +122,14 @@ interface WithPagination {
 export type PropsWithStoragePath<T> = T & { storagePath?: string };
 export interface User {
   displayName?: string;
-  id: number;
+  id: Id<'User'> | 0 | -1;
   modifiedAt?: number;
   username: string;
 }
 
 export interface DetailedUser extends User {
   agentUserGroup?: V1AgentUserGroup;
-  id: number;
+  id: Id<'User'> | 0;
   isActive: boolean;
   isAdmin: boolean;
 }
@@ -488,8 +494,8 @@ export interface CheckpointWorkload extends BaseWorkload {
 }
 
 export interface CheckpointWorkloadExtended extends CheckpointWorkload {
-  experimentId: number;
-  trialId: number;
+  experimentId: Id<'Experiment'>;
+  trialId: Id<'Trial'>;
 }
 
 export interface MetricsWorkload extends BaseWorkload {
@@ -587,7 +593,7 @@ export interface TrialItem extends StartEndTimes {
   checkpointCount?: number;
   experimentId: number;
   hyperparameters: TrialHyperparameters;
-  id: number;
+  id: Id<'Trial'>;
   latestValidationMetric?: MetricsWorkload;
   state: RunState;
   summaryMetrics?: SummaryMetrics;
@@ -649,7 +655,7 @@ export interface ExperimentItem {
   endTime?: string;
   forkedFrom?: number;
   hyperparameters: HyperparametersFlattened; // Nested HP keys are flattened, eg) foo.bar
-  id: number;
+  id: Id<'Experiment'>;
   jobId: string;
   jobSummary?: JobSummary;
   labels: string[];
@@ -657,16 +663,16 @@ export interface ExperimentItem {
   notes?: string;
   numTrials: number;
   progress?: number;
-  projectId: number;
+  projectId: Id<'Project'>;
   projectName?: string;
   resourcePool: string;
   searcherMetricValue?: number;
   searcherType: string;
   startTime: string;
   state: CompoundRunState;
-  trialIds?: number[];
-  userId: number;
-  workspaceId?: number;
+  trialIds?: Id<'Trial'>[];
+  userId: Id<'User'> | 0;
+  workspaceId?: Id<'Workspace'> | 0;
   workspaceName?: string;
 }
 
@@ -679,7 +685,7 @@ export interface ProjectExperiment extends ExperimentItem {
   parentArchived: boolean;
   projectName: string;
   projectOwnerId: number;
-  workspaceId: number;
+  workspaceId: Id<'Workspace'> | 0;
   workspaceName: string;
 }
 
@@ -717,14 +723,14 @@ export interface ModelItem {
   archived?: boolean;
   creationTime: string;
   description?: string;
-  id: number;
+  id: Id<'Model'>;
   labels?: string[];
   lastUpdatedTime: string;
   metadata: Metadata;
   name: string;
   notes?: string;
   numVersions: number;
-  userId: number;
+  userId: Id<'User'>;
   workspaceId: number;
 }
 
@@ -732,7 +738,7 @@ export interface ModelVersion {
   checkpoint: CoreApiGenericCheckpoint;
   comment?: string;
   creationTime: string;
-  id: number;
+  id: Id<'ModelVersion'>;
   labels?: string[];
   lastUpdatedTime?: string;
   metadata?: Metadata;
@@ -768,12 +774,12 @@ export interface ExperimentTask extends Task {
   archived: boolean;
   parentArchived: boolean;
   progress?: number;
-  projectId: number;
+  projectId: Id<'Project'>;
   resourcePool: string;
   state: CompoundRunState;
-  userId?: number;
+  userId?: Id<'User'>;
   username: string;
-  workspaceId: number;
+  workspaceId: Id<'Workspace'>;
 }
 
 export interface CommandResponse {
@@ -787,8 +793,8 @@ export interface CommandTask extends Task {
   resourcePool: string;
   state: CommandState;
   type: CommandType;
-  userId: number;
-  workspaceId: number;
+  userId: Id<'User'>;
+  workspaceId: Id<'Workspace'>;
 }
 
 export type RecentEvent = {
@@ -925,7 +931,7 @@ export interface Workspace {
   archived: boolean;
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   checkpointStorageConfig?: any;
-  id: number;
+  id: Id<'Workspace'>;
   immutable: boolean;
   name: string;
   numExperiments: number;
@@ -933,7 +939,7 @@ export interface Workspace {
   pinned: boolean;
   pinnedAt?: Date;
   state: WorkspaceState;
-  userId: number;
+  userId: Id<'User'>;
   defaultComputePool?: string;
   defaultAuxPool?: string;
 }
@@ -962,7 +968,7 @@ export interface Note {
 export interface Project {
   archived: boolean;
   description?: string;
-  id: number;
+  id: Id<'Project'>;
   immutable: boolean;
   lastExperimentStartedAt?: Date;
   name: string;
@@ -970,8 +976,8 @@ export interface Project {
   numActiveExperiments: number;
   numExperiments: number;
   state: WorkspaceState;
-  userId: number;
-  workspaceId: number;
+  userId: Id<'User'>;
+  workspaceId: Id<'Workspace'>;
   workspaceName: string;
 }
 
@@ -994,14 +1000,14 @@ export interface Permission {
 
 export interface UserRole {
   fromUser?: boolean;
-  id: number;
+  id: Id<'Role'> | 0;
   name: string;
   permissions: Permission[];
   scopeCluster?: boolean;
 }
 
 export interface UserAssignment {
-  roleId: number;
+  roleId: Id<'Role'>;
   scopeCluster: boolean;
   workspaces?: number | number[];
 }
@@ -1017,7 +1023,7 @@ export interface ExperimentPermissionsArgs {
 
 export interface PermissionWorkspace {
   id: number;
-  userId?: number;
+  userId?: Id<'User'>;
 }
 
 export interface WorkspacePermissionsArgs {
@@ -1031,7 +1037,7 @@ export interface WorkspaceMembersResponse {
 }
 
 export interface Webhook {
-  id: number;
+  id: Id<'Webhook'> | -1;
   triggers: V1Trigger[];
   url: string;
   webhookType: string;
@@ -1048,7 +1054,7 @@ export type GroupWithRoleInfo = {
 export type UserWithRoleInfo = {
   displayName: User['displayName'];
   roleAssignment: Api.V1RoleAssignment;
-  userId: User['id'];
+  userId: User['id'] | -1;
   username: User['username'];
 };
 

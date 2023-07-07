@@ -8,11 +8,12 @@ import authStore from 'stores/auth';
 import { StoreProvider as UIProvider } from 'stores/contexts/UI';
 import userStore from 'stores/users';
 import userSettings from 'stores/userSettings';
+import { id } from 'types';
 
 import * as hook from './useSettings';
 import { SettingsProvider } from './useSettingsProvider';
 
-const CURRENT_USER = { id: 1, isActive: true, isAdmin: false, username: 'bunny' };
+const CURRENT_USER = { id: id<'User'>(1), isActive: true, isAdmin: false, username: 'bunny' };
 
 vi.mock('services/api', () => ({
   getUserSetting: () => Promise.resolve({ settings: [] }),

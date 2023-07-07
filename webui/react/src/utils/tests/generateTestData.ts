@@ -5,6 +5,7 @@ import {
   ExperimentBase,
   ExperimentSearcherName,
   HyperparameterType,
+  id,
   Project,
   RunState,
   TrialDetails,
@@ -209,7 +210,7 @@ export const generateTestExperimentData = (): {
         type: HyperparameterType.Log,
       },
     },
-    id: 1,
+    id: id(1),
     name: 'Sample Experiment',
     originalConfig: `
       entrypoint: model_def:MNistTrial
@@ -229,23 +230,23 @@ export const generateTestExperimentData = (): {
         name: adaptive_asha
         smaller_is_better: true`,
     parentArchived: false,
-    projectId: 1,
+    projectId: id(1),
     projectName: 'project',
     projectOwnerId: 1,
     resourcePool: 'default',
     startTime: '2021-06-09T15:26:57.610700Z',
     state: RunState.Completed,
-    userId: 2,
-    workspaceId: 1,
+    userId: id(2),
+    workspaceId: id(1),
     workspaceName: 'workspace',
   };
 
   const checkpoint: CheckpointWorkloadExtended = {
-    experimentId: 2,
+    experimentId: id(2),
     resources: { foo: 12 },
     state: CheckpointState.Completed,
     totalBatches: 50,
-    trialId: 3,
+    trialId: id(3),
     uuid: 'b6aab473-a959-47fa-a962-ba791b0230fb',
   };
 
@@ -253,7 +254,7 @@ export const generateTestExperimentData = (): {
     autoRestarts: 1,
     experimentId: 1,
     hyperparameters: { 1: 1 },
-    id: 1,
+    id: id(1),
     runnerState: 'Active',
     startTime: '1',
     state: RunState.Active,
@@ -267,15 +268,15 @@ export const generateTestExperimentData = (): {
 export const generateTestProjectData = (overrides: Partial<Project> = {}): Project => {
   return {
     archived: false,
-    id: 1,
+    id: id(1),
     immutable: false,
     name: 'Project Name',
     notes: [],
     numActiveExperiments: 1,
     numExperiments: 1,
     state: WorkspaceState.Unspecified,
-    userId: 1,
-    workspaceId: 1,
+    userId: id(1),
+    workspaceId: id(1),
     workspaceName: 'Workspace Name',
     ...overrides,
   };
@@ -284,14 +285,14 @@ export const generateTestProjectData = (overrides: Partial<Project> = {}): Proje
 export const generateTestWorkspaceData = (overrides: Partial<Workspace> = {}): Workspace => {
   return {
     archived: false,
-    id: 1,
+    id: id(1),
     immutable: false,
     name: 'Workspace Name',
     numExperiments: 1,
     numProjects: 1,
     pinned: false,
     state: WorkspaceState.Unspecified,
-    userId: 1,
+    userId: id(1),
     ...overrides,
   };
 };

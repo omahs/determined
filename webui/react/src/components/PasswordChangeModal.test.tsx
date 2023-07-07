@@ -9,7 +9,7 @@ import { V1LoginRequest } from 'services/api-ts-sdk';
 import authStore from 'stores/auth';
 import { StoreProvider as UIProvider } from 'stores/contexts/UI';
 import userStore from 'stores/users';
-import { DetailedUser } from 'types';
+import { DetailedUser, id } from 'types';
 
 vi.useFakeTimers();
 
@@ -23,7 +23,7 @@ import PasswordChangeModalComponent, {
 
 const OPEN_MODAL_TEXT = 'Open Modal';
 const USERNAME = 'test_username1';
-const USER_ID = 1;
+const USER_ID = id<'User'>(1);
 const FIRST_PASSWORD_VALUE = 'Password1';
 const SECOND_PASSWORD_VALUE = 'Password2';
 const CURRENT_USER: DetailedUser = {

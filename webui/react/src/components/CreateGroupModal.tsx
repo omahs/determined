@@ -21,7 +21,7 @@ import {
 import { V1GroupDetails, V1GroupSearchResult } from 'services/api-ts-sdk';
 import determinedStore from 'stores/determinedInfo';
 import roleStore from 'stores/roles';
-import { DetailedUser, UserRole } from 'types';
+import { DetailedUser, Id, UserRole } from 'types';
 import { isEqual } from 'utils/data';
 import { message } from 'utils/dialogApi';
 import { ErrorType } from 'utils/error';
@@ -130,11 +130,11 @@ const CreateGroupModalComponent: React.FC<Props> = ({ onClose, users, group }: P
 
         await updateGroup({ groupId: group.group.groupId, ...formData });
         if (canModifyPermissions && group.group.groupId) {
-          const newRoles: Set<number> = new Set(formData.roles);
+          const newRoles: Set<Id<'Role'>> = new Set(formData.roles);
           const oldRoles = new Set((groupRoles ?? []).map((r) => r.id));
 
-          const rolesToAdd = filter((r: number) => !oldRoles.has(r))(newRoles);
-          const rolesToRemove = filter((r: number) => !newRoles.has(r))(oldRoles);
+          const rolesToAdd = filter((r: Id<'Role'>) => !oldRoles.has(r))(newRoles);
+          const rolesToRemove = filter((r: Id<'Role'>) => !newRoles.has(r))(oldRoles);
 
           rolesToAdd.size > 0 &&
             (await assignRolesToGroup({

@@ -1,7 +1,7 @@
 import { MaybeMocked } from '@vitest/spy';
 
 import { RecordKey } from 'types';
-import { CommandState, CommandTask, CommandType } from 'types';
+import { CommandState, CommandTask, CommandType, id } from 'types';
 import { generateUUID } from 'utils/string';
 
 import * as utils from './wait';
@@ -27,8 +27,8 @@ const COMMAND_TASK: Record<RecordKey, CommandTask> = {
     startTime: '2022-08-01T00:12:24Z',
     state: CommandState.Queued,
     type: CommandType.JupyterLab,
-    userId: 34,
-    workspaceId: 0,
+    userId: id(34),
+    workspaceId: id(0),
   },
   [CommandType.Shell]: {
     ...SHARED_TASK,
@@ -40,8 +40,8 @@ const COMMAND_TASK: Record<RecordKey, CommandTask> = {
     startTime: '2022-07-29T24:00:12Z',
     state: CommandState.Terminated,
     type: CommandType.Shell,
-    userId: 34,
-    workspaceId: 0,
+    userId: id(34),
+    workspaceId: id(0),
   },
   [CommandType.TensorBoard]: {
     ...SHARED_TASK,
@@ -53,8 +53,8 @@ const COMMAND_TASK: Record<RecordKey, CommandTask> = {
     startTime: '2022-08-02T12:24:00Z',
     state: CommandState.Running,
     type: CommandType.TensorBoard,
-    userId: 16,
-    workspaceId: 0,
+    userId: id(16),
+    workspaceId: id(0),
   },
 };
 

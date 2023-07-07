@@ -11,31 +11,31 @@ describe('Experiment Utilities', () => {
         config: {} as Type.ExperimentConfig,
         configRaw: {},
         hyperparameters: {},
-        id: 123,
+        id: Type.id(123),
         jobId: '',
         labels: [],
         name: 'ResNet-50',
         numTrials: 1,
-        projectId: 0,
+        projectId: Type.id(0),
         resourcePool: 'gpu-pool',
         searcherType: 'single',
         startTime: '2021-11-29T00:00:00Z',
         state: Type.RunState.Active,
-        userId: 345,
+        userId: Type.id(345),
       };
       expect(utils.isExperiment(experimentTask)).toBe(true);
     });
 
     it('should invalidate non-experiment tasks', () => {
-      const commandTask = {
+      const commandTask: Type.CommandTask = {
         id: 'kenzo',
         name: 'Count Active Processed',
         resourcePool: 'cpu-pool',
         startTime: '2021-11-29T00:00:00Z',
         state: Type.CommandState.Queued,
         type: Type.CommandType.Command,
-        userId: 345,
-        workspaceId: 0,
+        userId: Type.id(345),
+        workspaceId: Type.id(0),
       };
       expect(utils.isExperiment(commandTask)).toBe(false);
     });

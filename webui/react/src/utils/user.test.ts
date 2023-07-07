@@ -1,4 +1,4 @@
-import { DetailedUser } from 'types';
+import { DetailedUser, id } from 'types';
 
 import { getDisplayName } from './user';
 
@@ -9,26 +9,26 @@ const DEFAULT_VALUE = 'Unavailable';
 const users: Array<DetailedUser> = [
   {
     displayName: DISPLAY_NAME_VALUE,
-    id: 1,
+    id: id(1),
     isActive: true,
     isAdmin: false,
     username: USERNAME_VALUE,
   },
   {
-    id: 1,
+    id: id(1),
     isActive: true,
     isAdmin: false,
     username: USERNAME_VALUE,
   },
   {
     displayName: '',
-    id: 1,
+    id: id(1),
     isActive: true,
     isAdmin: false,
     username: USERNAME_VALUE,
   },
   {
-    id: 1,
+    id: id(1),
     isActive: true,
     isAdmin: false,
     username: '',

@@ -53,9 +53,7 @@ import { V1LogLevel } from 'services/api-ts-sdk';
 import { mapV1LogsResponse } from 'services/decoder';
 import useUI from 'stores/contexts/UI';
 import { BrandingType } from 'stores/determinedInfo';
-import { ValueOf } from 'types';
-import { Note } from 'types';
-import { MetricType, User } from 'types';
+import { id, MetricType, Note, User, ValueOf } from 'types';
 import {
   Background,
   Brand,
@@ -1401,7 +1399,7 @@ const UserAvatarSection: React.FC = () => {
 };
 
 const NameplateSection: React.FC = () => {
-  const testUser: User = { displayName: 'Test User', id: 1, username: 'testUser123' };
+  const testUser: User = { displayName: 'Test User', id: id<'User'>(1), username: 'testUser123' };
 
   return (
     <ComponentSection id="Nameplate" title="Nameplate">

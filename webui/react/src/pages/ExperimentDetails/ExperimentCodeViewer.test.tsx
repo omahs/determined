@@ -9,12 +9,12 @@ import { paths } from 'routes/utils';
 import authStore from 'stores/auth';
 import { StoreProvider as UIProvider } from 'stores/contexts/UI';
 import userStore from 'stores/users';
-import { DetailedUser } from 'types';
+import { DetailedUser, id } from 'types';
 import { generateExperiment } from 'utils/task';
 
 import CodeViewer, { Props } from './ExperimentCodeViewer';
 
-const CURRENT_USER: DetailedUser = { id: 1, isActive: true, isAdmin: false, username: 'bunny' };
+const CURRENT_USER: DetailedUser = { id: id(1), isActive: true, isAdmin: false, username: 'bunny' };
 
 const hashedFileMock =
   'ZGVzY3JpcHRpb246IG5vb3Bfc2luZ2xlCmNoZWNrcG9pbnRfc3RvcmFnZToKICB0eXBlOiBzaGFyZWRfZnMKICBob3N0X3BhdGg6IC90bXAKICBzdG9yYWdlX3BhdGg6IGRldGVybWluZWQtaW50ZWdyYXRpb24tY2hlY2twb2ludHMKICBzYXZlX3RyaWFsX2Jlc3Q6IDMwCmh5cGVycGFyYW1ldGVyczoKICBnbG9iYWxfYmF0Y2hfc2l6ZTogMzIKICBtZXRyaWNzX3Byb2dyZXNzaW9uOiBkZWNyZWFzaW5nCiAgbWV0cmljc19iYXNlOiAwLjkKICBtZXRyaWNzX3NpZ21hOiAwCnNlYXJjaGVyOgogIG1ldHJpYzogdmFsaWRhdGlvbl9lcnJvcgogIHNtYWxsZXJfaXNfYmV0dGVyOiB0cnVlCiAgbmFtZTogc2luZ2xlCiAgbWF4X2xlbmd0aDoKICAgIHJlY29yZHM6IDgwMDAKcmVwcm9kdWNpYmlsaXR5OgogIGV4cGVyaW1lbnRfc2VlZDogOTk5Cm1pbl92YWxpZGF0aW9uX3BlcmlvZDoKICByZWNvcmRzOiA0MDAwCm1heF9yZXN0YXJ0czogMAplbnRyeXBvaW50OiBtb2RlbF9kZWY6Tm9PcFRyaWFsCg==';
@@ -97,12 +97,12 @@ const experimentMock = {
   configRaw: {
     environment: { registry_auth: '', restEnvironment: {} },
   },
-  id: 123,
+  id: id<'Experiment'>(123),
   originalConfig: 'abc',
   parentArchived: false,
   projectName: 'a',
   projectOwnerId: 1,
-  workspaceId: 1,
+  workspaceId: id<'Workspace'>(1),
   workspaceName: 'b',
 };
 const user = userEvent.setup();

@@ -9,7 +9,7 @@ import { useModal } from 'components/kit/Modal';
 import { SettingsProvider } from 'hooks/useSettingsProvider';
 import authStore from 'stores/auth';
 import { StoreProvider as UIProvider } from 'stores/contexts/UI';
-import { WorkspaceState } from 'types';
+import { id, WorkspaceState } from 'types';
 
 const SIMPLE_CONFIG_TEMPLATE_TEXT = 'Template';
 const SHOW_SIMPLE_CONFIG_TEXT = 'Show Simple Config';
@@ -65,14 +65,14 @@ const ModalTrigger: React.FC = () => {
         <JupyterLabModal.Component
           workspace={{
             archived: false,
-            id: 1,
+            id: id(1),
             immutable: false,
             name: 'Uncategorized',
             numExperiments: 0,
             numProjects: 0,
             pinned: false,
             state: WorkspaceState.Unspecified,
-            userId: 1,
+            userId: id(1),
           }}
         />
       </>

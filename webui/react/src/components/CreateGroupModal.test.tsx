@@ -8,7 +8,7 @@ import { createGroup as mockCreateGroup } from 'services/api';
 import { V1GroupSearchResult } from 'services/api-ts-sdk';
 import { GetGroupParams } from 'services/types';
 import { StoreProvider as UIProvider } from 'stores/contexts/UI';
-import { DetailedUser } from 'types';
+import { DetailedUser, id } from 'types';
 
 import CreateGroupModalComponent, {
   API_SUCCESS_MESSAGE_CREATE,
@@ -25,13 +25,13 @@ const user = userEvent.setup();
 
 const users: Array<DetailedUser> = [
   {
-    id: 1,
+    id: id(1),
     isActive: true,
     isAdmin: false,
     username: 'test_username0',
   },
   {
-    id: 2,
+    id: id(2),
     isActive: true,
     isAdmin: false,
     username: 'test_username1',

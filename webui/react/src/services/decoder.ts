@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 
 import * as ioTypes from 'ioTypes';
 import { BrandingType, DeterminedInfo } from 'stores/determinedInfo';
-import { Pagination, RawJson } from 'types';
+import { id, Pagination, RawJson } from 'types';
 import * as types from 'types';
 import { flattenObject, isNullOrUndefined, isNumber, isObject, isPrimitive } from 'utils/data';
 import { capitalize } from 'utils/string';
@@ -13,7 +13,7 @@ export const mapV1User = (data: Sdk.V1User): types.DetailedUser => {
   return {
     agentUserGroup: data.agentUserGroup,
     displayName: data.displayName,
-    id: data.id || 0,
+    id: data.id !== undefined ? id(data.id) : 0,
     isActive: data.active,
     isAdmin: data.admin,
     modifiedAt: new Date(data.modifiedAt || 1).getTime(),
@@ -27,7 +27,7 @@ export const mapV1UserList = (data: Sdk.V1GetUsersResponse): types.DetailedUser[
 
 export const mapV1Role = (role: Sdk.V1Role): types.UserRole => {
   return {
-    id: role.roleId,
+    id: id(role.roleId),
     name: role.name || '',
     permissions: (role.permissions || []).map(mapV1Permission),
   };
@@ -39,7 +39,7 @@ export const mapV1UserRole = (res: Sdk.V1RoleWithAssignments): types.UserRole =>
     fromUser:
       (userRoleAssignments?.filter((u) => !!(u.userId && u.roleAssignment.scopeCluster)) || [])
         .length > 0,
-    id: role?.roleId || 0,
+    id: role?.roleId !== undefined ? id(role.roleId) : 0,
     name: role?.name || '',
     permissions: (role?.permissions || []).map(mapV1Permission),
   };
@@ -48,7 +48,7 @@ export const mapV1UserRole = (res: Sdk.V1RoleWithAssignments): types.UserRole =>
 export const mapV1GroupRole = (res: Sdk.V1GetRolesAssignedToGroupResponse): types.UserRole[] => {
   const { roles, assignments } = res;
   return roles.map((role) => ({
-    id: role.roleId,
+    id: id(role.roleId),
     name: role.name || '',
     permissions: (role.permissions || []).map(mapV1Permission),
     scopeCluster: assignments.find((a) => a.roleId === role.roleId)?.scopeCluster,
@@ -67,7 +67,7 @@ export const mapV1UserAssignment = (
   assignment: Sdk.V1RoleAssignmentSummary,
 ): types.UserAssignment => {
   return {
-    roleId: assignment.roleId,
+    roleId: id(assignment.roleId),
     scopeCluster: assignment.scopeCluster || false,
     workspaces: assignment.scopeWorkspaceIds || [],
   };
@@ -189,8 +189,8 @@ const mapCommonV1Task = (
     startTime: task.startTime as unknown as string,
     state: mapV1TaskState(task.state),
     type,
-    userId: task.userId ?? 0,
-    workspaceId: task.workspaceId,
+    userId: id(task.userId ?? 0),
+    workspaceId: id(task.workspaceId),
   };
 };
 
@@ -253,14 +253,14 @@ export const mapV1Model = (model: Sdk.V1Model): types.ModelItem => {
     archived: model.archived,
     creationTime: model.creationTime as unknown as string,
     description: model.description,
-    id: model.id,
+    id: id(model.id),
     labels: model.labels,
     lastUpdatedTime: model.lastUpdatedTime as unknown as string,
     metadata: model.metadata,
     name: model.name,
     notes: model.notes,
     numVersions: model.numVersions,
-    userId: model.userId ?? 0,
+    userId: id(model.userId) ?? 0,
     workspaceId: model.workspaceId,
   };
 };
@@ -270,7 +270,7 @@ export const mapV1ModelVersion = (modelVersion: Sdk.V1ModelVersion): types.Model
     checkpoint: decodeCheckpoint(modelVersion.checkpoint),
     comment: modelVersion.comment,
     creationTime: modelVersion.creationTime as unknown as string,
-    id: modelVersion.id,
+    id: id(modelVersion.id),
     labels: modelVersion.labels,
     lastUpdatedTime: modelVersion.lastUpdatedTime as unknown as string,
     metadata: modelVersion.metadata,
@@ -446,7 +446,7 @@ export const mapV1GetExperimentDetailsResponse = ({
     parentArchived: exp.parentArchived ?? false,
     projectName: exp.projectName ?? '',
     projectOwnerId: exp.projectOwnerId ?? 0,
-    workspaceId: exp.workspaceId ?? 0,
+    workspaceId: exp.workspaceId !== undefined ? id(exp.workspaceId) : 0,
     workspaceName: exp.workspaceName ?? '',
   };
 };
@@ -483,7 +483,7 @@ export const mapV1Experiment = (
     endTime: data.endTime as unknown as string,
     forkedFrom: data.forkedFrom,
     hyperparameters,
-    id: data.id,
+    id: id(data.id),
     jobId: data.jobId,
     jobSummary: jobSummary,
     labels: data.labels || [],
@@ -491,16 +491,16 @@ export const mapV1Experiment = (
     notes: data.notes,
     numTrials: data.numTrials || 0,
     progress: data.progress != null ? data.progress : undefined,
-    projectId: data.projectId,
+    projectId: id(data.projectId),
     projectName: data.projectName,
     resourcePool: data.resourcePool || '',
     searcherMetricValue: data.bestTrialSearcherMetric,
     searcherType: data.searcherType,
     startTime: data.startTime as unknown as string,
     state: decodeExperimentState(data.state),
-    trialIds: data.trialIds || [],
-    userId: data.userId ?? 0,
-    workspaceId: data.workspaceId,
+    trialIds: data.trialIds !== undefined ? data.trialIds.map((i) => id(i)) : [],
+    userId: data.userId !== undefined ? id(data.userId) : 0,
+    workspaceId: data.workspaceId !== undefined ? id(data.workspaceId) : data.workspaceId,
     workspaceName: data.workspaceName,
   };
 };
@@ -622,7 +622,7 @@ export const decodeV1TrialToTrialItem = (data: Sdk.Trialv1Trial): types.TrialIte
     endTime: data.endTime && (data.endTime as unknown as string),
     experimentId: data.experimentId,
     hyperparameters: flattenObject(data.hparams || {}),
-    id: data.id,
+    id: id(data.id),
     latestValidationMetric: data.latestValidation && decodeMetricsWorkload(data.latestValidation),
     startTime: data.startTime as unknown as string,
     state: decodeExperimentState(data.state),
@@ -766,8 +766,10 @@ export const mapV1DeviceType = (data: Sdk.Devicev1Type): types.ResourceType => {
 export const mapV1Workspace = (data: Sdk.V1Workspace): types.Workspace => {
   return {
     ...data,
+    id: id(data.id),
     pinnedAt: new Date(data.pinnedAt || 0),
     state: mapWorkspaceState(data.state),
+    userId: id(data.userId),
   };
 };
 
@@ -789,14 +791,17 @@ export const mapWorkspaceState = (state: Sdk.V1WorkspaceState): types.WorkspaceS
 export const mapV1Project = (data: Sdk.V1Project): types.Project => {
   return {
     ...data,
+    id: id(data.id),
     state: mapWorkspaceState(data.state),
+    userId: id(data.userId),
+    workspaceId: id(data.workspaceId),
     workspaceName: data.workspaceName ?? '',
   };
 };
 
 export const mapV1Webhook = (data: Sdk.V1Webhook): types.Webhook => {
   return {
-    id: data.id || -1,
+    id: data.id !== undefined ? id(data.id) : -1,
     triggers: data.triggers || [],
     url: data.url,
     webhookType:

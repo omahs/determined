@@ -16,6 +16,7 @@ import (
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/actor/actors"
+	"github.com/determined-ai/determined/master/pkg/actor/api"
 	ws "github.com/determined-ai/determined/master/pkg/actor/api"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/check"
@@ -127,9 +128,14 @@ func (a *agent) receive(ctx *actor.Context, msg interface{}) error {
 		a.slots, _ = ctx.ActorOf("slots", &slots{})
 	case model.AgentSummary:
 		ctx.Respond(a.summarize(ctx))
-	case ws.WebSocketConnected:
-		check.Panic(check.True(a.socket == nil, "websocket already connected"))
-		socket, ok := msg.Accept(ctx, aproto.MasterMessage{}, true)
+	case ws.WebSocketRequest:
+		// check.Panic(check.True(a.socket == nil, "websocket already connected"))
+		if a.socket != nil {
+			// FIXME: before PR, get rid of panics
+			panic("websocket already connected")
+		}
+
+		socket, ok := api.AcceptWebSocketRequest[aproto.MasterMessage](msg, ctx.Self(), true)
 		check.Panic(check.True(ok, "failed to accept websocket connection"))
 		a.socket = socket
 		a.version = msg.Ctx.QueryParam("version")

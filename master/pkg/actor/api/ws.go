@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/master/pkg/syncx/queue"
 )
 
 // TODO: Add a write size limit.
@@ -32,29 +34,37 @@ const (
 	MaxWebsocketMessageSize = 128 * 1024 * 1024
 )
 
-// WebSocketConnected notifies the actor that a websocket is attempting to connect.
-type WebSocketConnected struct {
+// WebSocketRequest notifies the actor that a websocket is attempting to connect.
+type WebSocketRequest struct {
 	Ctx echo.Context
 }
 
+// TODO: consider specializing this to agent/agents to simplify code
 // Accept wraps the connecting websocket connection in an actor.
-func (w WebSocketConnected) Accept(
-	ctx *actor.Context,
-	msgType interface{},
+func AcceptWebSocketRequest[T any](
+	w WebSocketRequest,
+	destActor *actor.Ref,
 	usePing bool,
-) (*actor.Ref, bool) {
-	conn, err := upgrader.Upgrade(w.Ctx.Response(), w.Ctx.Request(), nil)
-	if err != nil {
-		ctx.Respond(errors.Wrap(err, "websocket connection error"))
-		return nil, false
+) (*WebSocketManager[T], error) {
+	// TODO: error callback
+
+	if reflect.TypeOf(*new(T)).Kind() == reflect.Pointer {
+		return nil, errors.New("WebSocket message types must not be a pointer")
 	}
-	a, _ := ctx.ActorOf("websocket-"+uuid.New().String(), WrapSocket(conn, msgType, usePing))
-	ctx.Respond(a)
-	return a, true
+
+	httpReq := w.Ctx.Request()
+
+	conn, err := upgrader.Upgrade(w.Ctx.Response(), httpReq, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "websocket connection error")
+	}
+
+	a := WrapSocket[T](httpReq.Context(), conn, destActor, usePing)
+	return a, nil
 }
 
 // IsReconnect checks if agent is reconnecting after a network failure.
-func (w *WebSocketConnected) IsReconnect() (bool, error) {
+func (w *WebSocketRequest) IsReconnect() (bool, error) {
 	return strconv.ParseBool(w.Ctx.QueryParam("reconnect"))
 }
 
@@ -106,44 +116,62 @@ func WriteSocketRaw(ctx *actor.Context, socket *actor.Ref, msg interface{}) erro
 }
 
 // WrapSocket wraps a websocket connection as an actor.
-func WrapSocket(conn *websocket.Conn, msgType interface{}, usePing bool) actor.Actor {
-	return &websocketActor{
-		conn:         conn,
-		msgType:      reflect.TypeOf(msgType),
+func WrapSocket[T any](ctx context.Context, conn *websocket.Conn, destActor *actor.Ref, usePing bool,
+) *WebSocketManager[T] {
+	m := &WebSocketManager[T]{
+		conn: conn,
+		// msgType:      reflect.TypeOf(msgType),
+		destActor:    destActor,
 		usePing:      usePing,
 		pendingPings: make(map[string]time.Time),
 	}
+
+	if m.usePing {
+		m.setupPingLoop(ctx)
+	}
+
+	go m.runReadLoop(ctx)
+
+	return m
 }
 
-type websocketActor struct {
-	conn    *websocket.Conn
-	msgType reflect.Type
+type WebSocketManager[T any] struct {
+	conn      *websocket.Conn
+	msgType   reflect.Type
+	destActor *actor.Ref
+
+	msgQueue    *queue.Queue[T]
+	msgCallback func(msg T)
+	errCallback func(err error)
 
 	usePing      bool
 	pingLock     sync.Mutex
 	pendingPings map[string]time.Time
 }
 
+func (s *WebSocketManager[T]) Queue() *queue.Queue[T] {
+	return s.msgQueue
+}
+
+// TODO(maybe): helper function that consumes queue and does recipient.Tell(msg) in a goroutine
+
 // Receive implements the actor.Actor interface.
-func (s *websocketActor) Receive(ctx *actor.Context) error {
+func (s *WebSocketManager[T]) Receive(ctx *actor.Context) error {
 	switch msg := ctx.Message().(type) {
 	case actor.PreStart:
-		if s.usePing {
-			s.setupPingLoop(ctx)
-		}
-		go s.runReadLoop(ctx)
 		return nil
 	case actor.PostStop:
 		return s.conn.Close()
 	case error: // Socket read errors.
 		return msg
 	case []byte: // Incoming messages on the socket.
-		parsed, err := parseMsg(msg, s.msgType)
+		// TODO: replace this with a goroutine that reads from the queue and sends parsed messages
+		parsed, err := s.parseMsg(msg, s.msgType)
 		if err != nil {
 			return err
 		}
 		// Notify the socket's parent actor of the incoming message.
-		ctx.Tell(ctx.Self().Parent(), parsed)
+		s.destActor.System().Tell(s.destActor, parsed)
 		return nil
 	case WriteMessage:
 		var buf bytes.Buffer
@@ -162,7 +190,7 @@ func (s *websocketActor) Receive(ctx *actor.Context) error {
 	}
 }
 
-func (s *websocketActor) processWriteMessage(
+func (s *WebSocketManager[T]) processWriteMessage(
 	ctx *actor.Context,
 	buf bytes.Buffer,
 ) error {
@@ -180,14 +208,14 @@ func isClosingError(err error) bool {
 	return err == websocket.ErrCloseSent || websocket.IsCloseError(err, websocket.CloseNormalClosure)
 }
 
-func (s *websocketActor) setupPingLoop(ctx *actor.Context) {
+func (s *WebSocketManager[T]) setupPingLoop(ctx *actor.Context) {
 	s.conn.SetPongHandler(func(data string) error {
 		return s.handlePong(ctx, data)
 	})
 	go s.runPingLoop(ctx)
 }
 
-func (s *websocketActor) handlePong(ctx *actor.Context, id string) error {
+func (s *WebSocketManager[T]) handlePong(ctx *actor.Context, id string) error {
 	now := time.Now()
 
 	s.pingLock.Lock()
@@ -204,7 +232,7 @@ func (s *websocketActor) handlePong(ctx *actor.Context, id string) error {
 	return nil
 }
 
-func (s *websocketActor) checkPendingPings() error {
+func (s *WebSocketManager[T]) checkPendingPings() error {
 	now := time.Now()
 
 	s.pingLock.Lock()
@@ -225,7 +253,7 @@ func (s *websocketActor) checkPendingPings() error {
 	return nil
 }
 
-func (s *websocketActor) ping() error {
+func (s *WebSocketManager[T]) ping() error {
 	s.pingLock.Lock()
 	defer s.pingLock.Unlock()
 
@@ -253,7 +281,7 @@ func (s *websocketActor) ping() error {
 	return nil
 }
 
-func (s *websocketActor) runPingLoop(ctx *actor.Context) {
+func (s *WebSocketManager[T]) runPingLoop(ctx context.Context) {
 	pingAndWait := func() error {
 		if err := s.ping(); err != nil {
 			return err
@@ -265,6 +293,8 @@ func (s *websocketActor) runPingLoop(ctx *actor.Context) {
 		return nil
 	}
 
+	// TODO: shut down using context.Context
+	// Stop stops now and doesn't let the actor consume any more messages from the queue
 	defer ctx.Self().Stop()
 
 	for {
@@ -276,13 +306,14 @@ func (s *websocketActor) runPingLoop(ctx *actor.Context) {
 		if err := pingAndWait(); isClosingError(err) {
 			return
 		} else if err != nil {
+			//
 			ctx.Tell(ctx.Self(), err)
 			return
 		}
 	}
 }
 
-func (s *websocketActor) runReadLoop(ctx *actor.Context) {
+func (s *WebSocketManager[T]) runReadLoop(ctx context.Context) {
 	read := func() ([]byte, error) {
 		msgType, msg, err := s.conn.ReadMessage()
 		if err != nil {
@@ -294,6 +325,7 @@ func (s *websocketActor) runReadLoop(ctx *actor.Context) {
 		return msg, nil
 	}
 
+	// TODO: stop (the loops?)
 	defer ctx.Self().Stop()
 
 	for {
@@ -303,26 +335,45 @@ func (s *websocketActor) runReadLoop(ctx *actor.Context) {
 		} else if err != nil {
 			// Socket read errors are sent to the socket actor rather than the parent. Exceptions
 			// will bubble up the parent through the actor system.
-			ctx.Tell(ctx.Self(), err)
+			// ctx.Tell(ctx.Self(), err)
+
+			// TODO: verify this is okay
+			s.syslog.WithError(err).Error("error reading from WebSocket")
+			s.Stop()
 			return
 		}
-		ctx.Tell(ctx.Self(), msg)
+
+		// TODO: enqueue message
+		// ctx.Tell(ctx.Self(), msg)
+
+		parsedMsg, err := s.parseMsg(msg)
+		if err != nil {
+			// TODO: handle err
+			continue
+		}
+
+		s.msgQueue.Put(*parsedMsg)
 	}
 }
 
-func parseMsg(raw []byte, msgType reflect.Type) (interface{}, error) {
-	var parsed interface{}
-	if msgType.Kind() == reflect.Ptr {
-		parsed = reflect.New(msgType.Elem()).Interface()
-	} else {
-		parsed = reflect.New(msgType).Interface()
-	}
-	if err := json.Unmarshal(raw, parsed); err != nil {
+func (s *WebSocketManager[T]) parseMsg(raw []byte) (*T, error) {
+	var val = new(T)
+
+	// var parsed interface{}
+	// if reflect.TypeOf(val).Kind() == reflect.Ptr {
+	// 	parsed = reflect.New().Interface()
+	// } else {
+	// 	parsed = reflect.New(s.msgType).Interface()
+	// }
+
+	if err := json.Unmarshal(raw, val); err != nil {
 		return nil, err
 	}
+	return val, nil
+	// if s.msgType.Kind() == reflect.Ptr {
+	// 	return parsed.(T), nil
+	// }
 
-	if msgType.Kind() == reflect.Ptr {
-		return parsed, nil
-	}
-	return reflect.ValueOf(parsed).Elem().Interface(), nil
+	// val := reflect.ValueOf(parsed).Elem().Interface()
+	// return val.(T), nil
 }

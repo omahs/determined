@@ -35,7 +35,7 @@ func Route(system *actor.System, recipient *actor.Ref) echo.HandlerFunc {
 }
 
 func handleWSRequest(system *actor.System, recipient actor.Address, ctx echo.Context) error {
-	switch resp := system.AskAt(recipient, WebSocketConnected{Ctx: ctx}); {
+	switch resp := system.AskAt(recipient, WebSocketRequest{Ctx: ctx}); {
 	case resp.Source() == nil, resp.Empty():
 		// The actor could not be found or the actor did not respond.
 		return echo.ErrNotFound

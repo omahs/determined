@@ -80,7 +80,7 @@ func (a *agents) Receive(ctx *actor.Context) error {
 				ctx.Log().WithError(err).Warnf("failed to clean bad agent states")
 			}
 		}
-	case api.WebSocketConnected:
+	case api.WebSocketRequest:
 		cmuxConn := connsave.GetConn(msg.Ctx.Request().Context()).(*cmux.MuxConn)
 		// Here, we just have to check that there are any certificates at all, since the top-level TLS
 		// config verifies that any certificates that are provided are valid.

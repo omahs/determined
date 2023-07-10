@@ -357,7 +357,7 @@ func (s *WebSocketManager[T]) runReadLoop(ctx context.Context) {
 }
 
 func (s *WebSocketManager[T]) parseMsg(raw []byte) (*T, error) {
-	var val = new(T)
+	val := new(T)
 
 	// var parsed interface{}
 	// if reflect.TypeOf(val).Kind() == reflect.Ptr {

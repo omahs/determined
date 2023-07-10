@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -17,15 +16,11 @@ import (
 	"github.com/determined-ai/determined/master/internal/mocks"
 )
 
+const namespace = "default"
+
+// mockWatcher implements watch.Interface so it can be returned by mocks' calls to Watch.
 type mockWatcher struct {
 	c chan watch.Event
-}
-
-func (m *mockWatcher) Stop() {
-	close(m.c)
-}
-func (m *mockWatcher) ResultChan() <-chan watch.Event {
-	return m.c
 }
 
 // operations is a tuple struct (name, action) for testing
@@ -36,52 +31,6 @@ type operations struct {
 	action watch.EventType
 }
 
-const namespace = "default"
-
-func initializeMockPodInterface(c chan watch.Event) *mocks.PodInterface {
-	ctx := context.TODO()
-	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
-	mockOptsWatch := metaV1.ListOptions{
-		LabelSelector:       determinedLabel,
-		ResourceVersion:     "1",
-		AllowWatchBookmarks: true,
-	}
-
-	mockPod := &mocks.PodInterface{}
-
-	mockPod.On("List", ctx, mockOptsList).Return(
-		&k8sV1.PodList{
-			ListMeta: metaV1.ListMeta{
-				ResourceVersion: "1",
-			}},
-		nil)
-	mockPod.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: c}, nil)
-
-	return mockPod
-}
-
-func initializeMockNodeInterface(c chan watch.Event) *mocks.NodeInterface {
-	ctx := context.TODO()
-	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
-	mockOptsWatch := metaV1.ListOptions{
-		LabelSelector:       determinedLabel,
-		ResourceVersion:     "1",
-		AllowWatchBookmarks: true,
-	}
-
-	mockNode := &mocks.NodeInterface{}
-
-	mockNode.On("List", ctx, mockOptsList).Return(
-		&k8sV1.NodeList{
-			ListMeta: metaV1.ListMeta{
-				ResourceVersion: "1",
-			}},
-		nil)
-	mockNode.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: c}, nil)
-
-	return mockNode
-}
-
 func TestStartInformer(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -90,36 +39,60 @@ func TestStartInformer(t *testing.T) {
 		podNames        []string
 		orderedPodNames []string
 	}{
-		{"informer success", namespace,
-			nil, []string{"abc"}, []string{"abc"}},
-		{"informer success & event ordering success", namespace,
-			nil, []string{"A", "B", "C", "D", "E"},
-			[]string{"A", "B", "C", "D", "E"}},
-		{"informer success & event ordering failure", namespace,
-			nil, []string{"A", "B", "C", "D", "E"},
-			[]string{"A", "A", "C", "E", "D"}},
-		{"podInterface failure", "NOT",
+		{"zero pods", namespace, nil, []string{}, []string{}},
+		{
+			"informer success", namespace,
+			nil,
+			[]string{"abc"},
+			[]string{"abc"},
+		},
+		{
+			"informer success & event ordering success", namespace,
+			nil,
+			[]string{"A", "B", "C", "D", "E"},
+			[]string{"A", "B", "C", "D", "E"},
+		},
+		{
+			"informer success & event ordering failure", namespace,
+			nil,
+			[]string{"A", "B", "C", "D", "E"},
+			[]string{"A", "A", "C", "E", "D"},
+		},
+		{
+			"podInterface failure", "NOT",
 			errors.New("newInformer: passed podInterface is nil"),
-			[]string{}, []string{}},
+			[]string{},
+			[]string{},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
+			wg.Add(1 + len(tt.podNames))
+
+			ctx := context.TODO()
 			eventChan := make(chan watch.Event)
 			ordering := make([]string, 0)
-			mockPodInterface := initializeMockPodInterface(eventChan)
 
+			mockOptsList, mockOptsWatch := initializeMockOpts()
+			mockPod := &mocks.PodInterface{}
+			mockPod.On("List", ctx, mockOptsList).Return(
+				&k8sV1.PodList{
+					ListMeta: metaV1.ListMeta{
+						ResourceVersion: "1",
+					},
+				},
+				nil)
+			mockPod.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: eventChan}, nil)
 			mockPods := &pods{
 				namespace:     namespace,
-				podInterfaces: map[string]typedV1.PodInterface{namespace: mockPodInterface},
+				podInterfaces: map[string]typedV1.PodInterface{namespace: mockPod},
 			}
 			mockPodHandler := func(pod *k8sV1.Pod) {
 				t.Logf("received pod %v", pod)
 				ordering = append(ordering, pod.Name)
 				wg.Done()
 			}
-
-			wg.Add(len(tt.podNames))
 
 			// Test newInformer.
 			i, err := newInformer(context.TODO(), tt.testNamespace,
@@ -132,23 +105,26 @@ func TestStartInformer(t *testing.T) {
 			assert.NotNil(t, i)
 			assert.Equal(t, tt.expected, err)
 
-			// Test startInformer & assert correct ordering of pod-modified events.
-			go i.startInformer(mockPodHandler)
+			// Test startInformer & assert correct ordering of pod-modified events
+			// after all events are received and the channel is closed.
+			go func() {
+				i.startInformer(mockPodHandler)
+				wg.Wait()
+				close(eventChan)
+				assert.Equal(t, tt.podNames, ordering)
+			}()
 			for _, name := range tt.podNames {
 				pod := &k8sV1.Pod{
 					ObjectMeta: metaV1.ObjectMeta{
 						ResourceVersion: "1",
 						Name:            name,
-					}}
+					},
+				}
 				eventChan <- watch.Event{
 					Type:   watch.Modified,
 					Object: pod,
 				}
 			}
-			// Sleep to allow all pod events to be handled.
-			time.Sleep(2 * time.Second)
-			assert.Equal(t, tt.podNames, ordering)
-			wg.Wait()
 		})
 	}
 }
@@ -160,25 +136,57 @@ func TestNodeInformer(t *testing.T) {
 		output     map[string]bool
 		expected   bool
 	}{
-		{"informer success", []operations{{"abc", watch.Added}},
-			map[string]bool{"abc": true}, true},
-		{"informer success & event ordering success", []operations{
-			{"A", watch.Added}, {"B", watch.Added}, {"C", watch.Added},
-			{"A", watch.Deleted}, {"B", watch.Modified}},
-			map[string]bool{"B": true, "C": true}, true},
-		{"informer success & event ordering failure", []operations{
-			{"A", watch.Added}, {"B", watch.Added}, {"C", watch.Added},
-			{"A", watch.Deleted}, {"B", watch.Modified}},
-			map[string]bool{"A": true, "C": true}, false},
+		{"zero nodes", []operations{}, map[string]bool{}, true},
+		{
+			"informer success",
+			[]operations{{"abc", watch.Added}},
+			map[string]bool{"abc": true},
+			true,
+		},
+		{
+			"informer success & event ordering success",
+			[]operations{
+				{"A", watch.Added},
+				{"B", watch.Added},
+				{"C", watch.Added},
+				{"A", watch.Deleted},
+				{"B", watch.Modified},
+			},
+			map[string]bool{"B": true, "C": true},
+			true,
+		},
+		{
+			"informer success & event ordering failure",
+			[]operations{
+				{"A", watch.Added},
+				{"B", watch.Added},
+				{"C", watch.Added},
+				{"A", watch.Deleted},
+				{"B", watch.Modified},
+			},
+			map[string]bool{"A": true, "C": true},
+			false,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
+			wg.Add(1 + len(tt.operations))
+
+			ctx := context.TODO()
 			eventChan := make(chan watch.Event)
 			currNodes := make(map[string]bool, 0)
-			mockNodeInterface := initializeMockNodeInterface(eventChan)
 
-			wg.Add(len(tt.operations))
+			mockOptsList, mockOptsWatch := initializeMockOpts()
+			mockNode := &mocks.NodeInterface{}
+			mockNode.On("List", ctx, mockOptsList).Return(
+				&k8sV1.NodeList{
+					ListMeta: metaV1.ListMeta{
+						ResourceVersion: "1",
+					},
+				},
+				nil)
+			mockNode.On("Watch", ctx, mockOptsWatch).Return(&mockWatcher{c: eventChan}, nil)
 			mockNodeHandler := func(node *k8sV1.Node, action watch.EventType) {
 				if node.Name != "" {
 					t.Logf("received %v", node.Name)
@@ -197,32 +205,52 @@ func TestNodeInformer(t *testing.T) {
 			}
 
 			// Test newNodeInformer is created.
-			n, err := newNodeInformer(context.TODO(), mockNodeInterface)
+			n, err := newNodeInformer(context.TODO(), mockNode)
 			assert.NotNil(t, n)
 			assert.Nil(t, err)
 
 			// Test startNodeInformer & iterate through/apply a set of operations
 			// (podName, action) to the informer.
-			go n.startNodeInformer(mockNodeHandler)
+			go func() {
+				n.startNodeInformer(mockNodeHandler)
+				wg.Wait()
+				close(eventChan)
+				// Assert equality between expected vs actual status
+				// of the nodes.
+				equality := reflect.DeepEqual(currNodes, tt.output)
+				assert.Equal(t, tt.expected, equality)
+			}()
 			for _, n := range tt.operations {
 				node := &k8sV1.Node{
 					ObjectMeta: metaV1.ObjectMeta{
 						ResourceVersion: "1",
 						Name:            n.name,
-					}}
+					},
+				}
 				eventChan <- watch.Event{
 					Type:   n.action,
 					Object: node,
 				}
 			}
-			// Sleep to allow all node events to be handled.
-			time.Sleep(2 * time.Second)
-
-			// Assert equality between expected vs actual status
-			// of the pods.
-			equality := reflect.DeepEqual(currNodes, tt.output)
-			assert.Equal(t, tt.expected, equality)
-			wg.Wait()
 		})
 	}
+}
+
+// Methods for mockWatcher.
+func (m *mockWatcher) Stop() {
+	close(m.c)
+}
+
+func (m *mockWatcher) ResultChan() <-chan watch.Event {
+	return m.c
+}
+
+func initializeMockOpts() (metaV1.ListOptions, metaV1.ListOptions) {
+	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
+	mockOptsWatch := metaV1.ListOptions{
+		LabelSelector:       determinedLabel,
+		ResourceVersion:     "1",
+		AllowWatchBookmarks: true,
+	}
+	return mockOptsList, mockOptsWatch
 }

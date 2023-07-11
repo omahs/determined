@@ -211,9 +211,7 @@ func TestNodeInformer(t *testing.T) {
 
 			// Test startNodeInformer & iterate through/apply a set of operations
 			// (podName, action) to the informer.
-			go func() {
-				n.startNodeInformer()
-			}()
+			go n.startNodeInformer()
 			for _, n := range tt.operations {
 				node := &k8sV1.Node{
 					ObjectMeta: metaV1.ObjectMeta{

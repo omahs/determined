@@ -205,14 +205,14 @@ func TestNodeInformer(t *testing.T) {
 			}
 
 			// Test newNodeInformer is created.
-			n, err := newNodeInformer(context.TODO(), mockNode)
+			n, err := newNodeInformer(context.TODO(), mockNode, mockNodeHandler)
 			assert.NotNil(t, n)
 			assert.Nil(t, err)
 
 			// Test startNodeInformer & iterate through/apply a set of operations
 			// (podName, action) to the informer.
 			go func() {
-				n.startNodeInformer(mockNodeHandler)
+				n.startNodeInformer()
 				wg.Wait()
 				close(eventChan)
 				// Assert equality between expected vs actual status

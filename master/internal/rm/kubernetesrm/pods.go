@@ -705,14 +705,14 @@ func (p *pods) startPodInformer(ctx *actor.Context) error {
 
 func (p *pods) startNodeInformer(ctx *actor.Context) error {
 	i, err := newNodeInformer(context.TODO(),
-		p.clientSet.CoreV1().Nodes())
-	if err != nil {
-		return errors.Errorf("failed to create a new node informer")
-	}
-	go i.startNodeInformer(
+		p.clientSet.CoreV1().Nodes(),
 		func(node *k8sV1.Node, e watch.EventType) {
 			p.receiveNodeStatusUpdate(ctx, node, e)
 		})
+	if err != nil {
+		return errors.Errorf("failed to create a new node informer")
+	}
+	go i.startNodeInformer()
 	return nil
 }
 
@@ -821,13 +821,13 @@ func (p *pods) receiveNodeStatusUpdate(
 	if node != nil {
 		switch action {
 		case watch.Added:
-			ctx.Log().Debugf("node added: ", node.Name)
+			ctx.Log().Debugf("node added: %s", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Modified:
-			ctx.Log().Debugf("node updated: ", node.Name)
+			ctx.Log().Debugf("node updated: %s", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Deleted:
-			ctx.Log().Debugf("node deleted: ", node.Name)
+			ctx.Log().Debugf("node deleted: %s", node.Name)
 			delete(p.currentNodes, node.Name)
 		default:
 		}

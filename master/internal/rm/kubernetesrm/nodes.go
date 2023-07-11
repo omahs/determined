@@ -15,6 +15,7 @@ import (
 type nodeCallbackFunc func(*k8sV1.Node, watch.EventType)
 
 type nodeInformer struct {
+	cb            nodeCallbackFunc
 	nodeInterface typedV1.NodeInterface
 	syslog        *logrus.Entry
 	resultChan    <-chan watch.Event
@@ -23,22 +24,24 @@ type nodeInformer struct {
 func newNodeInformer(
 	ctx context.Context,
 	nodeInterface typedV1.NodeInterface,
+	cb nodeCallbackFunc,
 ) (*nodeInformer, error) {
-	nodes, err := nodeInterface.List(ctx, metaV1.ListOptions{LabelSelector: determinedLabel})
+	nodes, err := nodeInterface.List(ctx, metaV1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	rw, err := watchtools.NewRetryWatcher(nodes.ResourceVersion, &cache.ListWatch{
 		WatchFunc: func(options metaV1.ListOptions) (watch.Interface, error) {
-			options.LabelSelector = determinedLabel
 			return nodeInterface.Watch(ctx, options)
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-
+	for _, node := range nodes.Items {
+		cb(&node, watch.Added)
+	}
 	return &nodeInformer{
 		nodeInterface: nodeInterface,
 		syslog:        logrus.WithField("component", "nodeInformer"),
@@ -46,7 +49,7 @@ func newNodeInformer(
 	}, nil
 }
 
-func (n *nodeInformer) startNodeInformer(cb nodeCallbackFunc) {
+func (n *nodeInformer) startNodeInformer() {
 	n.syslog.Info("node informer is starting")
 	for event := range n.resultChan {
 		if event.Type == watch.Error {
@@ -61,7 +64,7 @@ func (n *nodeInformer) startNodeInformer(cb nodeCallbackFunc) {
 		}
 
 		n.syslog.Debugf("informer got new node event(%s) for node: %s %s", event.Type, node.Name, node.Status.Phase)
-		cb(node, event.Type)
+		n.cb(node, event.Type)
 	}
 	n.syslog.Warn("node informer stopped unexpectedly")
 }

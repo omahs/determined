@@ -2,6 +2,7 @@ package kubernetesrm
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ type operations struct {
 	action watch.EventType
 }
 
-func TestStartInformer(t *testing.T) {
+func TestPodInformer(t *testing.T) {
 	cases := []struct {
 		name            string
 		testNamespace   string
@@ -74,7 +75,7 @@ func TestStartInformer(t *testing.T) {
 			eventChan := make(chan watch.Event)
 			ordering := make([]string, 0)
 
-			mockOptsList, mockOptsWatch := initializeMockOpts()
+			mockOptsList, mockOptsWatch := initializeMockOptsPod()
 			mockPod := &mocks.PodInterface{}
 			mockPod.On("List", ctx, mockOptsList).Return(
 				&k8sV1.PodList{
@@ -177,7 +178,7 @@ func TestNodeInformer(t *testing.T) {
 			eventChan := make(chan watch.Event)
 			currNodes := make(map[string]bool, 0)
 
-			mockOptsList, mockOptsWatch := initializeMockOpts()
+			mockOptsList, mockOptsWatch := initializeMockOptsNode()
 			mockNode := &mocks.NodeInterface{}
 			mockNode.On("List", ctx, mockOptsList).Return(
 				&k8sV1.NodeList{
@@ -192,10 +193,13 @@ func TestNodeInformer(t *testing.T) {
 					t.Logf("received %v", node.Name)
 					switch action {
 					case watch.Added:
+						t.Logf("added %v", node.Name)
 						currNodes[node.Name] = true
 					case watch.Modified:
+						t.Logf("modified %v", node.Name)
 						currNodes[node.Name] = true
 					case watch.Deleted:
+						t.Logf("deleted %v", node.Name)
 						delete(currNodes, node.Name)
 					default:
 						t.Logf("Node did not expect watch.EventType %v", action)
@@ -217,6 +221,7 @@ func TestNodeInformer(t *testing.T) {
 				close(eventChan)
 				// Assert equality between expected vs actual status
 				// of the nodes.
+				fmt.Println("OUTPUT", currNodes, tt.output)
 				equality := reflect.DeepEqual(currNodes, tt.output)
 				assert.Equal(t, tt.expected, equality)
 			}()
@@ -231,6 +236,7 @@ func TestNodeInformer(t *testing.T) {
 					Type:   n.action,
 					Object: node,
 				}
+				fmt.Println("OUTPUT", currNodes, tt.output)
 			}
 		})
 	}
@@ -245,10 +251,19 @@ func (m *mockWatcher) ResultChan() <-chan watch.Event {
 	return m.c
 }
 
-func initializeMockOpts() (metaV1.ListOptions, metaV1.ListOptions) {
+func initializeMockOptsPod() (metaV1.ListOptions, metaV1.ListOptions) {
 	mockOptsList := metaV1.ListOptions{LabelSelector: determinedLabel}
 	mockOptsWatch := metaV1.ListOptions{
 		LabelSelector:       determinedLabel,
+		ResourceVersion:     "1",
+		AllowWatchBookmarks: true,
+	}
+	return mockOptsList, mockOptsWatch
+}
+
+func initializeMockOptsNode() (metaV1.ListOptions, metaV1.ListOptions) {
+	mockOptsList := metaV1.ListOptions{}
+	mockOptsWatch := metaV1.ListOptions{
 		ResourceVersion:     "1",
 		AllowWatchBookmarks: true,
 	}

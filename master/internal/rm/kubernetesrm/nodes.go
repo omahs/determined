@@ -43,6 +43,7 @@ func newNodeInformer(
 		cb(&node, watch.Added)
 	}
 	return &nodeInformer{
+		cb:            cb,
 		nodeInterface: nodeInterface,
 		syslog:        logrus.WithField("component", "nodeInformer"),
 		resultChan:    rw.ResultChan(),

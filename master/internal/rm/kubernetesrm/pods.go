@@ -139,6 +139,11 @@ type podStatusUpdate struct {
 	updatedPod *k8sV1.Pod
 }
 
+type nodeStatusUpdate struct {
+	node  *k8sV1.Node
+	event watch.EventType
+}
+
 // Initialize creates a new global pods actor.
 func Initialize(
 	s *actor.System,
@@ -250,6 +255,9 @@ func (p *pods) Receive(ctx *actor.Context) error {
 
 	case podEventUpdate:
 		p.receivePodEventUpdate(ctx, msg)
+
+	case nodeStatusUpdate:
+		p.receiveNodeStatusUpdate(ctx, msg.node, msg.event)
 
 	case PreemptTaskPod:
 		p.receivePodPreemption(ctx, msg)
@@ -813,13 +821,13 @@ func (p *pods) receiveNodeStatusUpdate(
 	if node != nil {
 		switch action {
 		case watch.Added:
-			ctx.Log().WithField("node added: ", node.Name)
+			ctx.Log().Debugf("node added: ", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Modified:
-			ctx.Log().WithField("node updated: ", node.Name)
+			ctx.Log().Debugf("node updated: ", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Deleted:
-			ctx.Log().WithField("node deleted: ", node.Name)
+			ctx.Log().Debugf("node deleted: ", node.Name)
 			delete(p.currentNodes, node.Name)
 		default:
 		}

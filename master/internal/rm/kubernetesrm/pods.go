@@ -515,6 +515,9 @@ func (p *pods) reattachPod(
 	slots int,
 	logContext logger.Context,
 ) (reattachPodResponse, error) {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
+
 	startMsg := StartTaskPod{
 		TaskActor: taskActor,
 		Spec: tasks.TaskSpec{
@@ -737,6 +740,9 @@ func (p *pods) startResourceRequestQueue(ctx *actor.Context) {
 }
 
 func (p *pods) receiveStartTaskPod(ctx *actor.Context, msg StartTaskPod) error {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
+
 	newPodHandler := newPod(
 		msg,
 		msg.Spec.ClusterID,
@@ -785,6 +791,7 @@ func (p *pods) receiveStartTaskPod(ctx *actor.Context, msg StartTaskPod) error {
 func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
 	p.summarizePodsLock.Lock()
 	defer p.summarizePodsLock.Unlock()
+
 	ref, ok := p.podNameToPodHandler[pod.Name]
 	if !ok {
 		ctx.Log().WithField("pod-name", pod.Name).Warn(
@@ -793,7 +800,6 @@ func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
 	}
 
 	ctx.Tell(ref, podStatusUpdate{pod})
-
 	if containerID, ok := p.podNameToContainerID[pod.Name]; ok {
 		if state, ok := p.containerIDToSchedulingState[containerID]; ok {
 			currState := sproto.SchedulingStateQueued
@@ -818,6 +824,7 @@ func (p *pods) receiveNodeStatusUpdate(
 ) {
 	p.summarizeNodesLock.Lock()
 	defer p.summarizeNodesLock.Unlock()
+
 	if node != nil {
 		switch action {
 		case watch.Added:
@@ -835,6 +842,8 @@ func (p *pods) receiveNodeStatusUpdate(
 }
 
 func (p *pods) receivePodEventUpdate(ctx *actor.Context, msg podEventUpdate) {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
 	ref, ok := p.podNameToPodHandler[msg.event.InvolvedObject.Name]
 	if !ok {
 		// We log at the debug level because we are unable to filter
@@ -866,6 +875,9 @@ func (p *pods) receiveResourceSummarize(ctx *actor.Context, msg SummarizeResourc
 }
 
 func (p *pods) receivePodPreemption(ctx *actor.Context, msg PreemptTaskPod) {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
+
 	ref, ok := p.podNameToPodHandler[msg.PodName]
 	if !ok {
 		ctx.Log().WithField("pod-name", msg.PodName).Debug(
@@ -907,6 +919,9 @@ func (p *pods) receivePositionChange(ctx *actor.Context, msg ChangePosition) {
 }
 
 func (p *pods) receiveKillPod(ctx *actor.Context, msg KillTaskPod) {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
+
 	name, ok := p.containerIDToPodName[string(msg.PodID)]
 	if !ok {
 		// For multi-pod tasks, when the chief pod exits, the scheduler
@@ -928,6 +943,9 @@ func (p *pods) receiveKillPod(ctx *actor.Context, msg KillTaskPod) {
 }
 
 func (p *pods) cleanUpPodHandler(ctx *actor.Context, podHandler *actor.Ref) error {
+	p.summarizePodsLock.Lock()
+	defer p.summarizePodsLock.Unlock()
+
 	podInfo, ok := p.podHandlerToMetadata[podHandler]
 	if !ok {
 		return errors.Errorf("unknown pod handler being deleted %s", podHandler.Address())
@@ -1007,6 +1025,8 @@ func (p *pods) summarize(ctx *actor.Context) (map[string]model.AgentSummary, err
 func (p *pods) getNodeResourcePoolMapping(nodeSummaries map[string]model.AgentSummary) (
 	map[string][]*k8sV1.Node, map[string][]string,
 ) {
+	p.summarizeNodesLock.Lock()
+	defer p.summarizeNodesLock.Unlock()
 	poolTaskContainerDefaults := extractTCDs(p.resourcePoolConfigs)
 
 	// Nvidia automatically taints nodes, so we should tolerate that when users don't customize
@@ -1112,6 +1132,9 @@ func (p *pods) computeSummary(ctx *actor.Context) (map[string]model.AgentSummary
 }
 
 func (p *pods) summarizeClusterByNodes(ctx *actor.Context) map[string]model.AgentSummary {
+	p.summarizeNodesLock.Lock()
+	defer p.summarizeNodesLock.Unlock()
+
 	podHandlers := make([]*actor.Ref, 0, len(p.podNameToPodHandler))
 	for _, podHandler := range p.podNameToPodHandler {
 		podHandlers = append(podHandlers, podHandler)
@@ -1239,6 +1262,9 @@ func (p *pods) getNonDetPods() []k8sV1.Pod {
 }
 
 func (p *pods) getNonDetSlots(deviceType device.Type) (map[string][]string, map[string]int64) {
+	p.summarizeNodesLock.Lock()
+	defer p.summarizeNodesLock.Unlock()
+
 	nodeToTasks := make(map[string][]string, len(p.currentNodes))
 	taskSlots := make(map[string]int64)
 

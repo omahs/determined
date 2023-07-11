@@ -46,7 +46,7 @@ func newInformer(
 	}
 
 	return &informer{
-		syslog:       logrus.WithField("Informer", namespace),
+		syslog:       logrus.WithField("PodInformer", namespace),
 		podInterface: podInterface,
 		resultChan:   rw.ResultChan(),
 	}, nil

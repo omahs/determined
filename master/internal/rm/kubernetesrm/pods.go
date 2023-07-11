@@ -230,7 +230,7 @@ func (p *pods) Receive(ctx *actor.Context) error {
 			return err
 		}
 
-		err = p.startNodeInformer()
+		err = p.startNodeInformer(ctx)
 		if err != nil {
 			return err
 		}
@@ -695,13 +695,16 @@ func (p *pods) startPodInformer(ctx *actor.Context) error {
 	return nil
 }
 
-func (p *pods) startNodeInformer() error {
+func (p *pods) startNodeInformer(ctx *actor.Context) error {
 	i, err := newNodeInformer(context.TODO(),
 		p.clientSet.CoreV1().Nodes())
 	if err != nil {
 		return errors.Errorf("failed to create a new node informer")
 	}
-	go i.startNodeInformer(p.receiveNodeStatusUpdate)
+	go i.startNodeInformer(
+		func(node *k8sV1.Node, e watch.EventType) {
+			p.receiveNodeStatusUpdate(ctx, node, e)
+		})
 	return nil
 }
 
@@ -800,16 +803,23 @@ func (p *pods) receivePodStatusUpdate(ctx *actor.Context, pod *k8sV1.Pod) {
 	}
 }
 
-func (p *pods) receiveNodeStatusUpdate(node *k8sV1.Node, action watch.EventType) {
+func (p *pods) receiveNodeStatusUpdate(
+	ctx *actor.Context,
+	node *k8sV1.Node,
+	action watch.EventType,
+) {
 	p.summarizeNodesLock.Lock()
 	defer p.summarizeNodesLock.Unlock()
 	if node != nil {
 		switch action {
 		case watch.Added:
+			ctx.Log().WithField("node added: ", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Modified:
+			ctx.Log().WithField("node updated: ", node.Name)
 			p.currentNodes[node.Name] = node
 		case watch.Deleted:
+			ctx.Log().WithField("node deleted: ", node.Name)
 			delete(p.currentNodes, node.Name)
 		default:
 		}

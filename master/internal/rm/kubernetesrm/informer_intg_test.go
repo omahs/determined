@@ -2,7 +2,6 @@ package kubernetesrm
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"testing"
@@ -172,7 +171,7 @@ func TestNodeInformer(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
-			wg.Add(1 + len(tt.operations))
+			wg.Add(len(tt.operations))
 
 			ctx := context.TODO()
 			eventChan := make(chan watch.Event)
@@ -193,13 +192,10 @@ func TestNodeInformer(t *testing.T) {
 					t.Logf("received %v", node.Name)
 					switch action {
 					case watch.Added:
-						t.Logf("added %v", node.Name)
 						currNodes[node.Name] = true
 					case watch.Modified:
-						t.Logf("modified %v", node.Name)
 						currNodes[node.Name] = true
 					case watch.Deleted:
-						t.Logf("deleted %v", node.Name)
 						delete(currNodes, node.Name)
 					default:
 						t.Logf("Node did not expect watch.EventType %v", action)
@@ -217,13 +213,6 @@ func TestNodeInformer(t *testing.T) {
 			// (podName, action) to the informer.
 			go func() {
 				n.startNodeInformer()
-				wg.Wait()
-				close(eventChan)
-				// Assert equality between expected vs actual status
-				// of the nodes.
-				fmt.Println("OUTPUT", currNodes, tt.output)
-				equality := reflect.DeepEqual(currNodes, tt.output)
-				assert.Equal(t, tt.expected, equality)
 			}()
 			for _, n := range tt.operations {
 				node := &k8sV1.Node{
@@ -236,8 +225,13 @@ func TestNodeInformer(t *testing.T) {
 					Type:   n.action,
 					Object: node,
 				}
-				fmt.Println("OUTPUT", currNodes, tt.output)
 			}
+			wg.Wait()
+
+			// Assert equality between expected vs actual status
+			// of the nodes.
+			equality := reflect.DeepEqual(currNodes, tt.output)
+			assert.Equal(t, tt.expected, equality)
 		})
 	}
 }

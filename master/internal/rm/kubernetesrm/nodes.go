@@ -60,7 +60,7 @@ func (n *nodeInformer) startNodeInformer(cb nodeCallbackFunc) {
 			continue
 		}
 
-		n.syslog.Debugf("informer got new node event for node: %s %s", node.Name, node.Status.Phase)
+		n.syslog.Debugf("informer got new node event(%s) for node: %s %s", event.Type, node.Name, node.Status.Phase)
 		cb(node, event.Type)
 	}
 	n.syslog.Warn("node informer stopped unexpectedly")

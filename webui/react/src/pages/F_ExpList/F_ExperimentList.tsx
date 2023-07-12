@@ -1,11 +1,12 @@
 import { Rectangle } from '@glideapps/glide-data-grid';
 import { Space } from 'antd';
 import { isLeft } from 'fp-ts/lib/Either';
+import * as t from 'io-ts';
 import { observable, useObservable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { FilterFormStore } from 'components/FilterForm/components/FilterFormStore';
+import { FilterFormStore, INIT_FORMSET } from 'components/FilterForm/components/FilterFormStore';
 import {
   FilterFormSet,
   FormField,
@@ -18,9 +19,10 @@ import Pagination from 'components/kit/Pagination';
 import usePolling from 'hooks/usePolling';
 import useResize from 'hooks/useResize';
 import useScrollbarWidth from 'hooks/useScrollbarWidth';
-import { useSettings } from 'hooks/useSettings';
+import { valueof } from 'ioTypes';
 import { getProjectColumns, searchExperiments } from 'services/api';
 import { V1BulkExperimentFilters, V1LocationType } from 'services/api-ts-sdk';
+import userSettings from 'stores/userSettings';
 import {
   ExperimentAction,
   ExperimentItem,
@@ -36,14 +38,8 @@ import { getCssVar } from 'utils/themes';
 import ComparisonView from './ComparisonView';
 import css from './F_ExperimentList.module.scss';
 import {
-  ExpListView,
-  F_ExperimentListGlobalSettings,
-  F_ExperimentListSettings,
-  RowHeight,
-  settingsConfigForProject,
-  settingsConfigGlobal,
-} from './F_ExperimentList.settings';
-import {
+  defaultColumnWidths,
+  defaultExperimentColumns,
   ExperimentColumn,
   experimentColumns,
   MIN_COLUMN_WIDTH,
@@ -58,6 +54,47 @@ import { useGlasbey } from './useGlasbey';
 interface Props {
   project: Project;
 }
+
+type Total<T> = {
+  [P in keyof T]-?: T[P];
+};
+
+export type ExpListView = 'scroll' | 'paged';
+export const RowHeights = {
+  EXTRA_TALL: 'EXTRA_TALL',
+  MEDIUM: 'MEDIUM',
+  SHORT: 'SHORT',
+  TALL: 'TALL',
+} as const;
+const RowHeight = valueof(RowHeights);
+type RowHeight = t.TypeOf<typeof RowHeight>;
+
+const Config = t.partial({
+  columns: t.array(t.string),
+  columnWidths: t.record(t.string, t.number),
+  compare: t.boolean,
+  filterset: t.string,
+  pageLimit: t.number,
+  pinnedColumnsCount: t.number,
+  rowHeight: RowHeight,
+  sortString: t.string,
+});
+type Config = t.TypeOf<typeof Config>;
+
+const defaultConfig: Total<Config> = {
+  columns: defaultExperimentColumns,
+  columnWidths: defaultColumnWidths,
+  compare: false,
+  filterset: JSON.stringify(INIT_FORMSET),
+  pageLimit: 20,
+  pinnedColumnsCount: 0,
+  rowHeight: RowHeights.MEDIUM,
+  sortString: '',
+};
+
+const PageType = t.union([t.literal('scroll'), t.literal('paged')]);
+type PageType = t.TypeOf<typeof PageType>;
+const pageTypeKey = 'f_project-details-global';
 
 const makeSortString = (sorts: ValidSort[]): string =>
   sorts.map((s) => `${s.column}=${s.direction}`).join(',');
@@ -86,16 +123,19 @@ const STATIC_COLUMNS = [MULTISELECT, 'name'];
 const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const settingsConfig = useMemo(() => settingsConfigForProject(project.id), [project.id]);
 
-  const {
-    isLoading: isLoadingSettings,
-    settings,
-    updateSettings,
-  } = useSettings<F_ExperimentListSettings>(settingsConfig);
-  const { settings: globalSettings, updateSettings: updateGlobalSettings } =
-    useSettings<F_ExperimentListGlobalSettings>(settingsConfigGlobal);
-  const isPagedView = globalSettings.expListView === 'paged';
+  const configKey = useMemo(() => `f_project-details-${project.id}`, [project.id]);
+  const loadedSettings = useObservable(userSettings.get(Config, configKey));
+  const expListView =
+    Loadable.getOrElse('scroll', useObservable(userSettings.get(PageType, pageTypeKey))) ??
+    'scroll';
+  const isLoadingSettings = Loadable.isLoading(loadedSettings);
+  // Replicate behavior of useSettings
+  const settings = Loadable.getOrElse(
+    defaultConfig,
+    Loadable.map(loadedSettings, (s) => ({ ...defaultConfig, ...s })),
+  );
+  const isPagedView = expListView === 'paged';
   const [page, setPage] = useState(() =>
     isFinite(Number(searchParams.get('page'))) ? Math.max(Number(searchParams.get('page')), 0) : 0,
   );
@@ -121,9 +161,9 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
 
   const setPinnedColumnsCount = useCallback(
     (newCount: number) => {
-      updateSettings({ pinnedColumnsCount: newCount });
+      userSettings.set(Config, configKey, { pinnedColumnsCount: newCount });
     },
-    [updateSettings],
+    [configKey],
   );
   const onIsOpenFilterChange = useCallback((newOpen: boolean) => {
     setIsOpenFilter(newOpen);
@@ -211,11 +251,11 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
       if (newSortString !== sortString) {
         resetPagination();
       }
-      updateSettings({
+      userSettings.set(Config, configKey, {
         sortString: newSortString,
       });
     },
-    [resetPagination, sortString, updateSettings],
+    [resetPagination, sortString, configKey],
   );
 
   useEffect(() => {
@@ -324,10 +364,10 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
       resetPagination();
       const loadableFormset = formStore.formset.get();
       Loadable.forEach(loadableFormset, (formSet) =>
-        updateSettings({ filterset: JSON.stringify(formSet) }),
+        userSettings.set(Config, configKey, { filterset: JSON.stringify(formSet) }),
       );
     });
-  }, [resetPagination, updateSettings]);
+  }, [resetPagination, configKey]);
 
   const handleOnAction = useCallback(async () => {
     /*
@@ -394,16 +434,16 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
 
   const setVisibleColumns = useCallback(
     (newColumns: string[]) => {
-      updateSettings({ columns: newColumns });
+      userSettings.set(Config, configKey, { columns: newColumns });
     },
-    [updateSettings],
+    [configKey],
   );
 
   const onRowHeightChange = useCallback(
     (newRowHeight: RowHeight) => {
-      updateSettings({ rowHeight: newRowHeight });
+      userSettings.set(Config, configKey, { rowHeight: newRowHeight });
     },
-    [updateSettings],
+    [configKey],
   );
 
   useEffect(() => {
@@ -424,23 +464,23 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     (view: ExpListView) => {
       // Reset page index when table view mode changes.
       resetPagination();
-      updateGlobalSettings({ expListView: view });
+      userSettings.set(PageType, pageTypeKey, view);
     },
-    [resetPagination, updateGlobalSettings],
+    [resetPagination],
   );
 
   const onPageChange = useCallback(
     (cPage: number, cPageSize: number) => {
-      updateSettings({ pageLimit: cPageSize });
+      userSettings.set(Config, configKey, { pageLimit: cPageSize });
       // Pagination component is assuming starting index of 1.
       setPage(cPage - 1);
     },
-    [updateSettings],
+    [configKey],
   );
 
   const handleToggleComparisonView = useCallback(() => {
-    updateSettings({ compare: !settings.compare });
-  }, [settings.compare, updateSettings]);
+    userSettings.set(Config, configKey, { compare: !settings.compare });
+  }, [settings.compare, configKey]);
 
   const pinnedColumns = useMemo(() => {
     return [...STATIC_COLUMNS, ...settings.columns.slice(0, settings.pinnedColumnsCount)];
@@ -476,18 +516,18 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
             newColumnWidths[col] + widthDifference / arr.length,
           );
         });
-      updateSettings({
+      userSettings.set(Config, configKey, {
         columnWidths: newColumnWidths,
       });
     },
-    [updateSettings, settings.columnWidths, pinnedColumns, comparisonViewTableWidth],
+    [configKey, settings.columnWidths, pinnedColumns, comparisonViewTableWidth],
   );
 
   const handleColumnWidthChange = useCallback(
     (newWidths: Record<string, number>) => {
-      updateSettings({ columnWidths: newWidths });
+      userSettings.set(Config, configKey, { columnWidths: newWidths });
     },
-    [updateSettings],
+    [configKey],
   );
 
   const selectedExperiments: ExperimentWithTrial[] = useMemo(() => {
@@ -513,7 +553,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
       <TableActionBar
         excludedExperimentIds={excludedExperimentIds}
         experiments={experiments}
-        expListView={globalSettings.expListView}
+        expListView={expListView}
         filters={experimentFilters}
         formStore={formStore}
         handleUpdateExperimentList={handleUpdateExperimentList}

@@ -173,7 +173,7 @@ func TestNodeInformer(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(len(tt.operations))
 
-			ctx := context.TODO()
+			ctx, cancel := context.WithCancel(context.TODO())
 			eventChan := make(chan watch.Event)
 			currNodes := make(map[string]bool, 0)
 
@@ -205,13 +205,19 @@ func TestNodeInformer(t *testing.T) {
 			}
 
 			// Test newNodeInformer is created.
-			n, err := newNodeInformer(context.TODO(), mockNode, mockNodeHandler)
+			n, err := newNodeInformer(ctx, mockNode, mockNodeHandler)
 			assert.NotNil(t, n)
 			assert.Nil(t, err)
 
+			informerWg := sync.WaitGroup{}
+			informerWg.Add(1)
 			// Test startNodeInformer & iterate through/apply a set of operations
 			// (podName, action) to the informer.
-			go n.startNodeInformer()
+			go func() {
+				defer informerWg.Done()
+				n.startNodeInformer()
+			}()
+
 			for _, n := range tt.operations {
 				node := &k8sV1.Node{
 					ObjectMeta: metaV1.ObjectMeta{
@@ -225,6 +231,9 @@ func TestNodeInformer(t *testing.T) {
 				}
 			}
 			wg.Wait()
+
+			cancel()
+			informerWg.Wait()
 
 			// Assert equality between expected vs actual status
 			// of the nodes.

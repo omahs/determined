@@ -19,6 +19,7 @@ type nodeInformer struct {
 	nodeInterface typedV1.NodeInterface
 	syslog        *logrus.Entry
 	resultChan    <-chan watch.Event
+	doneChan      <-chan struct{}
 }
 
 func newNodeInformer(
@@ -47,25 +48,32 @@ func newNodeInformer(
 		nodeInterface: nodeInterface,
 		syslog:        logrus.WithField("component", "nodeInformer"),
 		resultChan:    rw.ResultChan(),
+		doneChan:      ctx.Done(),
 	}, nil
 }
 
 func (n *nodeInformer) startNodeInformer() {
 	n.syslog.Info("node informer is starting")
-	for event := range n.resultChan {
-		if event.Type == watch.Error {
-			n.syslog.Warnf("node informer emitted error %+v", event)
-			continue
-		}
+	defer n.syslog.Warn("node informer stopped unexpectedly")
 
-		node, ok := event.Object.(*k8sV1.Node)
-		if !ok {
-			n.syslog.Warnf("error converting event of type %T to *k8sV1.Node: %+v", event, event)
-			continue
-		}
+	for {
+		select {
+		case <-n.doneChan:
+			return
+		case event := <-n.resultChan:
+			if event.Type == watch.Error {
+				n.syslog.Warnf("node informer emitted error %+v", event)
+				continue
+			}
 
-		n.syslog.Debugf("informer got new node event(%s) for node: %s %s", event.Type, node.Name, node.Status.Phase)
-		n.cb(node, event.Type)
+			node, ok := event.Object.(*k8sV1.Node)
+			if !ok {
+				n.syslog.Warnf("error converting event of type %T to *k8sV1.Node: %+v", event, event)
+				continue
+			}
+
+			n.syslog.Debugf("informer got new node event(%s) for node: %s %s", event.Type, node.Name, node.Status.Phase)
+			n.cb(node, event.Type)
+		}
 	}
-	n.syslog.Warn("node informer stopped unexpectedly")
 }

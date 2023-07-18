@@ -43,6 +43,17 @@ const useMetricNames = (
          * so we keep track of what we have seen on our end and
          * only add new metrics we have not seen to the list.
          */
+        let newMetrics2: Metric[] = [];
+        if (event.metricNames && event.metricNames.length > 0) {
+          newMetrics2 = event.metricNames.map((m) => {
+            const mType = MetricType.Training; // fixme
+            return {
+              group: m.group,
+              name: m.name,
+              type: mType,
+            };
+          });
+        }
         const trainingMetrics = (event.trainingMetrics ?? [])
           .filter((metric) => !xAxisMetrics.includes(metric))
           .reduce((acc, cur) => acc.add(cur), new Set<string>());
@@ -51,10 +62,11 @@ const useMetricNames = (
           .reduce((acc, cur) => acc.add(cur), new Set<string>());
         const newTrainingMetrics = [...trainingMetrics].sort(alphaNumericSorter);
         const newValidationMetrics = [...validationMetrics].sort(alphaNumericSorter);
-        const newMetrics = [
+        let newMetrics = [
           ...newValidationMetrics.map((name) => ({ name, type: MetricType.Validation })),
           ...newTrainingMetrics.map((name) => ({ name, type: MetricType.Training })),
         ];
+        newMetrics = newMetrics2;
         if (newMetrics.length > 0) {
           setMetrics((prevMetrics) => {
             /*

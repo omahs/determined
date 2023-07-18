@@ -216,7 +216,7 @@ const ExperimentVisualizationFilters: React.FC<Props> = ({
       {showMetrics && (
         <MetricSelect
           defaultMetrics={metrics}
-          label="Metric"
+          label="Metric hoa"
           metrics={metrics}
           multiple={false}
           value={filters.metric}

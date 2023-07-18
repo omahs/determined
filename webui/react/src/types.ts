@@ -475,6 +475,7 @@ export const metricTypeParamMap: Record<string, MetricTypeParam> = {
 export interface Metric {
   name: string;
   type: MetricType;
+  group?: string;
 }
 
 export interface BaseWorkload extends EndTimes {

@@ -140,6 +140,7 @@ const TrialChart: React.FC<Props> = ({
     <ResponsiveFilters>
       <MetricSelect
         defaultMetrics={defaultMetricNames}
+        label="hol"
         metrics={metricNames}
         multiple
         value={metrics}

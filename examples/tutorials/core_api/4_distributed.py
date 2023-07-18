@@ -36,7 +36,7 @@ def load_state(trial_id, checkpoint_directory):
         return x, 0
 
 
-def main(core_context, latest_checkpoint, trial_id, increment_by):
+def main(core_context: det.core.Context, latest_checkpoint, trial_id, increment_by):
     x = 0
 
     starting_batch = 0
@@ -64,6 +64,11 @@ def main(core_context, latest_checkpoint, trial_id, increment_by):
                 if core_context.distributed.rank == 0:
                     core_context.train.report_training_metrics(
                         steps_completed=steps_completed, metrics={"x": x}
+                    )
+                    core_context.train._report_trial_metrics(
+                        group="custom-inference",
+                        total_batches=steps_completed,
+                        metrics={"ci-x": x**1.1},
                     )
                     op.report_progress(steps_completed)
                     checkpoint_metadata = {"steps_completed": steps_completed}

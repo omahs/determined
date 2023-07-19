@@ -31,12 +31,12 @@ func TestExperimentCheckpointsToGCRaw(t *testing.T) {
 
 	user := RequireMockUser(t, db)
 	exp := RequireMockExperiment(t, db, user)
-	tr := RequireMockTrial(t, db, exp)
-	a := RequireMockAllocation(t, db, tr.TaskID)
+	_, task := RequireMockTrial(t, db, exp)
+	a := RequireMockAllocation(t, db, task.TaskID)
 	var expectedCheckpoints []uuid.UUID
 	for i := 1; i <= 3; i++ {
 		ckptUUID := uuid.New()
-		ckpt := MockModelCheckpoint(ckptUUID, tr, a)
+		ckpt := MockModelCheckpoint(ckptUUID, a)
 		err := AddCheckpointMetadata(ctx, &ckpt)
 		require.NoError(t, err)
 		if i == 2 { // add this checkpoint to the model registry
@@ -125,14 +125,14 @@ func TestCheckpointMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			user := RequireMockUser(t, db)
 			exp := RequireMockExperiment(t, db, user)
-			tr := RequireMockTrial(t, db, exp)
-			a := RequireMockAllocation(t, db, tr.TaskID)
+			tr, task := RequireMockTrial(t, db, exp)
+			a := RequireMockAllocation(t, db, task.TaskID)
 
 			ckptUUID := uuid.New()
 			stepsCompleted := int32(10)
 			ckpt := model.CheckpointV2{
 				UUID:         ckptUUID,
-				TaskID:       tr.TaskID,
+				TaskID:       task.TaskID,
 				AllocationID: &a.AllocationID,
 				ReportTime:   time.Now().UTC(),
 				State:        model.CompletedState,
@@ -234,9 +234,9 @@ func TestMetricNames(t *testing.T) {
 	user := RequireMockUser(t, db)
 
 	exp := RequireMockExperiment(t, db, user)
-	trial1 := RequireMockTrial(t, db, exp).ID
+	trial1 := RequireMockTrialID(t, db, exp)
 	addMetrics(ctx, t, db, trial1, `[{"a":1}, {"b":2}]`, `[{"b":2, "c":3}]`, false)
-	trial2 := RequireMockTrial(t, db, exp).ID
+	trial2 := RequireMockTrialID(t, db, exp)
 	addMetrics(ctx, t, db, trial2, `[{"b":1}, {"d":2}]`, `[{"f":"test"}]`, false)
 
 	actualNames, err = db.MetricNames(ctx, []int{exp.ID})
@@ -253,10 +253,10 @@ func TestMetricNames(t *testing.T) {
 	require.Equal(t, []string{"b", "c", "f", "val_loss"}, actualNames[model.ValidationMetricGroup])
 
 	exp = RequireMockExperiment(t, db, user)
-	trial1 = RequireMockTrial(t, db, exp).ID
+	trial1 = RequireMockTrialID(t, db, exp)
 	addTestTrialMetrics(ctx, t, db, trial1,
 		`{"inference": [{"a":1}, {"b":2}], "golabi": [{"b":2, "c":3}]}`)
-	trial2 = RequireMockTrial(t, db, exp).ID
+	trial2 = RequireMockTrialID(t, db, exp)
 	addTestTrialMetrics(ctx, t, db, trial2,
 		`{"inference": [{"b":1}, {"d":2}], "golabi": [{"f":"test"}]}`)
 
@@ -276,10 +276,10 @@ func TestMetricBatchesMilestones(t *testing.T) {
 
 	startTime := time.Time{}
 
-	trial1 := RequireMockTrial(t, db, exp).ID
+	trial1 := RequireMockTrialID(t, db, exp)
 	addTestTrialMetrics(ctx, t, db, trial1,
 		`{"inference": [{"a":1}, {"b":2}], "golabi": [{"b":2, "c":3}]}`)
-	trial2 := RequireMockTrial(t, db, exp).ID
+	trial2 := RequireMockTrialID(t, db, exp)
 	addTestTrialMetrics(ctx, t, db, trial2,
 		`{"inference": [{"b":1}, {"d":2}], "golabi": [{"f":"test"}]}`)
 
@@ -309,11 +309,11 @@ func TestTopTrialsByMetric(t *testing.T) {
 	require.Len(t, res, 0)
 
 	exp := RequireMockExperiment(t, db, user)
-	trial1 := RequireMockTrial(t, db, exp).ID
+	trial1 := RequireMockTrialID(t, db, exp)
 	addMetrics(ctx, t, db, trial1,
 		`[{"a":-10.0}]`, // Only care about validation.
 		`[{"a":1.5, "b":"NaN", "c":"-Infinity", "d":1.5}, {"d":"nonumeric", "e":1.0}]`, false)
-	trial2 := RequireMockTrial(t, db, exp).ID
+	trial2 := RequireMockTrialID(t, db, exp)
 	addMetrics(ctx, t, db, trial2,
 		`[{"a":10.5}]`,
 		`[{"a":-1.5, "b":1.0, "c":"Infinity"}]`, false)

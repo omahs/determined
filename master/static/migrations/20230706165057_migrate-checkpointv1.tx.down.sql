@@ -1,14 +1,7 @@
-ALTER TABLE public.experiments
-    ALTER COLUMN checkpoint_size DROP NOT NULL,
-    ALTER COLUMN checkpoint_size SET DEFAULT NULL,
-    ALTER COLUMN checkpoint_count DROP NOT NULL,
-    ALTER COLUMN checkpoint_count SET DEFAULT NULL;
-
-ALTER TABLE public.trials
-    ALTER COLUMN checkpoint_size DROP NOT NULL,
-    ALTER COLUMN checkpoint_size SET DEFAULT NULL,
-    ALTER COLUMN checkpoint_count DROP NOT NULL,
-    ALTER COLUMN checkpoint_count SET DEFAULT NULL;
+-- TODO backport to checkpoints PR
+DELETE FROM public.checkpoints_v2 WHERE uuid IN (
+    SELECT uuid FROM public.raw_checkpoints
+);
 
 DROP VIEW public.proto_checkpoints_view;
 DROP VIEW public.checkpoints_view;
@@ -16,13 +9,7 @@ DROP VIEW public.checkpoints_old_view;
 DROP VIEW public.checkpoints_new_view;
 DROP VIEW public.checkpoints;
 
-ALTER TABLE public.checkpoints_v2
-    DROP COLUMN size;
 
-ALTER TABLE public.raw_checkpoints
-    DROP COLUMN size;
-
--- Copied from /migrations/20220504154053_add-checkpoints-v2-steps-completed-index.tx.up.sql
 CREATE OR REPLACE VIEW public.checkpoints_old_view AS
     SELECT
         c.id AS id,
@@ -57,7 +44,8 @@ CREATE OR REPLACE VIEW public.checkpoints_old_view AS
         v.metrics->'validation_metrics' AS validation_metrics,
         (v.metrics->'validation_metrics'->>(e.config->'searcher'->>'metric'))::float8 AS searcher_metric,
         c.total_batches as steps_completed,
-        1 as checkpoint_version
+        1 as checkpoint_version,
+        c.size
     FROM raw_checkpoints AS c
     LEFT JOIN trials AS t on c.trial_id = t.id
     LEFT JOIN experiments AS e on t.experiment_id = e.id
@@ -77,7 +65,6 @@ CREATE OR REPLACE VIEW public.checkpoints_old_view AS
     WHERE s.archived IS NULL OR s.archived = false
       AND v.archived IS NULL OR v.archived = false;
 
--- Copied from /migrations/20220504154053_add-checkpoints-v2-steps-completed-index.tx.up.sql
 CREATE OR REPLACE VIEW public.checkpoints_new_view AS
     SELECT
         c.id AS id,
@@ -96,7 +83,8 @@ CREATE OR REPLACE VIEW public.checkpoints_new_view AS
         v.metrics->'validation_metrics' AS validation_metrics,
         (v.metrics->'validation_metrics'->>(e.config->'searcher'->>'metric'))::float8 AS searcher_metric,
         CAST(c.metadata->>'steps_completed' AS int) as steps_completed,
-        2 AS checkpoint_version
+        2 AS checkpoint_version,
+        c.size
     FROM checkpoints_v2 AS c
     LEFT JOIN trials AS t on c.task_id = t.task_id
     LEFT JOIN experiments AS e on t.experiment_id = e.id
@@ -106,13 +94,14 @@ CREATE OR REPLACE VIEW public.checkpoints_new_view AS
     WHERE s.archived IS NULL OR s.archived = false
       AND v.archived IS NULL OR v.archived = false;
 
--- Copied from /migrations/20220504154053_add-checkpoints-v2-steps-completed-index.tx.up.sql
 CREATE OR REPLACE VIEW public.checkpoints_view AS
     SELECT * FROM checkpoints_new_view
     UNION ALL
     SELECT * FROM checkpoints_old_view;
 
--- Copied from /migrations/20220502180510_generic-checkpoints.tx.up.sql
+CREATE OR REPLACE VIEW checkpoints AS
+    SELECT * FROM raw_checkpoints WHERE NOT archived;
+
 CREATE OR REPLACE VIEW public.proto_checkpoints_view AS
     SELECT
         c.uuid::text AS uuid,
@@ -138,6 +127,3 @@ CREATE OR REPLACE VIEW public.proto_checkpoints_view AS
             'searcher_metric', c.searcher_metric
         ) AS training
     FROM checkpoints_view AS c;
-
-CREATE OR REPLACE VIEW checkpoints AS
-    SELECT * FROM raw_checkpoints WHERE NOT archived;

@@ -448,27 +448,40 @@ func (e *Experiment) Transition(state State) (bool, error) {
 
 // Trial represents a row from the `trials` table.
 type Trial struct {
-	ID int `db:"id"`
+	bun.BaseModel `bun:"table:trials"`
+
+	ID int `db:"id" bun:",pk,autoincrement"`
 	// Uniquely identifies the trial task among all tasks. Likely,
 	// to be replaced in the near future by some smarter combination
 	// of ID, RequestID and TaskID.. we don't need them all.
-	TaskID                TaskID     `db:"task_id"`
-	RequestID             *RequestID `db:"request_id"`
-	ExperimentID          int        `db:"experiment_id"`
-	State                 State      `db:"state"`
-	StartTime             time.Time  `db:"start_time"`
-	EndTime               *time.Time `db:"end_time"`
-	HParams               JSONObj    `db:"hparams"`
-	WarmStartCheckpointID *int       `db:"warm_start_checkpoint_id"`
-	Seed                  int64      `db:"seed"`
-	TotalBatches          int        `db:"total_batches"`
+	TaskID                TaskID         `db:"task_id"`
+	RequestID             *RequestID     `db:"request_id"`
+	ExperimentID          int            `db:"experiment_id"`
+	State                 State          `db:"state"`
+	StartTime             time.Time      `db:"start_time"`
+	EndTime               *time.Time     `db:"end_time"`
+	HParams               map[string]any `db:"hparams"`
+	WarmStartCheckpointID *int           `db:"warm_start_checkpoint_id"`
+	Seed                  int64          `db:"seed"`
+	TotalBatches          int            `db:"total_batches"`
+
+	JobID JobID `bun:"-"`
+}
+
+// TrialTaskID represents a row from the `trial_id_task_id` table.
+type TrialTaskID struct {
+	bun.BaseModel `bun:"table:trial_id_task_id"`
+
+	TrialID   int
+	TaskID    TaskID
+	TaskRunID int
 }
 
 // NewTrial creates a new trial in the specified state.  Note that the trial ID
 // will not be set.
 func NewTrial(
 	state State,
-	taskID TaskID,
+	jobID JobID,
 	requestID RequestID,
 	experimentID int,
 	hparams JSONObj,
@@ -480,7 +493,6 @@ func NewTrial(
 		warmStartCheckpointID = &warmStartCheckpoint.ID
 	}
 	return &Trial{
-		TaskID:                taskID,
 		RequestID:             &requestID,
 		ExperimentID:          experimentID,
 		State:                 state,

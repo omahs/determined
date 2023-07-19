@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
+	"golang.org/x/exp/maps"
 
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/protoutils"
@@ -919,10 +920,9 @@ func (db *PgDB) DeleteExperiments(ctx context.Context, ids []int) error {
 
 	if _, err = tx.NewDelete().Model(&delIDs).Table("checkpoints_v2").
 		Where(`task_id IN (
-	SELECT tk.task_id
-	FROM tasks tk
-	JOIN trials t ON t.task_id = tk.task_id
-	JOIN experiments e ON t.experiment_id = e.id
+	SELECT trial_id_task_id.task_id
+	FROM trial_id_task_id
+	JOIN trials t ON t.id = trial_id_task_id.trial_id
 	WHERE experiment_id IN (?)
 )`, bun.In(ids)).
 		Returning("id").
@@ -1006,8 +1006,10 @@ func (db *PgDB) ExperimentTotalStepTime(id int) (float64, error) {
 	var seconds float64
 	if err := db.sql.Get(&seconds, `
 SELECT COALESCE(extract(epoch from sum(a.end_time - a.start_time)), 0)
-FROM allocations a, trials t
-WHERE t.experiment_id = $1 AND a.task_id = t.task_id
+FROM allocations a
+JOIN trial_id_task_id tasks ON a.task_id = tasks.task_id
+JOIN trials t ON tasks.trial_id = t.id
+WHERE t.experiment_id = $1
 `, id); err != nil {
 		return 0, errors.Wrapf(err, "querying for total step time of experiment %v", id)
 	}
@@ -1047,32 +1049,29 @@ WHERE trials.experiment_id = $1
 }
 
 // ExperimentsTrialAndTaskIDs returns the trial and task IDs for one or more experiments.
-func (db *PgDB) ExperimentsTrialAndTaskIDs(ctx context.Context, idb bun.IDB, expIDs []int) ([]int,
+func ExperimentsTrialAndTaskIDs(ctx context.Context, idb bun.IDB, expIDs []int) ([]int,
 	[]model.TaskID, error,
 ) {
 	if len(expIDs) == 0 {
 		return nil, nil, nil
 	}
-	var trialIDRows []struct {
-		ID     int          `db:"id"`
-		TaskID model.TaskID `db:"task_id"`
+
+	var res []model.TrialTaskID
+	if err := idb.NewSelect().Model(&res).
+		Join("JOIN trials ON trials.id = trial_task_id.trial_id").
+		Where("trials.experiment_id IN (?)", bun.In(expIDs)).
+		Scan(ctx); err != nil {
+		return nil, nil, fmt.Errorf("querying for trial / task IDs of experiments %v: %w", expIDs, err)
 	}
-	query := idb.NewSelect().
-		ColumnExpr("id").
-		ColumnExpr("task_id").
-		Table("trials").
-		Model(&trialIDRows).
-		Where("trials.experiment_id IN (?)", bun.In(expIDs))
-	if err := query.Scan(ctx); err != nil {
-		return nil, nil, errors.Wrapf(err, "querying for trial IDs of experiments %v", expIDs)
-	}
-	var trialIDs []int
+
 	var taskIDs []model.TaskID
-	for _, r := range trialIDRows {
-		trialIDs = append(trialIDs, r.ID)
+	trialIDsMap := make(map[int]bool)
+	for _, r := range res {
+		trialIDsMap[r.TrialID] = true
 		taskIDs = append(taskIDs, r.TaskID)
 	}
-	return trialIDs, taskIDs, nil
+
+	return maps.Keys(trialIDsMap), taskIDs, nil
 }
 
 // ExperimentNumSteps returns the total number of steps for all trials of the experiment.

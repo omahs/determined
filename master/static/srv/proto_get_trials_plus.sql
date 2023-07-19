@@ -113,16 +113,24 @@ SELECT
   t.end_time,
   t.hparams,
   new_ckpt.uuid AS warm_start_checkpoint_uuid,
-  t.task_id,
+  trial_id_task_id.task_id,
+  coalesce(new_ckpt.uuid) AS warm_start_checkpoint_uuid,
+  trial_id_task_id.task_id AS task_id,
+  (
+      (SELECT json_agg(task_id) FROM (
+          SELECT task_id FROM trial_id_task_id WHERE trial_id = t.id ORDER BY task_run_id
+      ) sub_tasks)
+  ) AS task_ids,
   t.checkpoint_size AS total_checkpoint_size,
   t.checkpoint_count,
   t.total_batches AS total_batches_processed,
    t.runner_state,
-   t.summary_metrics AS summary_metrics, 
+   t.summary_metrics AS summary_metrics,
   (
     SELECT extract(epoch from sum(coalesce(a.end_time, now()) - a.start_time))
     FROM allocations a
-    WHERE a.task_id = t.task_id
+    -- TODO(tasks) is this subquery too slow?
+    WHERE a.task_id IN (SELECT task_id FROM trial_id_task_id WHERE trial_id = t.id)
   ) AS wall_clock_time,
   -- `restart` count is incremented before `restart <= max_restarts` stop restart check,
   -- so trials in terminal state have restarts = max + 1
@@ -133,4 +141,5 @@ FROM searcher_info
   LEFT JOIN latest_validation lv ON lv.trial_id = searcher_info.trial_id
   LEFT JOIN best_checkpoint bc ON bc.trial_id = searcher_info.trial_id
   LEFT JOIN checkpoints_v2 new_ckpt ON new_ckpt.id = t.warm_start_checkpoint_id
+  LEFT JOIN trial_id_task_id ON t.id = trial_id_task_id.trial_id AND trial_id_task_id.task_run_id = 0
   ORDER BY searcher_info.ordering

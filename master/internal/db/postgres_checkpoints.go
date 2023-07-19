@@ -158,9 +158,9 @@ UPDATE trials SET checkpoint_size=sub.size, checkpoint_count=sub.count FROM (
 		SELECT t.id AS trial_id,
 		COALESCE(SUM(size) FILTER (WHERE checkpoints_v2.state != 'DELETED'), 0) AS size,
 		COUNT(*) FILTER (WHERE checkpoints_v2.state != 'DELETED') AS count
-		FROM checkpoints_v2 INNER JOIN trials t on checkpoints_v2.task_id = t.task_id
-		WHERE t.id IN (SELECT trial_id FROM trial_ids)
-		GROUP BY t.id
+		FROM checkpoints_v2 INNER JOIN trial_id_task_id t on checkpoints_v2.task_id = t.task_id
+		WHERE t.trial_id IN (SELECT trial_id FROM trial_ids)
+		GROUP BY t.trial_id
 	) ssub
 	GROUP BY trial_id
 ) sub

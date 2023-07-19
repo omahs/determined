@@ -104,11 +104,19 @@ type trialAllocation struct {
 	Task     model.TaskID
 }
 
+func getLatestTaskIDFromTrialProto(t *trialv1.Trial) model.TaskID {
+	if len(t.TaskIds) == 0 {
+		panic(fmt.Sprintf("trial proto object %+v was without associated task", t))
+	}
+
+	return model.TaskID(t.TaskIds[len(t.TaskIds)-1])
+}
+
 func (a *apiServer) enrichTrialState(trials ...*trialv1.Trial) error {
 	// filter allocations by TaskIDs on this page of trials
 	taskFilter := make([]string, 0, len(trials))
 	for _, trial := range trials {
-		taskFilter = append(taskFilter, trial.TaskId) // TODO
+		taskFilter = append(taskFilter, string(getLatestTaskIDFromTrialProto(trial)))
 	}
 
 	// get active trials by TaskId
@@ -140,7 +148,7 @@ func (a *apiServer) enrichTrialState(trials ...*trialv1.Trial) error {
 	// Active trials converted to Queued, Pulling, Starting, or Running
 	for _, trial := range trials {
 		if trial.State == trialv1.State_STATE_ACTIVE {
-			if setState, ok := byTaskID[model.TaskID(trial.TaskId)]; ok { // TODO
+			if setState, ok := byTaskID[getLatestTaskIDFromTrialProto(trial)]; ok {
 				trial.State = setState
 			} else {
 				trial.State = trialv1.State_STATE_QUEUED
@@ -367,14 +375,6 @@ func (a *apiServer) TrialLogsFields(
 	if err != nil {
 		return err
 	}
-	/*
-		trial, err := db.TrialByID(resp.Context(), int(req.TrialId))
-		if err != nil {
-			return errors.Wrap(err, "retreiving trial")
-		}
-		_ = trial
-		taskID := model.TaskID("") // TODO(tasks) // trial.TaskID // trialID
-	*/
 
 	ctx, cancel := context.WithCancel(resp.Context())
 	defer cancel()

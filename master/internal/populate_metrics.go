@@ -269,7 +269,6 @@ func PopulateExpTrialsMetrics(pgdb *db.PgDB, masterConfig *config.Config, trivia
 	}
 
 	tr := model.Trial{
-		JobID:        exp.JobID,
 		ExperimentID: exp.ID,
 		State:        model.CompletedState,
 		StartTime:    time.Now(),

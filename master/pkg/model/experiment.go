@@ -450,22 +450,16 @@ func (e *Experiment) Transition(state State) (bool, error) {
 type Trial struct {
 	bun.BaseModel `bun:"table:trials"`
 
-	ID int `db:"id" bun:",pk,autoincrement"`
-	// Uniquely identifies the trial task among all tasks. Likely,
-	// to be replaced in the near future by some smarter combination
-	// of ID, RequestID and TaskID.. we don't need them all.
-	TaskID                TaskID         `db:"task_id"`
+	ID                    int            `db:"id" bun:",pk,autoincrement"`
 	RequestID             *RequestID     `db:"request_id"`
 	ExperimentID          int            `db:"experiment_id"`
 	State                 State          `db:"state"`
 	StartTime             time.Time      `db:"start_time"`
 	EndTime               *time.Time     `db:"end_time"`
-	HParams               map[string]any `db:"hparams"`
+	HParams               map[string]any `db:"hparams" bun:"hparams"`
 	WarmStartCheckpointID *int           `db:"warm_start_checkpoint_id"`
 	Seed                  int64          `db:"seed"`
 	TotalBatches          int            `db:"total_batches"`
-
-	JobID JobID `bun:"-"`
 }
 
 // TrialTaskID represents a row from the `trial_id_task_id` table.

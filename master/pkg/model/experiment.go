@@ -475,7 +475,6 @@ type TrialTaskID struct {
 // will not be set.
 func NewTrial(
 	state State,
-	jobID JobID,
 	requestID RequestID,
 	experimentID int,
 	hparams JSONObj,

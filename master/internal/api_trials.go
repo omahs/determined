@@ -168,7 +168,7 @@ func (a *apiServer) TrialLogs(
 
 	trialTaskIDs, err := db.TrialTaskIDsByTrialID(resp.Context(), int(req.TrialId))
 	if err != nil {
-		return err
+		return fmt.Errorf("retreiving task IDs for trial log: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(resp.Context())
@@ -373,7 +373,7 @@ func (a *apiServer) TrialLogsFields(
 
 	trialTaskIDs, err := db.TrialTaskIDsByTrialID(resp.Context(), int(req.TrialId))
 	if err != nil {
-		return err
+		return fmt.Errorf("retreiving task IDs for trial log fields: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(resp.Context())
@@ -384,6 +384,8 @@ func (a *apiServer) TrialLogsFields(
 		trialLogsTimeSinceLastAuth := time.Now() // time.Now() to avoid recheck from above.
 		resOld := make(chan api.BatchResult)
 		go api.NewBatchStreamProcessor(
+			// Avoid following on any task but the latest.
+			// No earlier trials should be active but this is a safe guard.
 			api.BatchRequest{Follow: req.Follow && i == len(trialTaskIDs)-1},
 			func(lr api.BatchRequest) (api.Batch, error) {
 				if time.Now().Sub(trialLogsTimeSinceLastAuth) >= recheckAuthPeriod {

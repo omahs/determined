@@ -153,7 +153,9 @@ UPDATE trials SET checkpoint_size=sub.size, checkpoint_count=sub.count FROM (
 	COUNT(*) FILTER (WHERE state != 'DELETED') AS count
 	FROM checkpoints_view
 	WHERE trial_id IN (
-		SELECT trial_id FROM checkpoints_v2 WHERE uuid IN (?)
+		SELECT trial_id_task_id.trial_id FROM checkpoints_v2
+		LEFT JOIN trial_id_task_id ON trial_id_task_id.task_id = checkpoints_v2.task_id
+		WHERE uuid IN (?)
 	)
 	GROUP BY trial_id
 ) sub

@@ -25,17 +25,29 @@ var (
 func TestMain(m *testing.M) {
 	flag.Parse()
 	var err error
+	exitCode := 0
 	pgDB, err = db.ResolveTestPostgres()
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		exitCode = 1
+		return
 	}
+
+	defer func() {
+		if err := pgDB.Close(); err != nil {
+			log.Println(err)
+			exitCode = 1
+		}
+		os.Exit(exitCode)
+	}()
+
 	if *integration {
 		es, err = testutils.ResolveElastic()
 		if err != nil {
 			log.Println(err)
-			os.Exit(1)
+			exitCode = 1
+			return
 		}
 	}
-	os.Exit(m.Run())
+	exitCode = m.Run()
 }

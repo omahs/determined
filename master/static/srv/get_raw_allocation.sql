@@ -34,14 +34,6 @@ workloads AS (
                         kind,
                         trial_id,
                         -- Here lies an implicit assumption that one workload started when the previous ended.
-                        --
-                        -- Yeah this assumption is violated here since we need a task start time
-                        -- or something?
-                        --
-                        -- Maybe like we use runID?
-                        --
-                        -- IDK this is the kind of thing we will need to test
-                        --
                         LAG(end_time, 1) OVER (
                             PARTITION BY trial_id
                             ORDER BY
@@ -94,7 +86,9 @@ workloads AS (
                             JOIN
                                 trial_id_task_id on checkpoints_v2.task_id = trial_id_task_id.task_id
                             UNION ALL
-                            -- Yeah I think this is wrong. I think a lot of this is wrong.
+                            -- TODO does multiple tasks per trial break this?
+                            -- Worry being much more time could occur between allocations
+                            -- within the same trial?
                             SELECT
                                 'imagepulling' AS kind,
                                 trial_id_task_id.trial_id,

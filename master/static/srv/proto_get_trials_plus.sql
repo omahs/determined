@@ -129,7 +129,6 @@ SELECT
   (
     SELECT extract(epoch from sum(coalesce(a.end_time, now()) - a.start_time))
     FROM allocations a
-    -- TODO(tasks) is this subquery too slow?
     WHERE a.task_id IN (SELECT task_id FROM trial_id_task_id WHERE trial_id = t.id)
   ) AS wall_clock_time,
   -- `restart` count is incremented before `restart <= max_restarts` stop restart check,

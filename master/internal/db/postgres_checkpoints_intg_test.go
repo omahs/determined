@@ -205,7 +205,6 @@ func TestDeleteCheckpoints(t *testing.T) {
 	var retCkpt1 checkpointv1.Checkpoint
 	err = db.QueryProto("get_checkpoint", &retCkpt1, checkpoint1.UUID)
 	require.NoError(t, err)
-
 	var retCkpt2 checkpointv1.Checkpoint
 	err = db.QueryProto("get_checkpoint", &retCkpt2, checkpoint2.UUID)
 	require.NoError(t, err)

@@ -20,7 +20,6 @@ DROP VIEW public.checkpoints_view;
 ALTER TABLE public.trials
     DROP COLUMN task_id;
 
-
 CREATE OR REPLACE VIEW public.checkpoints_view AS
     SELECT
         c.id AS id,

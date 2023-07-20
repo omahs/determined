@@ -26,9 +26,6 @@ workloads AS (
                 trial_id,
                 tstzrange(start_time, end_time) AS range
             FROM
-            -- TODO I think this query no longer makes sense
-            -- Since we can go from starting to image pulling?
-            -- We will need to dig into this query more.
                 (
                     SELECT
                         kind,

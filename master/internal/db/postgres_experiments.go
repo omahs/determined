@@ -665,8 +665,9 @@ SELECT e.id, e.state, e.config, e.model_definition, e.start_time,
        e.owner_id, e.notes, e.job_id, u.username as username, e.project_id, e.unmanaged
 FROM experiments e
 JOIN trials t ON e.id = t.experiment_id
+JOIN trial_id_task_id ON t.id = trial_id_task_id.trial_id
 JOIN users u ON e.owner_id = u.id
-WHERE t.task_id = ?`, taskID).Scan(ctx, &experiment); err != nil {
+WHERE trial_id_task_id.task_id = ?`, taskID).Scan(ctx, &experiment); err != nil {
 		return nil, MatchSentinelError(err)
 	}
 

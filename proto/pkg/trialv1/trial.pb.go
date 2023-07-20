@@ -458,11 +458,10 @@ type Trial struct {
 	// summary metrics
 	SummaryMetrics *_struct.Struct `protobuf:"bytes,19,opt,name=summary_metrics,json=summaryMetrics,proto3" json:"summary_metrics,omitempty"`
 	// Task IDs of tasks associated with this trial.
-	// Length of task_ids will always be greater or equal to one when TaskID is sent.
-	// For example CompareTrial we will send a reduced Trial object,
-	// without TaskID or TaskIDs fileld in.
-	// The first element of task_ids will be the same as task_id.
-	// task_ids is sorted ascending by task_run_id.
+	// Length of task_ids will always be greater or equal to one when TaskID is
+	// sent. For example CompareTrial we will send a reduced Trial object, without
+	// TaskID or TaskIDs fileld in. The first element of task_ids will be the same
+	// as task_id. task_ids is sorted ascending by task_run_id.
 	TaskIds []string `protobuf:"bytes,20,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
 }
 

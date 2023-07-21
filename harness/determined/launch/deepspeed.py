@@ -173,7 +173,9 @@ def create_deepspeed_env_file() -> None:
             if "\n" not in line:
                 f.write(f"{line}\n")
             else:
-                logging.debug(f"Excluding environment variable {k} because it could not be formatted correctly.")
+                logging.debug(
+                    f"Excluding environment variable {k} because it could not be formatted correctly."
+                )
 
 
 def create_run_command(master_address: str, hostfile_path: Optional[str]) -> List[str]:

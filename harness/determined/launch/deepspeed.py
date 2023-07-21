@@ -169,13 +169,11 @@ def create_deepspeed_env_file() -> None:
     """Create an env var export file to pass Determined vars to the deepspeed launcher."""
     with open(DEEPSPEED_ENVIRONMENT_NAME, "w") as f:
         for k, v in filter_env_vars(os.environ).items():
-            # We need to turn our envvars into shell-escaped strings to export them correctly
-            # since values may contain spaces and quotes.  shlex.quote was removed from the
-            # deepspeed launcher in 0.6.2 so we add it here for this version onwards.
-            if deepspeed_version >= version.parse("0.6.2"):
-                f.write(f"{k}={shlex.quote(v)}\n")
+            line = f"{k}={shlex.quote(v)}"
+            if "\n" not in line:
+                f.write(f"{line}\n")
             else:
-                f.write(f"{k}={v}\n")
+                logging.debug(f"Excluding environment variable {k} because it could not be formatted correctly.")
 
 
 def create_run_command(master_address: str, hostfile_path: Optional[str]) -> List[str]:

@@ -2217,11 +2217,20 @@ func (a *apiServer) SearchExperiments(
 		Column("trials.runner_state").
 		Column("trials.checkpoint_count").
 		Column("trials.summary_metrics").
-		ColumnExpr("trial_id_task_id.task_id AS task_id").
 		ColumnExpr(`(
-			(SELECT json_agg(task_id) FROM (
-				SELECT task_id FROM trial_id_task_id WHERE trial_id = trials.id ORDER BY task_run_id
-			) sub_tasks)) AS task_ids`).
+				SELECT tt.task_id FROM trial_id_task_id tt
+				JOIN tasks ta ON tt.task_id = ta.task_id
+				WHERE tt.trial_id = trials.id
+				ORDER BY ta.start_time
+				LIMIT 1
+			) AS task_id`).
+		ColumnExpr(`(
+				(SELECT json_agg(task_id) FROM (
+					SELECT tt.task_id FROM trial_id_task_id tt
+					JOIN tasks ta ON tt.task_id = ta.task_id
+					WHERE tt.trial_id = trials.id
+					ORDER BY ta.start_time
+				) sub_tasks)) AS task_ids`).
 		ColumnExpr("proto_time(trials.start_time) AS start_time").
 		ColumnExpr("proto_time(trials.end_time) AS end_time").
 		Column("trials.restarts").
@@ -2249,8 +2258,6 @@ func (a *apiServer) SearchExperiments(
 		Join("LEFT JOIN validations bv ON trials.best_validation_id = bv.id").
 		Join("LEFT JOIN validations lv ON trials.latest_validation_id = lv.id").
 		Join("LEFT JOIN checkpoints_v2 new_ckpt ON new_ckpt.id = trials.warm_start_checkpoint_id").
-		Join(`LEFT JOIN trial_id_task_id ON
-				trials.id = trial_id_task_id.trial_id AND trial_id_task_id.task_run_id = 0`).
 		Where("trials.id IN (?)", bun.In(trialIDs))
 
 	err = db.Bun().NewSelect().

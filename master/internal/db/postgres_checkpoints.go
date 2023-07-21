@@ -148,19 +148,22 @@ func UpdateCheckpointSizeTx(ctx context.Context, idb bun.IDB, checkpoints []uuid
 	var experimentIDs []int
 	err := idb.NewRaw(`
 UPDATE trials SET checkpoint_size=sub.size, checkpoint_count=sub.count FROM (
-	SELECT trial_id,
-	COALESCE(SUM(size) FILTER (WHERE state != 'DELETED'), 0) AS size,
-	COUNT(*) FILTER (WHERE state != 'DELETED') AS count
-	FROM checkpoints_view
-	WHERE trial_id IN (
-		SELECT trial_id_task_id.trial_id FROM checkpoints_v2
-		LEFT JOIN trial_id_task_id ON trial_id_task_id.task_id = checkpoints_v2.task_id
-		WHERE uuid IN (?)
-	)
+	SELECT
+		trial_id,
+		COALESCE(SUM(size) FILTER (WHERE state != 'DELETED'), 0) AS size,
+		COUNT(*) FILTER (WHERE state != 'DELETED') AS count
+	FROM checkpoints_v2
+	JOIN trial_id_task_id tt ON tt.task_id = checkpoints_v2.task_id
+	WHERE
+		trial_id IN (
+			SELECT tt.trial_id FROM checkpoints_v2
+			LEFT JOIN trial_id_task_id tt ON tt.task_id = checkpoints_v2.task_id
+			WHERE uuid IN (?)
+		)
 	GROUP BY trial_id
 ) sub
 WHERE trials.id = sub.trial_id
-RETURNING experiment_id`, bun.In(checkpoints), bun.In(checkpoints)).Scan(ctx, &experimentIDs)
+RETURNING experiment_id`, bun.In(checkpoints)).Scan(ctx, &experimentIDs)
 	if err != nil {
 		return errors.Wrap(err, "errors updating trial checkpoint sizes and counts")
 	}

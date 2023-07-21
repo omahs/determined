@@ -1,4 +1,6 @@
-ALTER TABLE public.trials
+DROP INDEX idx_task_start_time;
+
+ALTER TABLE trials
     ADD COLUMN task_id text;
 
 UPDATE trials
@@ -6,16 +8,16 @@ SET task_id = trial_id_task_id.task_id
 FROM trial_id_task_id
 WHERE trials.id = trial_id_task_id.trial_id;
 
-ALTER TABLE public.trials
+ALTER TABLE trials
     ALTER COLUMN task_id SET NOT NULL,
     ADD CONSTRAINT fk_trials_tasks
     FOREIGN KEY (task_id)
-    REFERENCES public.tasks(task_id);
+    REFERENCES tasks(task_id);
 
-DROP VIEW public.proto_checkpoints_view;
-DROP VIEW public.checkpoints_view;
+DROP VIEW proto_checkpoints_view;
+DROP VIEW checkpoints_view;
 
-CREATE OR REPLACE VIEW public.checkpoints_view AS
+CREATE OR REPLACE VIEW checkpoints_view AS
     SELECT
         c.id AS id,
         c.uuid AS uuid,
@@ -35,16 +37,16 @@ CREATE OR REPLACE VIEW public.checkpoints_view AS
         CAST(c.metadata->>'steps_completed' AS int) as steps_completed,
         -- Removing checkpoint version since it doesn't make sense anymore.
         c.size
-    FROM public.checkpoints_v2 AS c
-    LEFT JOIN public.trials AS t on c.task_id = t.task_id
-    LEFT JOIN public.experiments AS e on t.experiment_id = e.id
-    LEFT JOIN public.raw_validations AS v on CAST(c.metadata->>'steps_completed' AS int) = v.total_batches and t.id = v.trial_id
-    LEFT JOIN public.raw_steps AS s on CAST(c.metadata->>'steps_completed' AS int) = s.total_batches and t.id = s.trial_id
+    FROM checkpoints_v2 AS c
+    LEFT JOIN trials AS t on c.task_id = t.task_id
+    LEFT JOIN experiments AS e on t.experiment_id = e.id
+    LEFT JOIN raw_validations AS v on CAST(c.metadata->>'steps_completed' AS int) = v.total_batches and t.id = v.trial_id
+    LEFT JOIN raw_steps AS s on CAST(c.metadata->>'steps_completed' AS int) = s.total_batches and t.id = s.trial_id
     -- avoiding the steps view causes Postgres to not "Materialize" in this join.
     WHERE s.archived IS NULL OR s.archived = false
       AND v.archived IS NULL OR v.archived = false;
 
-CREATE OR REPLACE VIEW public.proto_checkpoints_view AS
+CREATE OR REPLACE VIEW proto_checkpoints_view AS
     SELECT
         c.uuid::text AS uuid,
         c.task_id,
@@ -68,7 +70,7 @@ CREATE OR REPLACE VIEW public.proto_checkpoints_view AS
             'validation_metrics', json_build_object('avg_metrics', c.validation_metrics),
             'searcher_metric', c.searcher_metric
         ) AS training
-    FROM public.checkpoints_view AS c;
+    FROM checkpoints_view AS c;
 
-DROP TABLE public.trial_id_task_id;
+DROP TABLE trial_id_task_id;
 

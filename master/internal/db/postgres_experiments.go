@@ -921,9 +921,9 @@ func (db *PgDB) DeleteExperiments(ctx context.Context, ids []int) error {
 
 	if _, err = tx.NewDelete().Model(&delIDs).Table("checkpoints_v2").
 		Where(`task_id IN (
-	SELECT trial_id_task_id.task_id
-	FROM trial_id_task_id
-	JOIN trials t ON t.id = trial_id_task_id.trial_id
+	SELECT tt.task_id
+	FROM trial_id_task_id tt
+	JOIN trials t ON t.id = tt.trial_id
 	WHERE experiment_id IN (?)
 )`, bun.In(ids)).
 		Returning("id").

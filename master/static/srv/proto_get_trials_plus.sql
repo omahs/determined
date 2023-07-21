@@ -113,14 +113,20 @@ SELECT
   t.end_time,
   t.hparams,
   new_ckpt.uuid AS warm_start_checkpoint_uuid,
-  trial_id_task_id.task_id,
-  coalesce(new_ckpt.uuid) AS warm_start_checkpoint_uuid,
-  trial_id_task_id.task_id AS task_id,
   (
-      (SELECT json_agg(task_id) FROM (
-          SELECT task_id FROM trial_id_task_id WHERE trial_id = t.id ORDER BY task_run_id
-      ) sub_tasks)
-  ) AS task_ids,
+    SELECT tt.task_id FROM trial_id_task_id tt
+    JOIN tasks ta ON tt.task_id = ta.task_id
+    WHERE tt.trial_id = t.id
+    ORDER BY ta.start_time
+    LIMIT 1
+  ) AS task_id,
+  (
+    (SELECT json_agg(task_id) FROM (
+      SELECT tt.task_id FROM trial_id_task_id tt
+      JOIN tasks ta ON tt.task_id = ta.task_id
+      WHERE tt.trial_id = t.id
+      ORDER BY ta.start_time
+  ) sub_tasks)) AS task_ids,
   t.checkpoint_size AS total_checkpoint_size,
   t.checkpoint_count,
   t.total_batches AS total_batches_processed,
@@ -140,5 +146,4 @@ FROM searcher_info
   LEFT JOIN latest_validation lv ON lv.trial_id = searcher_info.trial_id
   LEFT JOIN best_checkpoint bc ON bc.trial_id = searcher_info.trial_id
   LEFT JOIN checkpoints_v2 new_ckpt ON new_ckpt.id = t.warm_start_checkpoint_id
-  LEFT JOIN trial_id_task_id ON t.id = trial_id_task_id.trial_id AND trial_id_task_id.task_run_id = 0
   ORDER BY searcher_info.ordering

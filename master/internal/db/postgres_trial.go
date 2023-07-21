@@ -33,8 +33,7 @@ func AddTrial(ctx context.Context, trial *model.Trial, taskID model.TaskID) erro
 			return fmt.Errorf("inserting trial model: %w", err)
 		}
 
-		// Since we are inserting trial TaskRunID == 0 since this is the first run.
-		trialTaskID := &model.TrialTaskID{TrialID: trial.ID, TaskID: taskID, TaskRunID: 0}
+		trialTaskID := &model.TrialTaskID{TrialID: trial.ID, TaskID: taskID}
 		if _, err := tx.NewInsert().Model(trialTaskID).Exec(ctx); err != nil {
 			return fmt.Errorf("inserting trial task id relationship: %w", err)
 		}
@@ -62,7 +61,8 @@ func TrialTaskIDsByTrialID(ctx context.Context, trialID int) ([]*model.TrialTask
 	var ids []*model.TrialTaskID
 	if err := Bun().NewSelect().Model(&ids).
 		Where("trial_id = ?", trialID).
-		Order("task_run_id").
+		Join("JOIN tasks t ON trial_task_id.task_id = t.task_id").
+		Order("t.start_time").
 		Scan(ctx); err != nil {
 		return nil, fmt.Errorf("getting tasks for trial ID %d: %w", trialID, err)
 	}

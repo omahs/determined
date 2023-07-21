@@ -1,26 +1,25 @@
-CREATE TABLE public.trial_id_task_id (
+CREATE INDEX idx_task_start_time ON tasks USING btree (start_time);
+
+CREATE TABLE trial_id_task_id (
     trial_id integer REFERENCES trials(id) ON DELETE CASCADE NOT NULL,
     task_id text REFERENCES tasks(task_id) ON DELETE CASCADE NOT NULL UNIQUE,
-    task_run_id integer DEFAULT 0 NOT NULL, -- Starts at 0. Trial gets restarted goes to 1.
     PRIMARY KEY(trial_id, task_id)
 );
 
-CREATE INDEX idx_trial_id_task_id ON public.trial_id_task_id USING btree (trial_id);
+CREATE INDEX idx_trial_id_task_id ON trial_id_task_id USING btree (trial_id);
 
-CREATE INDEX idx_trial_id_task_id_task_id ON public.trial_id_task_id USING btree (task_id);
+CREATE INDEX idx_trial_id_task_id_task_id ON trial_id_task_id USING btree (task_id);
 
-CREATE INDEX idx_trial_id_task_id_run_id ON public.trial_id_task_id USING btree (trial_id, task_run_id);
-
-INSERT INTO public.trial_id_task_id(trial_id, task_id)
+INSERT INTO trial_id_task_id(trial_id, task_id)
     SELECT id, task_id FROM trials;
 
-DROP VIEW public.proto_checkpoints_view;
-DROP VIEW public.checkpoints_view;
+DROP VIEW proto_checkpoints_view;
+DROP VIEW checkpoints_view;
 
-ALTER TABLE public.trials
+ALTER TABLE trials
     DROP COLUMN task_id;
 
-CREATE OR REPLACE VIEW public.checkpoints_view AS
+CREATE OR REPLACE VIEW checkpoints_view AS
     SELECT
         c.id AS id,
         c.uuid AS uuid,
@@ -49,7 +48,7 @@ CREATE OR REPLACE VIEW public.checkpoints_view AS
     WHERE s.archived IS NULL OR s.archived = false
       AND v.archived IS NULL OR v.archived = false;
 
-CREATE OR REPLACE VIEW public.proto_checkpoints_view AS
+CREATE OR REPLACE VIEW proto_checkpoints_view AS
     SELECT
         c.uuid::text AS uuid,
         c.task_id,

@@ -466,9 +466,8 @@ type Trial struct {
 type TrialTaskID struct {
 	bun.BaseModel `bun:"table:trial_id_task_id"`
 
-	TrialID   int
-	TaskID    TaskID
-	TaskRunID int
+	TrialID int
+	TaskID  TaskID
 }
 
 // NewTrial creates a new trial in the specified state.  Note that the trial ID

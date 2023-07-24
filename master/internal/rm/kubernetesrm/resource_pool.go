@@ -43,6 +43,7 @@ type kubernetesResourcePool struct {
 	groupActorToID            map[*actor.Ref]model.JobID
 	IDToGroupActor            map[model.JobID]*actor.Ref
 	slotsUsedPerGroup         map[*tasklist.Group]int
+	slotsPendingPerGroup      map[*tasklist.Group]int
 	allocationIDToRunningPods map[model.AllocationID]int
 
 	podsActor *actor.Ref
@@ -68,6 +69,7 @@ func newResourcePool(
 		groupActorToID:            map[*actor.Ref]model.JobID{},
 		IDToGroupActor:            map[model.JobID]*actor.Ref{},
 		slotsUsedPerGroup:         map[*tasklist.Group]int{},
+		slotsPendingPerGroup:      map[*tasklist.Group]int{},
 		allocationIDToRunningPods: map[model.AllocationID]int{},
 		podsActor:                 podsActor,
 		queuePositions:            tasklist.InitializeJobSortState(true),
@@ -176,6 +178,7 @@ func (k *kubernetesResourcePool) receiveRequestMsg(ctx *actor.Context) error {
 	switch msg := ctx.Message().(type) {
 	case tasklist.GroupActorStopped:
 		delete(k.slotsUsedPerGroup, k.groups[msg.Ref])
+		delete(k.slotsPendingPerGroup, k.groups[msg.Ref])
 		delete(k.groups, msg.Ref)
 		if jobID, ok := k.groupActorToID[msg.Ref]; ok {
 			delete(k.queuePositions, jobID)
@@ -209,6 +212,16 @@ func (k *kubernetesResourcePool) receiveRequestMsg(ctx *actor.Context) error {
 				req.State = msg.State
 				if sproto.ScheduledStates[req.State] {
 					k.allocationIDToRunningPods[id]++
+					group := k.groups[req.Group]
+					if group != nil {
+						// checkif pending is above 0
+						if k.slotsPendingPerGroup[group]-req.SlotsNeeded <= 0 {
+							k.slotsPendingPerGroup[group] = 0
+						} else {
+							k.slotsPendingPerGroup[group] -= req.SlotsNeeded
+						}
+						k.slotsUsedPerGroup[group] += req.SlotsNeeded
+					}
 				}
 			}
 		}
@@ -485,7 +498,7 @@ func (k *kubernetesResourcePool) assignResources(
 		}
 	}
 
-	k.slotsUsedPerGroup[k.groups[req.Group]] += req.SlotsNeeded
+	k.slotsPendingPerGroup[k.groups[req.Group]] += req.SlotsNeeded
 
 	var resources []*k8sPodResources
 	if req.Restore {
@@ -597,7 +610,12 @@ func (k *kubernetesResourcePool) resourcesReleased(
 		group := k.groups[req.Group]
 
 		if group != nil {
-			k.slotsUsedPerGroup[group] -= req.SlotsNeeded
+			// account for if tasks are killed before running
+			if sproto.ScheduledStates[req.State] {
+				k.slotsUsedPerGroup[group] -= req.SlotsNeeded
+			} else {
+				k.slotsPendingPerGroup[group] -= req.SlotsNeeded
+			}
 		}
 	}
 
@@ -625,6 +643,7 @@ func (k *kubernetesResourcePool) getOrCreateGroup(
 
 	k.groups[handler] = g
 	k.slotsUsedPerGroup[g] = 0
+	k.slotsPendingPerGroup[g] = 0
 
 	if ctx != nil && handler != nil { // ctx is nil only for testing purposes.
 		actors.NotifyOnStop(ctx, handler, tasklist.GroupActorStopped{Ref: handler})
@@ -638,7 +657,7 @@ func (k *kubernetesResourcePool) schedulePendingTasks(ctx *actor.Context) {
 		group := k.groups[req.Group]
 		if !k.reqList.IsScheduled(req.AllocationID) {
 			if maxSlots := group.MaxSlots; maxSlots != nil {
-				if k.slotsUsedPerGroup[group]+req.SlotsNeeded > *maxSlots {
+				if k.slotsUsedPerGroup[group]+k.slotsPendingPerGroup[group]+req.SlotsNeeded > *maxSlots {
 					continue
 				}
 			}

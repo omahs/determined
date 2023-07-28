@@ -1,4 +1,14 @@
+\set mypid `echo $PPID`
+\set logfile add_summary_metrics_:mypid.log
+\set logpipe | cat >> add_summary_metrics_:mypid.log
+\echo PID :mypid logging to :logfile
+\o :logfile
+\! sleep 1
+
 BEGIN;
+\echo `date +%F_%T` [:mypid] Initial setup
+\qecho `date +%F_%T` [:mypid] Initial setup
+\! sleep 1
 
 CREATE TEMPORARY TABLE trial_ids (
   id INT
@@ -15,15 +25,29 @@ FROM randomized_ids
 WHERE bucket_number = :worker_index;
 
 SELECT
-    COUNT(*) AS number_trials,
+    :mypid AS PID,
+    :worker_index AS worker_index,
     :number_workers AS number_total_workers,
-    :worker_index AS worker_index
+    COUNT(*) AS number_trials
 FROM trial_ids;
 
-SELECT * FROM trial_ids limit 10;
+\o
+SELECT
+    :mypid aS PID,
+    :worker_index AS worker_index,
+    :number_workers AS number_total_workers,
+    COUNT(*) AS number_trials
+FROM trial_ids;
+\o :logpipe
+
+-- displays this worker's list of trials to touch
+SELECT id AS trial_id FROM trial_ids ORDER BY id;
 
 
 -- Validations.
+\echo `date +%F_%T` [:mypid] Validations - Create temp tables and indices
+\qecho `date +%F_%T` [:mypid] Validations - Create temp tables and indices
+
 CREATE TEMPORARY TABLE val_metric_values (
   id SERIAL,
   trial_id INT,
@@ -68,6 +92,9 @@ CREATE TEMPORARY TABLE val_summary_metrics (
 );
 
 -- Extract training metrics.
+\echo `date +%F_%T` [:mypid] Validations - Extract training metrics
+\qecho `date +%F_%T` [:mypid] Validations - Extract training metrics
+
 INSERT INTO val_metric_values(trial_id, name, value, type, end_time)
 SELECT
     trial_id AS trial_id,
@@ -103,6 +130,9 @@ FROM (
 ) AS subquery;
 
 -- Numeric aggregates.
+\echo `date +%F_%T` [:mypid] Validations - Numeric aggregates
+\qecho `date +%F_%T` [:mypid] Validations - Numeric aggregates
+
 INSERT INTO val_numeric_aggs(trial_id, name, count, sum, min, max)
 SELECT
     trial_id AS trial_id,
@@ -116,6 +146,9 @@ WHERE type = 'number'
 GROUP BY trial_id, name;
 
 -- Types.
+\echo `date +%F_%T` [:mypid] Validations - Types
+\qecho `date +%F_%T` [:mypid] Validations - Types
+
 INSERT INTO val_metric_types(trial_id, name, type)
 SELECT
     trial_id AS trial_id,
@@ -128,6 +161,9 @@ FROM val_metric_values
 GROUP BY trial_id, name;
 
 -- Latest.
+\echo `date +%F_%T` [:mypid] Validations - Latest
+\qecho `date +%F_%T` [:mypid] Validations - Latest
+
 INSERT INTO val_metric_latest(trial_id, name, value)
 SELECT
     s.trial_id AS trial_id,
@@ -146,6 +182,9 @@ FROM (
 WHERE s.rank = 1;
 
 -- Summary metrics.
+\echo `date +%F_%T` [:mypid] Validations - Summary metrics (this may take quite a while)
+\qecho `date +%F_%T` [:mypid] Validations - Summary metrics (this may take quite a while)
+
 INSERT INTO val_summary_metrics(trial_id, summary_metrics)
 SELECT
     trial_id, jsonb_collect(jsonb_build_object(
@@ -180,6 +219,9 @@ LEFT JOIN val_metric_latest ON
 GROUP BY trial_id;
 
 -- Training.
+\echo `date +%F_%T` [:mypid] Training - Create temp tables and indices
+\qecho `date +%F_%T` [:mypid] Training - Create temp tables and indices
+
 CREATE TEMPORARY TABLE train_metric_values (
   id SERIAL,
   trial_id INT,
@@ -224,6 +266,9 @@ CREATE TEMPORARY TABLE train_summary_metrics (
 );
 
 -- Extract training metrics.
+\echo `date +%F_%T` [:mypid] Training - Extract training metrics
+\qecho `date +%F_%T` [:mypid] Training - Extract training metrics
+
 INSERT INTO train_metric_values(trial_id, name, value, type, end_time)
 SELECT
     trial_id AS trial_id,
@@ -259,6 +304,9 @@ FROM (
 ) AS subquery;
 
 -- Numeric aggregates.
+\echo `date +%F_%T` [:mypid] Training - Numeric aggregates
+\qecho `date +%F_%T` [:mypid] Training - Numeric aggregates
+
 INSERT INTO train_numeric_aggs(trial_id, name, count, sum, min, max)
 SELECT
     trial_id AS trial_id,
@@ -272,6 +320,9 @@ WHERE type = 'number'
 GROUP BY trial_id, name;
 
 -- Types.
+\echo `date +%F_%T` [:mypid] Training - Types
+\qecho `date +%F_%T` [:mypid] Training - Types
+
 INSERT INTO train_metric_types(trial_id, name, type)
 SELECT
     trial_id AS trial_id,
@@ -284,6 +335,9 @@ FROM train_metric_values
 GROUP BY trial_id, name;
 
 -- Latest.
+\echo `date +%F_%T` [:mypid] Training - Latest
+\qecho `date +%F_%T` [:mypid] Training - Latest
+
 INSERT INTO train_metric_latest(trial_id, name, value)
 SELECT
     s.trial_id AS trial_id,
@@ -302,6 +356,9 @@ FROM (
 WHERE s.rank = 1;
 
 -- Summary metrics.
+\echo `date +%F_%T` [:mypid] Training - Summary metrics (this may take quite a while)
+\qecho `date +%F_%T` [:mypid] Training - Summary metrics (this may take quite a while)
+
 INSERT INTO train_summary_metrics(trial_id, summary_metrics)
 SELECT
     trial_id, jsonb_collect(jsonb_build_object(
@@ -353,6 +410,9 @@ UPDATE trials SET
 FROM train_summary_metrics tsm
 FULL OUTER JOIN val_summary_metrics vsm ON tsm.trial_id = vsm.trial_id
 WHERE coalesce(tsm.trial_id, vsm.trial_id) = trials.id;
+
+\echo `date +%F_%T` [:mypid] Done. Clean-up and COMMIT
+\qecho `date +%F_%T` [:mypid] Done. Clean-up and COMMIT
 
 DROP TABLE trial_ids;
 

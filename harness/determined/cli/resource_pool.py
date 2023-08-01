@@ -7,6 +7,14 @@ from determined.common.declarative_argparse import Arg, Cmd
 
 
 @authentication.required
+def get_resource_pools(args: Namespace) -> None:
+    print("getting resource pools")
+    resp = bindings.get_GetResourcePools(setup_session(args))
+    for each in resp.resourcePools:
+        print(each.name)
+
+
+@authentication.required
 def add_binding(args: Namespace) -> None:
     body = bindings.v1BindRPToWorkspaceRequest(
         resourcePoolName=args.pool_name, workspaceNames=args.workspace_names
@@ -83,6 +91,12 @@ args_description = [
         None,
         "manage resource pools",
         [
+            Cmd(
+                "list",
+                get_resource_pools,
+                "list all resource_pools",
+                [],
+            ),
             Cmd(
                 "bindings",
                 None,

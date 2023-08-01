@@ -10,8 +10,46 @@ from determined.common.declarative_argparse import Arg, Cmd
 def get_resource_pools(args: Namespace) -> None:
     print("getting resource pools")
     resp = bindings.get_GetResourcePools(setup_session(args))
-    for each in resp.resourcePools:
-        print(each.name)
+
+    headers = [
+        "name",
+        "default",
+        "accelerator",
+        "type",
+        "instance type",
+        "slots used",
+        "agents",
+        "scheduler",
+    ]
+
+    render.tabulate_or_csv(
+        headers=headers,
+        values=[
+            [
+                pool.name,
+                "default compute"
+                if pool.defaultComputePool
+                else "default aux"
+                if pool.defaultAuxPool
+                else None,
+                pool.accelerator,
+                pool.type,
+                pool.instanceType,
+                str(pool.slotsUsed) + "/" + str(pool.slotsAvailable + pool.slotsUsed),
+                str(pool.numAgents)
+                + "/"
+                + (
+                    str(pool.numAgents)
+                    if pool.type == bindings.v1ResourcePoolType.STATIC
+                    else str(pool.maxAgents)
+                ),
+                pool.schedulerType,
+            ]
+            for pool in resp.resourcePools
+        ],
+        as_csv=False,
+    )
+    return
 
 
 @authentication.required
@@ -92,7 +130,7 @@ args_description = [
         "manage resource pools",
         [
             Cmd(
-                "list",
+                "list ls",
                 get_resource_pools,
                 "list all resource_pools",
                 [],

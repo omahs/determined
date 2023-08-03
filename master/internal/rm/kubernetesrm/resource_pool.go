@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/rm/rmerrors"
@@ -220,7 +221,10 @@ func (k *kubernetesResourcePool) receiveRequestMsg(ctx *actor.Context) error {
 						} else {
 							k.slotsPendingPerGroup[group] -= req.SlotsNeeded
 						}
+						log.Info("Here: Update Pd Status, incrementing slots used. Slots pending:",
+							k.slotsPendingPerGroup[group])
 						k.slotsUsedPerGroup[group] += req.SlotsNeeded
+						log.Info("just incremented Slots used:", k.slotsPendingPerGroup[group])
 					}
 				}
 			}

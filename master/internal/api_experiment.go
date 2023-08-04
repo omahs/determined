@@ -1312,12 +1312,10 @@ func (a *apiServer) ContinueExperiment(
 		return nil, status.Errorf(codes.Internal, "failed to get the user: %s", err)
 	}
 
-	// todo assert terminal state
-	// lock experiment?
-	// todo assert single searcher
-	// actually assert state near the end to avoid a race
+	// DO a lock update on state.
+	// ASSERT single searcher.
 
-	// TODO rbac stuff.
+	// TODO rbac stuff. LAME
 	_ = user
 
 	// active config -- TODO
@@ -1330,8 +1328,8 @@ func (a *apiServer) ContinueExperiment(
 	mergedConfig := activeConfig
 
 	// TODO update original config
-
 	// mergedConfig -> string
+	// Or don't update it>?
 
 	bytes, err := mergedConfig.Value() // TODO better way to do this
 	if err != nil {
@@ -1352,7 +1350,6 @@ func (a *apiServer) ContinueExperiment(
 	dbExp.ParentID = nil // Not a parent.
 	dbExp.ID = int(req.Id)
 
-	// What if an experiment has no trials??? TODO.
 	trialsResp, err := a.GetExperimentTrials(ctx, &apiv1.GetExperimentTrialsRequest{
 		ExperimentId: req.Id,
 	})
@@ -1390,8 +1387,6 @@ func (a *apiServer) ContinueExperiment(
 	// where do we set warm start checkpoint ID. newExperiment
 	// where do we persist the trial?
 
-	// var launchWarnings []command.LaunchWarning // TODO delete
-	// if false {                                 // TODO delete
 	e, launchWarnings, err := newExperiment(a.m, dbExp, activeConfig, taskSpec)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create experiment: %s", err)

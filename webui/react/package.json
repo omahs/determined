@@ -11,6 +11,7 @@
     "start": "vite serve",
     "preview": "vite preview",
     "build": "NODE_OPTIONS=--max-old-space-size=6144 vite build --mode=${DET_NODE_ENV:-production}",
+    "build:wasm": "wasm-pack build src/web_assembly --target web --release",
     "prettier": "prettier",
     "eslint": "eslint",
     "stylelint": "stylelint",
@@ -72,7 +73,8 @@
     "sprintf-js": "^1.1.2",
     "throttle-debounce": "^5.0.0",
     "uplot": "^1.6.18",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "wasm-pack": "^0.12.1"
   },
   "browserslist": {
     "production": [
@@ -145,6 +147,7 @@
     "typescript": "^5.0.4",
     "vite": "^4.3.5",
     "vite-plugin-checker": "^0.6.0",
+    "vite-plugin-wasm": "^3.2.2",
     "vite-tsconfig-paths": "^4.2.0",
     "vitest": "^0.31.0",
     "whatwg-fetch": "^3.6.2"

@@ -5,6 +5,7 @@ import path from 'path';
 import react from '@vitejs/plugin-react-swc';
 import { Plugin, UserConfig } from 'vite';
 import checker from 'vite-plugin-checker';
+import wasm from 'vite-plugin-wasm';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 
@@ -127,6 +128,7 @@ export default defineConfig(({ mode }) => ({
     include: ['notebook'],
   },
   plugins: [
+    wasm(),
     tsconfigPaths(),
     svgToReact({
       plugins: [
@@ -156,7 +158,7 @@ export default defineConfig(({ mode }) => ({
       cspRules: {
         'frame-src': ["'self'", 'netlify.determined.ai'],
         'object-src': ["'none'"],
-        'script-src': ["'self'", 'cdn.segment.com'],
+        'script-src': ["'self'", "'wasm-unsafe-eval'", 'cdn.segment.com'],
         'style-src': ["'self'", "'unsafe-inline'"],
       },
       hashEnabled: {

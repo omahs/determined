@@ -1401,6 +1401,16 @@ func (a *apiServer) ContinueExperiment(
 	if !created {
 		return nil, status.Errorf(codes.FailedPrecondition, "experiment actor still running")
 	}
+	// Persist job. Feels somewhat strange doing this here.
+	job := model.Job{
+		JobID:   e.JobID,
+		JobType: model.JobTypeExperiment,
+		OwnerID: e.OwnerID,
+	}
+	_, err = db.Bun().NewInsert().Model(&job).Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("adding new job for experiment: %w", err)
+	}
 
 	// bugs
 	// a. 1. keeps training for awhile
@@ -1413,12 +1423,9 @@ func (a *apiServer) ContinueExperiment(
 	//   persisting GC task 2520.df8c3766-3265-4fd7-8328-560bba6a1da3:
 	//   adding task: ERROR:
 	//   insert or update on table \"tasks\" violates foreign key constraint \"tasks_job_id_fkey\"
-	// d. okay so we will need to add a new task for sure -- complciates things
-	//   how do we get taskID even?
-	//   how do we reconicle trail logs? Like should both logs be present?
-	// e. det e logs 2520 -f (same as d.)
-	//   broken won't follow
-	//   this is due to us calling task logs, honestly suprised we see more logs
+
+	// TASK ID ~1
+	// break hmm?
 
 	// Let's do test cases...
 	// 1. continuing an compelted exp with same config

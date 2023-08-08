@@ -1,16 +1,16 @@
 import { Space } from 'antd';
 import dayjs from 'dayjs';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import Button from 'components/kit/Button';
 import Section from 'components/Section';
 import { SyncProvider } from 'components/UPlot/SyncProvider';
+import { useLoadable } from 'hooks/useLoadable';
 import { useSettings } from 'hooks/useSettings';
 import { getResourceAllocationAggregated } from 'services/api';
-import { V1ResourceAllocationAggregatedResponse } from 'services/api-ts-sdk';
 import userStore from 'stores/users';
 import handleError from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
+import { Loadable, NotLoaded } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
 import css from './ClusterHistoricalUsage.module.scss';
@@ -28,7 +28,6 @@ export const MAX_RANGE_DAY = 31;
 export const MAX_RANGE_MONTH = 36;
 
 const ClusterHistoricalUsage: React.FC = () => {
-  const [aggRes, setAggRes] = useState<Loadable<V1ResourceAllocationAggregatedResponse>>(NotLoaded);
   const [isCsvModalVisible, setIsCsvModalVisible] = useState<boolean>(false);
   const { settings, updateSettings } = useSettings<Settings>(settingsConfig);
   const loadableUsers = useObservable(userStore.getUsers());
@@ -65,6 +64,22 @@ const ClusterHistoricalUsage: React.FC = () => {
     return filters;
   }, [settings]);
 
+  const aggRes = useLoadable(async () => {
+    try {
+      return await getResourceAllocationAggregated({
+        endDate: filters.beforeDate,
+        period:
+          filters.groupBy === GroupBy.Month
+            ? 'RESOURCE_ALLOCATION_AGGREGATION_PERIOD_MONTHLY'
+            : 'RESOURCE_ALLOCATION_AGGREGATION_PERIOD_DAILY',
+        startDate: filters.afterDate,
+      });
+    } catch (e) {
+      handleError(e);
+      return NotLoaded;
+    }
+  }, [filters.afterDate, filters.beforeDate, filters.groupBy]);
+
   const handleFilterChange = useCallback(
     (newFilter: ClusterHistoricalUsageFiltersInterface) => {
       const dateFormat = 'YYYY-MM' + (newFilter.groupBy === GroupBy.Day ? '-DD' : '');
@@ -90,22 +105,6 @@ const ClusterHistoricalUsage: React.FC = () => {
     }
   }
 
-  const fetchResourceAllocationAggregated = useCallback(async () => {
-    try {
-      const response = await getResourceAllocationAggregated({
-        endDate: filters.beforeDate,
-        period:
-          filters.groupBy === GroupBy.Month
-            ? 'RESOURCE_ALLOCATION_AGGREGATION_PERIOD_MONTHLY'
-            : 'RESOURCE_ALLOCATION_AGGREGATION_PERIOD_DAILY',
-        startDate: filters.afterDate,
-      });
-      setAggRes(Loaded(response));
-    } catch (e) {
-      handleError(e);
-    }
-  }, [filters.afterDate, filters.beforeDate, filters.groupBy]);
-
   const chartSeries = useMemo(() => {
     return Loadable.map(aggRes, (response) => {
       return mapResourceAllocationApiToChartSeries(
@@ -115,10 +114,6 @@ const ClusterHistoricalUsage: React.FC = () => {
       );
     });
   }, [aggRes, filters.groupBy, users]);
-
-  useEffect(() => {
-    fetchResourceAllocationAggregated();
-  }, [fetchResourceAllocationAggregated]);
 
   return (
     <div className={css.base}>

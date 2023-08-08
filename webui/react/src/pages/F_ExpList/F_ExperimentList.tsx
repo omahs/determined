@@ -16,6 +16,7 @@ import { Column, Columns } from 'components/kit/Columns';
 import Empty from 'components/kit/Empty';
 import Pagination from 'components/kit/Pagination';
 import { useGlasbey } from 'hooks/useGlasbey';
+import { useLoadable } from 'hooks/useLoadable';
 import useMobile from 'hooks/useMobile';
 import usePolling from 'hooks/usePolling';
 import useResize from 'hooks/useResize';
@@ -23,15 +24,7 @@ import useScrollbarWidth from 'hooks/useScrollbarWidth';
 import { useSettings } from 'hooks/useSettings';
 import { getProjectColumns, getProjectNumericMetricsRange, searchExperiments } from 'services/api';
 import { V1BulkExperimentFilters, V1ColumnType, V1LocationType } from 'services/api-ts-sdk';
-import {
-  ExperimentAction,
-  ExperimentItem,
-  ExperimentWithTrial,
-  Project,
-  ProjectColumn,
-  ProjectMetricsRange,
-  RunState,
-} from 'types';
+import { ExperimentAction, ExperimentItem, ExperimentWithTrial, Project, RunState } from 'types';
 import handleError from 'utils/error';
 import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { getCssVar } from 'utils/themes';
@@ -114,8 +107,6 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     INITIAL_LOADING_EXPERIMENTS,
   );
   const [total, setTotal] = useState<Loadable<number>>(NotLoaded);
-  const [projectColumns, setProjectColumns] = useState<Loadable<ProjectColumn[]>>(NotLoaded);
-  const [projectHeatmap, setProjectHeatmap] = useState<ProjectMetricsRange[]>([]);
   const [isOpenFilter, setIsOpenFilter] = useState<boolean>(false);
   const filtersString = useObservable(formStore.asJsonString);
   const loadableFormset = useObservable(formStore.formset);
@@ -196,6 +187,31 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error] = useState(false);
   const [canceler] = useState(new AbortController());
+
+  // TODO: poll?
+  const projectColumns = useLoadable(async () => {
+    try {
+      const columns = await getProjectColumns({ id: project.id });
+      return columns.sort((a, b) =>
+        a.location === V1LocationType.EXPERIMENT && b.location === V1LocationType.EXPERIMENT
+          ? experimentColumns.indexOf(a.column as ExperimentColumn) -
+            experimentColumns.indexOf(b.column as ExperimentColumn)
+          : 0,
+      );
+    } catch (e) {
+      handleError(e, { publicSubject: 'Unable to fetch project columns' });
+      return NotLoaded;
+    }
+  }, [project.id]);
+
+  const projectHeatmap = useLoadable(async () => {
+    try {
+      return await getProjectNumericMetricsRange({ id: project.id });
+    } catch (e) {
+      handleError(e, { publicSubject: 'Unable to fetch project heatmap' });
+      return NotLoaded;
+    }
+  }, [project.id]);
 
   const colorMap = useGlasbey(selectedExperimentIds);
   const { height: containerHeight, width: containerWidth } = useResize(contentRef);
@@ -371,48 +387,6 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const { stopPolling } = usePolling(fetchExperiments, { rerunOnNewFn: true });
 
   const onContextMenuComplete = useCallback(fetchExperiments, [fetchExperiments]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const heatMap = await getProjectNumericMetricsRange({ id: project.id });
-        if (mounted) {
-          setProjectHeatmap(heatMap);
-        }
-      } catch (e) {
-        handleError(e, { publicSubject: 'Unable to fetch project heatmap' });
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [project.id]);
-
-  // TODO: poll?
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const columns = await getProjectColumns({ id: project.id });
-        columns.sort((a, b) =>
-          a.location === V1LocationType.EXPERIMENT && b.location === V1LocationType.EXPERIMENT
-            ? experimentColumns.indexOf(a.column as ExperimentColumn) -
-              experimentColumns.indexOf(b.column as ExperimentColumn)
-            : 0,
-        );
-
-        if (mounted) {
-          setProjectColumns(Loaded(columns));
-        }
-      } catch (e) {
-        handleError(e, { publicSubject: 'Unable to fetch project columns' });
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [project.id]);
 
   useEffect(() => {
     return () => {

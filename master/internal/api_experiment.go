@@ -1435,12 +1435,13 @@ func (a *apiServer) ContinueExperiment(
 	// 3. continung an completed exp with shorter train time
 	//   should exit immediately
 	//
+	// FAILURE cases.
 	// 4. transient failure
 	//    should rerun and have sucess
 	// 5. failure failure should rerun trial restarts
-
+	//
 	// Broke restarts...
-
+	//
 	// YES?
 	// why does searcher create despite being paused???
 	// Is this how normal experiments work?

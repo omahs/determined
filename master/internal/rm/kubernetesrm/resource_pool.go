@@ -44,9 +44,10 @@ type kubernetesResourcePool struct {
 	groupActorToID            map[*actor.Ref]model.JobID
 	IDToGroupActor            map[model.JobID]*actor.Ref
 	slotsUsedPerGroup         map[*tasklist.Group]int
+	slotsPendingPerGroup      map[*tasklist.Group]int
 	allocationIDToRunningPods map[model.AllocationID]int
-
-	podsActor *actor.Ref
+	PendingAllocations        map[*tasklist.Group][]model.AllocationID
+	podsActor                 *actor.Ref
 
 	queuePositions tasklist.JobSortState
 	reschedule     bool
@@ -69,7 +70,9 @@ func newResourcePool(
 		groupActorToID:            map[*actor.Ref]model.JobID{},
 		IDToGroupActor:            map[model.JobID]*actor.Ref{},
 		slotsUsedPerGroup:         map[*tasklist.Group]int{},
+		slotsPendingPerGroup:      map[*tasklist.Group]int{},
 		allocationIDToRunningPods: map[model.AllocationID]int{},
+		PendingAllocations:        map[*tasklist.Group][]model.AllocationID{},
 		podsActor:                 podsActor,
 		queuePositions:            tasklist.InitializeJobSortState(true),
 	}
@@ -177,6 +180,8 @@ func (k *kubernetesResourcePool) receiveRequestMsg(ctx *actor.Context) error {
 	switch msg := ctx.Message().(type) {
 	case tasklist.GroupActorStopped:
 		delete(k.slotsUsedPerGroup, k.groups[msg.Ref])
+		delete(k.slotsPendingPerGroup, k.groups[msg.Ref])
+		delete(k.PendingAllocations, k.groups[msg.Ref])
 		delete(k.groups, msg.Ref)
 		if jobID, ok := k.groupActorToID[msg.Ref]; ok {
 			delete(k.queuePositions, jobID)
@@ -207,6 +212,25 @@ func (k *kubernetesResourcePool) receiveRequestMsg(ctx *actor.Context) error {
 		for it := k.reqList.Iterator(); it.Next(); {
 			req := it.Value()
 			if req.AllocationID == id {
+				if req.State != msg.State && msg.State == sproto.SchedulingStateScheduled {
+					group := k.groups[req.Group]
+					if group != nil {
+						for i, allocID := range k.PendingAllocations[group] {
+							if allocID == req.AllocationID {
+								if k.slotsPendingPerGroup[group]-req.SlotsNeeded <= 0 {
+									k.slotsPendingPerGroup[group] = 0
+								} else {
+									k.slotsPendingPerGroup[group] -= req.SlotsNeeded
+								}
+								k.slotsUsedPerGroup[group] += req.SlotsNeeded
+
+								k.PendingAllocations[group] = append(k.PendingAllocations[group][:i],
+									k.PendingAllocations[group][i+1:]...)
+								break
+							}
+						}
+					}
+				}
 				req.State = msg.State
 				if sproto.ScheduledStates[req.State] {
 					k.allocationIDToRunningPods[id]++
@@ -479,7 +503,9 @@ func (k *kubernetesResourcePool) assignResources(
 		}
 	}
 
-	k.slotsUsedPerGroup[k.groups[req.Group]] += req.SlotsNeeded
+	k.slotsPendingPerGroup[k.groups[req.Group]] += req.SlotsNeeded
+	k.PendingAllocations[k.groups[req.Group]] = append(k.PendingAllocations[k.groups[req.Group]],
+		req.AllocationID)
 
 	var resources []*k8sPodResources
 	if req.Restore {
@@ -591,9 +617,24 @@ func (k *kubernetesResourcePool) resourcesReleased(
 	}
 
 	ctx.Log().Infof("resources are released for %s", msg.AllocationID)
+
 	group := k.groups[req.Group]
 	if group != nil {
-		k.slotsUsedPerGroup[group] -= req.SlotsNeeded
+		flag := false
+		// account for if tasks are killed before running
+		for i, allocReq := range k.PendingAllocations[group] {
+			if allocReq == req.AllocationID {
+				k.slotsPendingPerGroup[group] -= req.SlotsNeeded
+				k.PendingAllocations[group] = append(k.PendingAllocations[group][:i],
+					k.PendingAllocations[group][:i]...)
+				flag = true
+				break
+			}
+		}
+
+		if !flag {
+			k.slotsUsedPerGroup[group] -= req.SlotsNeeded
+		}
 	}
 
 	k.reqList.RemoveTaskByID(msg.AllocationID)
@@ -620,6 +661,8 @@ func (k *kubernetesResourcePool) getOrCreateGroup(
 
 	k.groups[handler] = g
 	k.slotsUsedPerGroup[g] = 0
+	k.slotsPendingPerGroup[g] = 0
+	k.PendingAllocations[g] = []model.AllocationID{}
 
 	if ctx != nil && handler != nil { // ctx is nil only for testing purposes.
 		actors.NotifyOnStop(ctx, handler, tasklist.GroupActorStopped{Ref: handler})
@@ -633,7 +676,7 @@ func (k *kubernetesResourcePool) schedulePendingTasks(ctx *actor.Context) {
 		group := k.groups[req.Group]
 		if !k.reqList.IsScheduled(req.AllocationID) {
 			if maxSlots := group.MaxSlots; maxSlots != nil {
-				if k.slotsUsedPerGroup[group]+req.SlotsNeeded > *maxSlots {
+				if k.slotsUsedPerGroup[group]+k.slotsPendingPerGroup[group]+req.SlotsNeeded > *maxSlots {
 					continue
 				}
 			}

@@ -112,6 +112,7 @@ type summarizeResult struct {
 type PodsInfo struct {
 	NumAgents      int
 	SlotsAvailable int
+	SlotsUsed      int
 }
 
 // SummarizeResources summerize pods resource.
@@ -884,7 +885,42 @@ func (p *pods) receiveResourceSummarize(ctx *actor.Context, msg SummarizeResourc
 			slots += numSlots(pool.Slots)
 		}
 	}
-	ctx.Respond(&PodsInfo{NumAgents: len(summary), SlotsAvailable: slots})
+	s := ctx.Self().System()
+
+	listOptions := metaV1.ListOptions{LabelSelector: determinedLabel}
+	pods, err := p.listPodsInAllNamespaces(context.TODO(), listOptions)
+	if err != nil {
+		return
+	}
+	ctx.Log().Info("Pods before for loop")
+	slotsUsed := 0
+	for _, pod := range pods.Items {
+		ctx.Log().Info("Pods in for loop 1")
+		ref, ok := p.podNameToPodHandler[pod.Name]
+		if !ok {
+			p.syslog.Debug("received preemption command for unregistered pod")
+			ctx.Respond("Received preemption command for unregistered pod")
+			return
+		}
+		resp := s.Ask(ref, calcUsedSlots{})
+		if err := resp.Error(); err != nil {
+			ctx.Respond(err)
+			return
+		}
+		ctx.Log().Info("Pods in for loop 2")
+		slotsFound, ok := resp.Get().(int)
+		if !ok {
+			ctx.Respond("Error getting value from response")
+			return
+		}
+		slotsUsed += slotsFound
+		ctx.Log().Info("Pods in for loop 3")
+	}
+
+	ctx.Respond(&PodsInfo{
+		NumAgents: len(summary), SlotsAvailable: slots,
+		SlotsUsed: slotsUsed,
+	})
 }
 
 func (p *pods) preemptionCallback(s *actor.System, event watch.Event) {

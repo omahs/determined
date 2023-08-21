@@ -135,7 +135,7 @@ func (k *kubernetesResourcePool) Receive(ctx *actor.Context) error {
 		ctx.Respond(resourceSummary{
 			numAgents:              pods.NumAgents,
 			numTotalSlots:          pods.SlotsAvailable,
-			numActiveSlots:         slotsUsed,
+			numActiveSlots:         pods.SlotsUsed,
 			maxNumAuxContainers:    1,
 			numActiveAuxContainers: 0,
 			slotType:               "",

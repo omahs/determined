@@ -98,6 +98,8 @@ type pod struct {
 
 type getPodNodeInfo struct{}
 
+type calcUsedSlots struct{}
+
 type podNodeInfo struct {
 	nodeName  string
 	numSlots  int
@@ -195,6 +197,14 @@ func (p *pod) Receive(ctx *actor.Context) error {
 		if err := p.receivePodStatusUpdate(ctx, msg); err != nil {
 			return err
 		}
+
+	case calcUsedSlots:
+		slotsUsed, err := p.calcUsedSlots()
+		if err != nil {
+			ctx.Respond(err)
+			return err
+		}
+		ctx.Respond(slotsUsed)
 
 	case podEventUpdate:
 		p.receivePodEventUpdate(ctx, msg)
@@ -499,6 +509,21 @@ func (p *pod) receivePodEventUpdate(ctx *actor.Context, msg podEventUpdate) {
 	p.insertLog(ctx, msg.event.CreationTimestamp.Time, message)
 }
 
+func (p *pod) calcUsedSlots() (int, error) {
+	containerStatuses, err := getDeterminedContainersStatus(
+		p.pod.Status.ContainerStatuses, p.containerNames)
+	if err != nil {
+		return 0, err
+	}
+	slotsCount := 0
+	for _, containerStatus := range containerStatuses {
+		if containerStatus.State.Running != nil {
+			slotsCount++
+		}
+	}
+	return slotsCount, nil
+}
+
 func getPodState(
 	ctx *actor.Context,
 	pod *k8sV1.Pod,
@@ -639,7 +664,8 @@ func getDeterminedContainersStatus(
 		for _, containerStatus := range containerStatuses {
 			containerNamesFound = append(containerNamesFound, containerStatus.Name)
 		}
-		return nil, errors.Errorf("found container statuses only for: %v", containerNamesFound)
+		return nil, errors.Errorf("container names given: %v found container statuses only for: %v",
+			containerNames, containerNamesFound)
 	}
 
 	return containerStatuses, nil

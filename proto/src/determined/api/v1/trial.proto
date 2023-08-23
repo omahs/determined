@@ -530,6 +530,67 @@ message PostAllocationProxyAddressRequest {
 // Response to PostAllocationProxyAddressRequest
 message PostAllocationProxyAddressResponse {}
 
+// Get the accelerator data for each allocation associated with a task.
+message GetTaskAcceleratorDataRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "task_id" ] }
+  };
+  // The id of the task.
+  string task_id = 1;
+}
+// Response to GetTaskAcceleratorDataResponse
+message GetTaskAcceleratorDataResponse {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "accelerator_data" ] }
+  };
+  // The accelerator data for each allocation associated with the task.
+  repeated AcceleratorData accelerator_data = 1;
+}
+
+// Get the accelerator data for some allocation.
+message GetAllocationAcceleratorDataRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "allocation_id" ] }
+  };
+  // The id of the allocation.
+  string allocation_id = 1;
+}
+// Response to GetAllocationAcceleratorDataRequest
+message GetAllocationAcceleratorDataResponse {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "accelerator_data" ] }
+  };
+  // The accelerator data used by the allocation.
+  AcceleratorData accelerator_data = 1;
+}
+
+// Set the accelerator data for some allocation.
+message PostAllocationAcceleratorDataRequest {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "allocation_id", "accelerator_data" ] }
+  };
+  // The id of the allocation.
+  string allocation_id = 1;
+  // The accelerator data used by the allocation.
+  AcceleratorData accelerator_data = 2;
+}
+// Response to PostAllocationAcceleratorDataRequest
+message PostAllocationAcceleratorDataResponse {}
+
+// Accelerator data for a given allocation
+message AcceleratorData {
+  // The id of the allocation.
+  string allocation_id = 1;
+  // The name of the node the allocation is on.
+  string node_name = 2;
+  // The id of the agent associated with the allocation.
+  string task_id = 3;
+  // The type of accelerator.
+  string accelerator_type = 4;
+  // An array of IDs of the accelerators associated with the allocation.
+  repeated string accelerators = 5;
+}
+
 // Arguments to an all gather.
 message AllocationAllGatherRequest {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {

@@ -40,6 +40,9 @@ var (
 	taskLogsFieldsBatchWaitTime = 5 * time.Second
 )
 
+// UnimplementedError is the error return by API endpoints that are not yet implemented.
+var UnimplementedError = status.Error(codes.Unimplemented, "method not yet available")
+
 func expFromTaskID(
 	ctx context.Context, taskID model.TaskID,
 ) (isExperiment bool, exp *model.Experiment, err error) {
@@ -234,6 +237,27 @@ func (a *apiServer) PostAllocationProxyAddress(
 		return nil, err
 	}
 	return &apiv1.PostAllocationProxyAddressResponse{}, nil
+}
+
+func (a *apiServer) GetTaskAcceleratorData(
+	ctx context.Context,
+	req *apiv1.GetTaskAcceleratorDataRequest,
+) (*apiv1.GetTaskAcceleratorDataResponse, error) {
+	return nil, UnimplementedError
+}
+
+func (a *apiServer) GetAllocationAcceleratorData(
+	ctx context.Context,
+	req *apiv1.GetAllocationAcceleratorDataRequest,
+) (*apiv1.GetAllocationAcceleratorDataResponse, error) {
+	return nil, UnimplementedError
+}
+
+func (a *apiServer) PostAllocationAcceleratorData(
+	ctx context.Context,
+	req *apiv1.PostAllocationAcceleratorDataRequest,
+) (*apiv1.PostAllocationAcceleratorDataResponse, error) {
+	return nil, UnimplementedError
 }
 
 // TaskLogBackend is an interface task log backends, such as elastic or postgres,

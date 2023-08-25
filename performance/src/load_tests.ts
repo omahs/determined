@@ -5,7 +5,12 @@ import { jUnit, textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.j
 
 const clusterURL = __ENV.DET_MASTER
 
-const thresholds: { [name: string]: Threshold[] } = {};
+const thresholds: { [name: string]: Threshold[] } = {
+    http_req_failed: [{
+        threshold: 'rate<0.01', // Less than one percent of HTTP requests should fail
+        abortOnFail: true,
+    }],
+};
 
 
 // Test name and endpoint url for each test case
@@ -19,10 +24,9 @@ const tests = [{
 const scenarios: { [name: string]: Scenario } = {
     smoke: {
         executor: 'shared-iterations',
-        vus: 3,
+        vus: 5,
         iterations: 5
-    },
-    average_load: {
+    }, average_load: {
         executor: 'ramping-vus',
         stages: [
             { duration: '10s', target: 50 },
@@ -61,6 +65,8 @@ const scenarios: { [name: string]: Scenario } = {
 
 // In order to be able to view metrics for specific scenarios and tests
 // we must create a unique threshold for each.
+// See https://community.grafana.com/t/show-tag-data-in-output-or-summary-json-without-threshold/99320 
+// for more information
 tests.forEach(
     (testScenario) =>
         Object.keys(scenarios).forEach((scenarioName) =>
@@ -72,7 +78,6 @@ tests.forEach(
             ],
         )
 )
-
 
 export const options: Options = {
     scenarios,

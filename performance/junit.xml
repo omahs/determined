@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<testsuites tests="6" failures="0">
+<testsuite name="K6 Load Tests" tests="6" failures="0"><testcase name="http_req_duration{test:visit master endpoint, scenario:spike} - p(95)&lt;1000" />
+<testcase name="http_req_duration{test:visit master endpoint, scenario:soak} - p(95)&lt;1000" />
+<testcase name="http_req_duration{test:visit master endpoint, scenario:stress} - p(95)&lt;1000" />
+<testcase name="http_req_failed - rate&lt;0.01" />
+<testcase name="http_req_duration{test:visit master endpoint, scenario:average_load} - p(95)&lt;1000" />
+<testcase name="http_req_duration{test:visit master endpoint, scenario:smoke} - p(95)&lt;1000" />
+</testsuite >
+</testsuites >

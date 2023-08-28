@@ -97,6 +97,7 @@ func (a *agentState) numEmptySlots() (slots int) {
 	case a.draining, !a.enabled:
 		return 0
 	default:
+		// TODO: reduce based on a new blacklist argument.
 		return a.numSlots() - a.numUsedSlots()
 	}
 }
@@ -153,6 +154,7 @@ func (a *agentState) idle() bool {
 // allocateFreeDevices allocates container.
 func (a *agentState) allocateFreeDevices(slots int, cid cproto.ID) ([]device.Device, error) {
 	// TODO(ilia): Rename to AllocateContainer.
+	// TODO: take in and account for the blacklist.
 	a.containerState[cid] = &cproto.Container{ID: cid}
 	if slots == 0 {
 		return nil, nil

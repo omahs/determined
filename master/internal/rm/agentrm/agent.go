@@ -92,6 +92,7 @@ type (
 	allocateFreeDevices struct {
 		slots       int
 		containerID cproto.ID
+		blacklist   sproto.Blacklist
 	}
 	// allocateFreeDevicesResponse is a response to allocateFreeDevices.
 	allocateFreeDevicesResponse struct {

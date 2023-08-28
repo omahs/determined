@@ -9,6 +9,7 @@ import (
 // Hard Constraints
 
 func slotsSatisfied(req *sproto.AllocateRequest, agent *agentState) bool {
+	// pass in req.FittingRequirements.Blacklist coming from AR.
 	return req.SlotsNeeded <= agent.numEmptySlots()
 }
 

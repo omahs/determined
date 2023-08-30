@@ -109,23 +109,11 @@ def _get_rocm_gpus() -> List[GPU]:
     return gpus
 
 
-def _get_artificial_gpus() -> List[GPU]:
-    gpus = []
-    for i in range(4):
-        gpus.append(GPU(id=i, uuid=str(i), load=0, memoryUtil=0))
-
-    logging.info(f"FIXME: detected 4 artificial gpus")
-    return gpus
-
-
 def get_gpus() -> List[GPU]:
     result = _get_nvidia_gpus()
     if result:
         return result
-    result = _get_rocm_gpus()
-    if result:
-        return result
-    return _get_artificial_gpus()
+    return _get_rocm_gpus()
 
 
 def get_gpu_uuids() -> List[str]:

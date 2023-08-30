@@ -35,6 +35,9 @@ type TaskContainerDefaultsConfig struct {
 	RegistryAuth           *types.AuthConfig     `json:"registry_auth,omitempty"`
 	ForcePullImage         bool                  `json:"force_pull_image,omitempty"`
 	EnvironmentVariables   *RuntimeItems         `json:"environment_variables,omitempty"`
+	// TODO: HardwareFailurePatterns is a list of regular expressions that match hardware failure.
+	// support: 1. user wants to override 2. user wants to augment.
+	HardwareFailurePatterns []string `json:"hardware_failure_patterns,omitempty"`
 
 	AddCapabilities  []string      `json:"add_capabilities"`
 	DropCapabilities []string      `json:"drop_capabilities"`
@@ -51,6 +54,10 @@ func DefaultTaskContainerDefaults() *TaskContainerDefaultsConfig {
 	return &TaskContainerDefaultsConfig{
 		ShmSizeBytes: 4294967296,
 		NetworkMode:  "bridge",
+		HardwareFailurePatterns: []string{
+			// what format are we supporting?
+			".*CUDA error: uncorrectable ECC.*",
+		},
 	}
 }
 

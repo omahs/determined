@@ -10,6 +10,7 @@ import (
 
 func slotsSatisfied(req *sproto.AllocateRequest, agent *agentState) bool {
 	// pass in req.FittingRequirements.Blacklist coming from AR.
+	// return false
 	return req.SlotsNeeded <= agent.numEmptySlots()
 }
 

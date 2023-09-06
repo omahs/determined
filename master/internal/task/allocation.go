@@ -317,6 +317,22 @@ func (a *allocation) SetProxyAddress(_ context.Context, address string) error {
 	return nil
 }
 
+// SetAcceleratorData sets the proxy address of the allocation.
+func (a *allocation) SetAcceleratorData(_ context.Context, containerID string, taskID model.TaskID,
+	nodeName string, acceleratorType string, accelerators []string,
+) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.model.TaskID = taskID
+	if err := a.db.AddAllocationAcceleratorData(containerID, a.model, nodeName, acceleratorType,
+		accelerators); err != nil {
+		a.crash(err)
+		return err
+	}
+	return nil
+}
+
 // SendContainerLog sends a container log, enriched with metadata from the allocation.
 func (a *allocation) SendContainerLog(log *sproto.ContainerLog) {
 	a.sendTaskLog(log.ToTaskLog())

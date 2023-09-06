@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -244,6 +245,73 @@ func (db *PgDB) UpdateAllocationProxyAddress(a model.Allocation) error {
 		SET proxy_address = $2
 		WHERE allocation_id = $1
 	`, a.AllocationID, a.ProxyAddress)
+	return err
+}
+
+// Accelerators object of string slice type.
+type Accelerators []string
+
+// Scan database row of json type into Accelerators object.
+func (a *Accelerators) Scan(src any) error {
+	bytes, ok := src.([]byte)
+	if !ok {
+		return errors.New("src value cannot cast to []byte")
+	}
+	err := json.Unmarshal(bytes, &a)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetTaskAcceleratorData gets the accelerator data for the given task.
+func (db *PgDB) GetTaskAcceleratorData(id string) ([]*apiv1.AcceleratorData, error) {
+	rows, err := db.sql.Query(
+		`
+		SELECT *
+		FROM allocation_accelerators
+		WHERE task_id = $1
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var resp []*apiv1.AcceleratorData
+	for rows.Next() {
+		var containerID, taskID, allocationID, nodeName, acceleratorType string
+		var accelerators Accelerators
+		err := rows.Scan(&containerID, &taskID, &allocationID, &nodeName,
+			&acceleratorType, &accelerators)
+		if err != nil {
+			return nil, err
+		}
+		row := apiv1.AcceleratorData{
+			ContainerId:     containerID,
+			TaskId:          taskID,
+			AllocationId:    allocationID,
+			NodeName:        nodeName,
+			AcceleratorType: acceleratorType,
+			Accelerators:    accelerators,
+		}
+		resp = append(resp, &row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return resp, err
+}
+
+// AddAllocationAcceleratorData stores acceleration data for an allocation.
+func (db *PgDB) AddAllocationAcceleratorData(containerID string, a model.Allocation,
+	nodeName string, acceleratorType string, accelerators []string,
+) error {
+	jsonAccelerators, _ := json.Marshal(accelerators)
+	_, err := db.sql.Exec(`
+		INSERT INTO allocation_accelerators (container_id, task_id, allocation_id, node_name, 
+			accelerator_type, accelerators)
+		VALUES
+		($1, $2, $3, $4, $5, $6)
+	`, containerID, a.TaskID, a.AllocationID, nodeName, acceleratorType, jsonAccelerators)
 	return err
 }
 

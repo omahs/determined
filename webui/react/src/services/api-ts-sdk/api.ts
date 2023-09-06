@@ -856,6 +856,12 @@ export interface Trialv1Trial {
  */
 export interface V1AcceleratorData {
     /**
+     * The id of the container.
+     * @type {string}
+     * @memberof V1AcceleratorData
+     */
+    containerId?: string;
+    /**
      * The id of the allocation.
      * @type {string}
      * @memberof V1AcceleratorData
@@ -3018,19 +3024,6 @@ export interface V1GetAgentsResponse {
      * @memberof V1GetAgentsResponse
      */
     pagination?: V1Pagination;
-}
-/**
- * 
- * @export
- * @interface V1GetAllocationAcceleratorDataResponse
- */
-export interface V1GetAllocationAcceleratorDataResponse {
-    /**
-     * The accelerator data used by the allocation.
-     * @type {V1AcceleratorData}
-     * @memberof V1GetAllocationAcceleratorDataResponse
-     */
-    acceleratorData: V1AcceleratorData;
 }
 /**
  * Response to GetBestSearcherValidationMetricRequest.
@@ -17008,42 +17001,6 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
         },
         /**
          * 
-         * @summary GetAllocationAcceleratorData gets the accelerator data for a given allocation.
-         * @param {string} allocationId The id of the allocation.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getAllocationAcceleratorData(allocationId: string, options: any = {}): FetchArgs {
-            // verify required parameter 'allocationId' is not null or undefined
-            if (allocationId === null || allocationId === undefined) {
-                throw new RequiredError('allocationId','Required parameter allocationId was null or undefined when calling getAllocationAcceleratorData.');
-            }
-            const localVarPath = `/api/v1/allocations/{allocationId}/acceleratorData`
-                .replace(`{${"allocationId"}}`, encodeURIComponent(String(allocationId)));
-            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
-            const localVarRequestOptions = { method: 'GET', ...options };
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-            
-            // authentication BearerToken required
-            if (configuration && configuration.apiKey) {
-                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
-                    ? configuration.apiKey("Authorization")
-                    : configuration.apiKey;
-                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
-            }
-            
-            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
-            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
-            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
-            
-            return {
-                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
          * @summary Get the best searcher validation for an experiment by the given metric.
          * @param {number} experimentId The ID of the experiment.
          * @param {*} [options] Override http request option.
@@ -17462,7 +17419,7 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
             if (taskId === null || taskId === undefined) {
                 throw new RequiredError('taskId','Required parameter taskId was null or undefined when calling getTaskAcceleratorData.');
             }
-            const localVarPath = `/api/v1/allocations/{taskId}/acceleratorData`
+            const localVarPath = `/api/v1/task/{taskId}/acceleratorData`
                 .replace(`{${"taskId"}}`, encodeURIComponent(String(taskId)));
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
             const localVarRequestOptions = { method: 'GET', ...options };
@@ -19307,25 +19264,6 @@ export const InternalApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
-         * @summary GetAllocationAcceleratorData gets the accelerator data for a given allocation.
-         * @param {string} allocationId The id of the allocation.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getAllocationAcceleratorData(allocationId: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetAllocationAcceleratorDataResponse> {
-            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).getAllocationAcceleratorData(allocationId, options);
-            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
-                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        return response.json();
-                    } else {
-                        throw response;
-                    }
-                });
-            };
-        },
-        /**
-         * 
          * @summary Get the best searcher validation for an experiment by the given metric.
          * @param {number} experimentId The ID of the experiment.
          * @param {*} [options] Override http request option.
@@ -20386,16 +20324,6 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
         },
         /**
          * 
-         * @summary GetAllocationAcceleratorData gets the accelerator data for a given allocation.
-         * @param {string} allocationId The id of the allocation.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        getAllocationAcceleratorData(allocationId: string, options?: any) {
-            return InternalApiFp(configuration).getAllocationAcceleratorData(allocationId, options)(fetch, basePath);
-        },
-        /**
-         * 
          * @summary Get the best searcher validation for an experiment by the given metric.
          * @param {number} experimentId The ID of the experiment.
          * @param {*} [options] Override http request option.
@@ -21085,18 +21013,6 @@ export class InternalApi extends BaseAPI {
      */
     public expMetricNames(ids: Array<number>, periodSeconds?: number, options?: any) {
         return InternalApiFp(this.configuration).expMetricNames(ids, periodSeconds, options)(this.fetch, this.basePath)
-    }
-    
-    /**
-     * 
-     * @summary GetAllocationAcceleratorData gets the accelerator data for a given allocation.
-     * @param {string} allocationId The id of the allocation.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof InternalApi
-     */
-    public getAllocationAcceleratorData(allocationId: string, options?: any) {
-        return InternalApiFp(this.configuration).getAllocationAcceleratorData(allocationId, options)(this.fetch, this.basePath)
     }
     
     /**

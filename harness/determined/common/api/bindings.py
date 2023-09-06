@@ -645,6 +645,7 @@ class v1AcceleratorData(Printable):
     acceleratorType: "typing.Optional[str]" = None
     accelerators: "typing.Optional[typing.Sequence[str]]" = None
     allocationId: "typing.Optional[str]" = None
+    containerId: "typing.Optional[str]" = None
     nodeName: "typing.Optional[str]" = None
     taskId: "typing.Optional[str]" = None
 
@@ -654,6 +655,7 @@ class v1AcceleratorData(Printable):
         acceleratorType: "typing.Union[str, None, Unset]" = _unset,
         accelerators: "typing.Union[typing.Sequence[str], None, Unset]" = _unset,
         allocationId: "typing.Union[str, None, Unset]" = _unset,
+        containerId: "typing.Union[str, None, Unset]" = _unset,
         nodeName: "typing.Union[str, None, Unset]" = _unset,
         taskId: "typing.Union[str, None, Unset]" = _unset,
     ):
@@ -663,6 +665,8 @@ class v1AcceleratorData(Printable):
             self.accelerators = accelerators
         if not isinstance(allocationId, Unset):
             self.allocationId = allocationId
+        if not isinstance(containerId, Unset):
+            self.containerId = containerId
         if not isinstance(nodeName, Unset):
             self.nodeName = nodeName
         if not isinstance(taskId, Unset):
@@ -678,6 +682,8 @@ class v1AcceleratorData(Printable):
             kwargs["accelerators"] = obj["accelerators"]
         if "allocationId" in obj:
             kwargs["allocationId"] = obj["allocationId"]
+        if "containerId" in obj:
+            kwargs["containerId"] = obj["containerId"]
         if "nodeName" in obj:
             kwargs["nodeName"] = obj["nodeName"]
         if "taskId" in obj:
@@ -693,6 +699,8 @@ class v1AcceleratorData(Printable):
             out["accelerators"] = self.accelerators
         if not omit_unset or "allocationId" in vars(self):
             out["allocationId"] = self.allocationId
+        if not omit_unset or "containerId" in vars(self):
+            out["containerId"] = self.containerId
         if not omit_unset or "nodeName" in vars(self):
             out["nodeName"] = self.nodeName
         if not omit_unset or "taskId" in vars(self):
@@ -3522,28 +3530,6 @@ class v1GetAgentsResponse(Printable):
         }
         if not omit_unset or "pagination" in vars(self):
             out["pagination"] = None if self.pagination is None else self.pagination.to_json(omit_unset)
-        return out
-
-class v1GetAllocationAcceleratorDataResponse(Printable):
-
-    def __init__(
-        self,
-        *,
-        acceleratorData: "v1AcceleratorData",
-    ):
-        self.acceleratorData = acceleratorData
-
-    @classmethod
-    def from_json(cls, obj: Json) -> "v1GetAllocationAcceleratorDataResponse":
-        kwargs: "typing.Dict[str, typing.Any]" = {
-            "acceleratorData": v1AcceleratorData.from_json(obj["acceleratorData"]),
-        }
-        return cls(**kwargs)
-
-    def to_json(self, omit_unset: bool = False) -> typing.Dict[str, typing.Any]:
-        out: "typing.Dict[str, typing.Any]" = {
-            "acceleratorData": self.acceleratorData.to_json(omit_unset),
-        }
         return out
 
 class v1GetBestSearcherValidationMetricResponse(Printable):
@@ -14678,26 +14664,6 @@ def get_GetAgents(
         return v1GetAgentsResponse.from_json(_resp.json())
     raise APIHttpError("get_GetAgents", _resp)
 
-def get_GetAllocationAcceleratorData(
-    session: "api.Session",
-    *,
-    allocationId: str,
-) -> "v1GetAllocationAcceleratorDataResponse":
-    _params = None
-    _resp = session._do_request(
-        method="GET",
-        path=f"/api/v1/allocations/{allocationId}/acceleratorData",
-        params=_params,
-        json=None,
-        data=None,
-        headers=None,
-        timeout=None,
-        stream=False,
-    )
-    if _resp.status_code == 200:
-        return v1GetAllocationAcceleratorDataResponse.from_json(_resp.json())
-    raise APIHttpError("get_GetAllocationAcceleratorData", _resp)
-
 def get_GetBestSearcherValidationMetric(
     session: "api.Session",
     *,
@@ -15810,7 +15776,7 @@ def get_GetTaskAcceleratorData(
     _params = None
     _resp = session._do_request(
         method="GET",
-        path=f"/api/v1/allocations/{taskId}/acceleratorData",
+        path=f"/api/v1/task/{taskId}/acceleratorData",
         params=_params,
         json=None,
         data=None,

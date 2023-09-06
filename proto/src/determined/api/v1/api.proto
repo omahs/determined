@@ -942,19 +942,7 @@ service Determined {
   rpc GetTaskAcceleratorData(GetTaskAcceleratorDataRequest)
       returns (GetTaskAcceleratorDataResponse) {
     option (google.api.http) = {
-      get: "/api/v1/allocations/{task_id}/acceleratorData"
-    };
-    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
-      tags: "Internal"
-    };
-  }
-
-  // GetAllocationAcceleratorData gets the accelerator data for a given
-  // allocation.
-  rpc GetAllocationAcceleratorData(GetAllocationAcceleratorDataRequest)
-      returns (GetAllocationAcceleratorDataResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/allocations/{allocation_id}/acceleratorData"
+      get: "/api/v1/task/{task_id}/acceleratorData"
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "Internal"

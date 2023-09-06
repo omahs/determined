@@ -40,9 +40,6 @@ var (
 	taskLogsFieldsBatchWaitTime = 5 * time.Second
 )
 
-// UnimplementedError is the error return by API endpoints that are not yet implemented.
-var UnimplementedError = status.Error(codes.Unimplemented, "method not yet available")
-
 func expFromTaskID(
 	ctx context.Context, taskID model.TaskID,
 ) (isExperiment bool, exp *model.Experiment, err error) {
@@ -243,21 +240,45 @@ func (a *apiServer) GetTaskAcceleratorData(
 	ctx context.Context,
 	req *apiv1.GetTaskAcceleratorDataRequest,
 ) (*apiv1.GetTaskAcceleratorDataResponse, error) {
-	return nil, UnimplementedError
-}
+	if req.TaskId == "" {
+		return nil, status.Error(codes.InvalidArgument, "task ID missing")
+	}
 
-func (a *apiServer) GetAllocationAcceleratorData(
-	ctx context.Context,
-	req *apiv1.GetAllocationAcceleratorDataRequest,
-) (*apiv1.GetAllocationAcceleratorDataResponse, error) {
-	return nil, UnimplementedError
+	accelerationData, err := a.m.db.GetTaskAcceleratorData(req.TaskId)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := apiv1.GetTaskAcceleratorDataResponse{AcceleratorData: accelerationData}
+	return &resp, nil
 }
 
 func (a *apiServer) PostAllocationAcceleratorData(
 	ctx context.Context,
 	req *apiv1.PostAllocationAcceleratorDataRequest,
 ) (*apiv1.PostAllocationAcceleratorDataResponse, error) {
-	return nil, UnimplementedError
+	if req.AllocationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "allocation ID missing")
+	}
+
+	if err := a.canEditAllocation(ctx, req.AllocationId); err != nil {
+		return nil, err
+	}
+
+	err := task.DefaultService.SetAcceleratorData(
+		ctx,
+		req.AcceleratorData.ContainerId,
+		model.AllocationID(req.AllocationId),
+		model.TaskID(req.AcceleratorData.TaskId),
+		req.AcceleratorData.NodeName,
+		req.AcceleratorData.AcceleratorType,
+		req.AcceleratorData.Accelerators,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.PostAllocationAcceleratorDataResponse{}, nil
 }
 
 // TaskLogBackend is an interface task log backends, such as elastic or postgres,

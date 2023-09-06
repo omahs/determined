@@ -66,6 +66,20 @@ func (_m *DB) AddAllocation(a *model.Allocation) error {
 	return r0
 }
 
+// AddAllocationAcceleratorData provides a mock function with given fields: containerID, a, nodeName, acceleratorType, accelerators
+func (_m *DB) AddAllocationAcceleratorData(containerID string, a model.Allocation, nodeName string, acceleratorType string, accelerators []string) error {
+	ret := _m.Called(containerID, a, nodeName, acceleratorType, accelerators)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, model.Allocation, string, string, []string) error); ok {
+		r0 = rf(containerID, a, nodeName, acceleratorType, accelerators)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // AddAuthTokenKeypair provides a mock function with given fields: tokenKeypair
 func (_m *DB) AddAuthTokenKeypair(tokenKeypair *model.AuthTokenKeypair) error {
 	ret := _m.Called(tokenKeypair)
@@ -855,6 +869,32 @@ func (_m *DB) GetOrCreateClusterID() (string, error) {
 
 	if rf, ok := ret.Get(1).(func() error); ok {
 		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetTaskAcceleratorData provides a mock function with given fields: id
+func (_m *DB) GetTaskAcceleratorData(id string) ([]*apiv1.AcceleratorData, error) {
+	ret := _m.Called(id)
+
+	var r0 []*apiv1.AcceleratorData
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) ([]*apiv1.AcceleratorData, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) []*apiv1.AcceleratorData); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*apiv1.AcceleratorData)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
 	}

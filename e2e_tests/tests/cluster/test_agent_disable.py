@@ -43,18 +43,14 @@ def test_disable_and_enable_slots() -> None:
         ]
         subprocess.check_call(command)
 
-        slot = get_GetSlot(
-            api_utils.determined_test_session(), agentId=agent_id, slotId=slot_id
-        ).slot
+        slot = get_GetSlot(api_utils.user_session(), agentId=agent_id, slotId=slot_id).slot
         assert slot is not None
         assert slot.enabled is False
 
         command = ["det", "-m", conf.make_master_url(), "slot", "enable", agent_id, slot_id]
         subprocess.check_call(command)
 
-        slot = get_GetSlot(
-            api_utils.determined_test_session(), agentId=agent_id, slotId=slot_id
-        ).slot
+        slot = get_GetSlot(api_utils.user_session(), agentId=agent_id, slotId=slot_id).slot
         assert slot is not None
         assert slot.enabled is True
 

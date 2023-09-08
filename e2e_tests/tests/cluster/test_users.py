@@ -16,7 +16,7 @@ import pytest
 from pexpect import spawn
 
 from determined.common import api, constants, util
-from determined.common.api import authentication, bindings, certs, errors
+from determined.common.api import authentication, bindings, errors
 from determined.experimental import Determined
 from tests import api_utils, command
 from tests import config as conf
@@ -164,7 +164,7 @@ def extract_id_and_owner_from_exp_list(output: str) -> List[Tuple[int, str]]:
 def test_post_user_api(clean_auth: None, login_admin: None) -> None:
     new_username = get_random_string()
 
-    sess = api_utils.determined_test_session(admin=True)
+    sess = api_utils.admin_session()
 
     user = bindings.v1User(active=True, admin=False, username=new_username)
     body = bindings.v1PostUserRequest(password="", user=user)
@@ -741,8 +741,8 @@ def test_tensorboard_creation_and_listing(clean_auth: None, login_admin: None) -
 def test_command_creation_and_listing(clean_auth: None) -> None:
     creds1 = api_utils.create_test_user(True)
     creds2 = api_utils.create_test_user(True)
-    session1 = api_utils.determined_test_session(credentials=creds1)
-    session2 = api_utils.determined_test_session(credentials=creds2)
+    session1 = api_utils.make_session(creds1)
+    session2 = api_utils.make_session(creds2)
 
     command_id1 = run_command(session=session1)
 
@@ -976,12 +976,7 @@ def test_change_displayname(clean_auth: None, login_admin: None) -> None:
     u_patch = api_utils.create_test_user(False)
     original_name = u_patch.username
 
-    master_url = conf.make_master_url()
-    certs.cli_cert = certs.default_load(master_url)
-    authentication.cli_auth = authentication.Authentication(
-        conf.make_master_url(), requested_user=original_name, password=""
-    )
-    sess = api.Session(master_url, original_name, authentication.cli_auth, certs.cli_cert)
+    sess = api_utils.make_session(authentication.Credentials(original_name, ""))
 
     current_user = _fetch_user_by_username(sess, original_name)
     assert current_user is not None and current_user.id
@@ -1023,7 +1018,7 @@ def test_patch_agentusergroup(clean_auth: None, login_admin: None) -> None:
     test_username = test_user_credentials.username
 
     # Patch - normal.
-    sess = api_utils.determined_test_session(admin=True)
+    sess = api_utils.admin_session()
     patch_user = bindings.v1PatchUser(
         agentUserGroup=bindings.v1AgentUserGroup(
             agentGid=1000, agentUid=1000, agentUser="username", agentGroup="groupname"
@@ -1086,12 +1081,7 @@ def test_user_edit(clean_auth: None, login_admin: None) -> None:
     u_patch = api_utils.create_test_user(False)
     original_name = u_patch.username
 
-    master_url = conf.make_master_url()
-    certs.cli_cert = certs.default_load(master_url)
-    authentication.cli_auth = authentication.Authentication(
-        master_url, requested_user=original_name, password=""
-    )
-    sess = api.Session(master_url, original_name, authentication.cli_auth, certs.cli_cert)
+    sess = api_utils.make_session(u_patch)
 
     current_user = _fetch_user_by_username(sess, original_name)
 
@@ -1137,12 +1127,7 @@ def test_user_edit_no_fields(clean_auth: None, login_admin: None) -> None:
     u_patch = api_utils.create_test_user(False)
     original_name = u_patch.username
 
-    master_url = conf.make_master_url()
-    certs.cli_cert = certs.default_load(master_url)
-    authentication.cli_auth = authentication.Authentication(
-        master_url, requested_user=original_name, password=""
-    )
-    sess = api.Session(master_url, original_name, authentication.cli_auth, certs.cli_cert)
+    sess = api_utils.make_session(u_patch)
 
     current_user = _fetch_user_by_username(sess, original_name)
 

@@ -99,7 +99,7 @@ def compare_stats() -> None:
     gpu_from_log, global_start, global_end = parse_log_for_gpu_stats(log_path)
     try:
         res = bindings.get_ResourceAllocationRaw(
-            api_utils.determined_test_session(),
+            api_utils.user_session(),
             timestampAfter=global_start,
             timestampBefore=global_end,
         )

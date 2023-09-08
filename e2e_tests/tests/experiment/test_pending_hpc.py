@@ -15,7 +15,7 @@ from tests import experiment as exp
 # Queries the determined master for resource pool information to determine if
 # resource pool is suitable for this test.
 def skip_if_not_suitable_resource_pool() -> None:
-    session = api_utils.determined_test_session()
+    session = api_utils.user_session()
     rps = bindings.get_GetResourcePools(session)
     assert rps.resourcePools and len(rps.resourcePools) > 0, "missing resource pool"
     if (

@@ -1,12 +1,12 @@
 import json
 import tempfile
-from typing import Any, Dict, Optional, Sequence
-from urllib.parse import urlencode
+from typing import Any, Dict, Sequence
 
 import pytest
 
-from determined.common import api, util
-from determined.common.api import authentication, bindings, certs
+from determined.common import util
+from determined.common.api import bindings
+from tests import api_utils
 from tests import config as conf
 from tests import experiment as exp
 
@@ -21,10 +21,6 @@ from tests import experiment as exp
     ],
 )
 def test_streaming_observability_metrics_apis(model_def: str, timings_enabled: bool) -> None:
-    # TODO: refactor tests to not use cli singleton auth.
-    certs.cli_cert = certs.default_load(conf.make_master_url())
-    authentication.cli_auth = authentication.Authentication(conf.make_master_url())
-
     config_path = conf.fixtures_path("mnist_pytorch/const-profiling.yaml")
 
     config_obj = conf.load_config(config_path)
@@ -86,9 +82,9 @@ def request_profiling_metric_labels(trial_id: int, timing_enabled: bool, gpu_ena
                 f"expected completed experiment to have all labels but some are missing: {expected}"
             )
 
-    with api.get(
-        conf.make_master_url(),
-        "api/v1/trials/{}/profiler/available_series".format(trial_id),
+    sess = api_utils.user_session()
+    with sess.get(
+        f"api/v1/trials/{trial_id}/profiler/available_series",
         stream=True,
     ) as r:
         for line in r.iter_lines():
@@ -111,12 +107,13 @@ def request_profiling_system_metrics(trial_id: int, metric_name: str) -> None:
         if num_values == 0:
             pytest.fail(f"received batch of size 0, something went wrong: {batch}")
 
-    with api.get(
-        conf.make_master_url(),
-        "api/v1/trials/{}/profiler/metrics?{}".format(
-            trial_id,
-            to_query_params(PROFILER_METRIC_TYPE_SYSTEM, metric_name),
-        ),
+    sess = api_utils.user_session()
+    with sess.get(
+        f"api/v1/trials/{trial_id}/profiler/metrics",
+        params={
+            "labels.name": metric_name,
+            "labels.metricType": PROFILER_METRIC_TYPE_SYSTEM,
+        },
         stream=True,
     ) as r:
         have_batch = False
@@ -162,12 +159,13 @@ def request_profiling_pytorch_timing_metrics(
 
         return int(batches[-1]) + 1
 
-    with api.get(
-        conf.make_master_url(),
-        "api/v1/trials/{}/profiler/metrics?{}".format(
-            trial_id,
-            to_query_params(PROFILER_METRIC_TYPE_TIMING, metric_name),
-        ),
+    sess = api_utils.user_session()
+    with sess.get(
+        f"api/v1/trials/{trial_id}/profiler/metrics",
+        params={
+            "labels.name": metric_name,
+            "labels.metricType": PROFILER_METRIC_TYPE_TIMING,
+        },
         stream=True,
     ) as r:
         batch_idx = 0
@@ -182,12 +180,3 @@ def request_profiling_pytorch_timing_metrics(
 
 PROFILER_METRIC_TYPE_SYSTEM = "PROFILER_METRIC_TYPE_SYSTEM"
 PROFILER_METRIC_TYPE_TIMING = "PROFILER_METRIC_TYPE_TIMING"
-
-
-def to_query_params(metric_type: str, metric_name: Optional[str] = None) -> str:
-    return urlencode(
-        {
-            "labels.name": metric_name,
-            "labels.metricType": metric_type,
-        }
-    )

@@ -2,6 +2,7 @@ from determined.cli._util import (
     output_format_args,
     make_pagination_args,
     default_pagination_args,
+    unauth_session,
     setup_session,
     require_feature_flag,
     login_sdk_client,

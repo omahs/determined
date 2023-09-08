@@ -72,7 +72,7 @@ def setup_template_test(
     workspace_id: Optional[int] = None,
     name: str = "template",
 ) -> Tuple[Session, bindings.v1Template]:
-    session = api_utils.determined_test_session() if session is None else session
+    session = api_utils.user_session() if session is None else session
     tpl = bindings.v1Template(
         name=api_utils.get_random_string(),
         config=conf.load_config(conf.fixtures_path(f"templates/{name}.yaml")),
@@ -135,15 +135,15 @@ def test_rbac_template_create() -> None:
         ]
     ) as (workspaces, creds):
         for uid in creds:
-            setup_template_test(api_utils.determined_test_session(creds[uid]), workspaces[0].id)
+            setup_template_test(api_utils.make_session(creds[uid]), workspaces[0].id)
             with pytest.raises(errors.ForbiddenException):
-                setup_template_test(api_utils.determined_test_session(creds[uid]), workspaces[1].id)
+                setup_template_test(api_utils.make_session(creds[uid]), workspaces[1].id)
 
 
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(rbac.rbac_disabled(), reason="ee rbac is required for this test")
 def test_rbac_template_delete() -> None:
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
     with rbac.create_workspaces_with_users(
         [
             [  # can delete
@@ -159,24 +159,20 @@ def test_rbac_template_delete() -> None:
         for uid in creds:
             _, tpl = setup_template_test(admin_session, workspaces[0].id)
             bindings.delete_DeleteTemplate(
-                api_utils.determined_test_session(creds[uid]), templateName=tpl.name
+                api_utils.make_session(creds[uid]), templateName=tpl.name
             )
 
         _, tpl = setup_template_test(admin_session, workspaces[1].id)
         with pytest.raises(errors.ForbiddenException):
-            bindings.delete_DeleteTemplate(
-                api_utils.determined_test_session(creds[0]), templateName=tpl.name
-            )
+            bindings.delete_DeleteTemplate(api_utils.make_session(creds[0]), templateName=tpl.name)
         with pytest.raises(errors.NotFoundException):
-            bindings.delete_DeleteTemplate(
-                api_utils.determined_test_session(creds[1]), templateName=tpl.name
-            )
+            bindings.delete_DeleteTemplate(api_utils.make_session(creds[1]), templateName=tpl.name)
 
 
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(rbac.rbac_disabled(), reason="ee rbac is required for this test")
 def test_rbac_template_view() -> None:
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
     with rbac.create_workspaces_with_users(
         [
             [  # can view
@@ -189,7 +185,7 @@ def test_rbac_template_view() -> None:
         _, tpl0 = setup_template_test(admin_session, workspaces[0].id)
         _, tpl1 = setup_template_test(admin_session, workspaces[1].id)
         for uid in creds:
-            usession = api_utils.determined_test_session(creds[uid])
+            usession = api_utils.make_session(creds[uid])
             bindings.get_GetTemplate(usession, templateName=tpl0.name)
             with pytest.raises(errors.NotFoundException):
                 bindings.get_GetTemplate(usession, templateName=tpl1.name)
@@ -198,7 +194,7 @@ def test_rbac_template_view() -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(rbac.rbac_disabled(), reason="ee rbac is required for this test")
 def test_rbac_template_patch_config() -> None:
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
     with rbac.create_workspaces_with_users(
         [
             [  # can update
@@ -216,13 +212,13 @@ def test_rbac_template_patch_config() -> None:
         for uid in creds:
             tpl0.config["description"] = "updated description"
             bindings.patch_PatchTemplateConfig(
-                api_utils.determined_test_session(creds[uid]),
+                api_utils.make_session(creds[uid]),
                 body=tpl0.config,
                 templateName=tpl0.name,
             )
             with pytest.raises(errors.ForbiddenException):
                 bindings.patch_PatchTemplateConfig(
-                    api_utils.determined_test_session(creds[uid]),
+                    api_utils.make_session(creds[uid]),
                     body=tpl1.config,
                     templateName=tpl1.name,
                 )
@@ -232,7 +228,7 @@ def test_rbac_template_patch_config() -> None:
 @pytest.mark.skipif(rbac.rbac_disabled(), reason="ee rbac is required for this test")
 @pytest.mark.parametrize("kind", conf.ALL_NTSC)
 def test_rbac_template_ntsc_create(kind: NTSC_Kind) -> None:
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
     with rbac.create_workspaces_with_users(
         [
             [
@@ -259,7 +255,7 @@ def test_rbac_template_ntsc_create(kind: NTSC_Kind) -> None:
             )
 
         for uid in creds:
-            usession = api_utils.determined_test_session(creds[uid])
+            usession = api_utils.make_session(creds[uid])
             api_utils.launch_ntsc(
                 usession, workspaces[0].id, kind, exp_id=experiment_id, template=tpl0.name
             )
@@ -274,7 +270,7 @@ def test_rbac_template_ntsc_create(kind: NTSC_Kind) -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(rbac.rbac_disabled(), reason="ee rbac is required for this test")
 def test_rbac_template_exp_create() -> None:
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
     with rbac.create_workspaces_with_users(
         [
             [

@@ -7,7 +7,8 @@ from typing import Any, Callable, Dict, Iterable, Optional, Union
 import pytest
 
 from determined.common import api
-from determined.common.api import authentication, bindings, certs
+from determined.common.api import bindings
+from tests import api_utils
 from tests import config as conf
 from tests import experiment as exp
 
@@ -26,11 +27,7 @@ LogFields = Union[bindings.v1TaskLogsFieldsResponse, bindings.v1TrialLogsFieldsR
 @pytest.mark.e2e_pbs
 @pytest.mark.timeout(10 * 60)
 def test_trial_logs() -> None:
-    # TODO: refactor tests to not use cli singleton auth.
-    master_url = conf.make_master_url()
-    certs.cli_cert = certs.default_load(conf.make_master_url())
-    authentication.cli_auth = authentication.Authentication(conf.make_master_url())
-    session = api.Session(master_url, "determined", authentication.cli_auth, certs.cli_cert)
+    session = api_utils.user_session()
 
     experiment_id = exp.run_basic_test(
         conf.fixtures_path("no_op/single.yaml"), conf.fixtures_path("no_op"), 1
@@ -73,10 +70,7 @@ def test_trial_logs() -> None:
     ],
 )
 def test_task_logs(task_type: str, task_config: Dict[str, Any], log_regex: Any) -> None:
-    master_url = conf.make_master_url()
-    certs.cli_cert = certs.default_load(conf.make_master_url())
-    authentication.cli_auth = authentication.Authentication(conf.make_master_url())
-    session = api.Session(master_url, "determined", authentication.cli_auth, certs.cli_cert)
+    session = api_utils.user_session()
 
     rps = bindings.get_GetResourcePools(session)
     assert rps.resourcePools and len(rps.resourcePools) > 0, "missing resource pool"

@@ -65,6 +65,7 @@ class Cert:
         return self._name
 
 
+# XXX: either move this, or idk, but get rid of it somehow.
 cli_cert = None  # type: Optional[Cert]
 
 

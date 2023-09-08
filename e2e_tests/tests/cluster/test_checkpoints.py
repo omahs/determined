@@ -10,7 +10,7 @@ import pytest
 
 from determined import errors
 from determined.common import api, storage, util
-from determined.common.api import authentication, bindings, certs
+from determined.common.api import bindings
 from determined.common.api.bindings import checkpointv1State
 from tests import api_utils
 from tests import config as conf
@@ -22,14 +22,13 @@ EXPECT_TIMEOUT = 5
 
 
 def wait_for_gc_to_finish(experiment_ids: List[int]) -> None:
-    certs.cli_cert = certs.default_load(conf.make_master_url())
-    authentication.cli_auth = authentication.Authentication(conf.make_master_url())
+    sess = api_utils.user_session()
 
     seen_gc_experiment_ids = set()
     done_gc_experiment_ids = set()
     # Don't wait longer than 5 minutes (as 600 half-seconds to improve our sampling resolution).
     for _ in range(600):
-        r = api.get(conf.make_master_url(), "tasks").json()
+        r = sess.get("tasks").json()
         names = [task["name"] for task in r.values()]
 
         for experiment_id in experiment_ids:
@@ -152,7 +151,7 @@ def test_delete_checkpoints() -> None:
         config, model_def_path=conf.fixtures_path("no_op"), expected_trials=1
     )
 
-    test_session = api_utils.determined_test_session()
+    test_session = api_utils.user_session()
     exp_1_checkpoints = bindings.get_GetExperimentCheckpoints(
         session=test_session, id=exp_id_1
     ).checkpoints
@@ -380,7 +379,7 @@ def test_delete_experiment_with_no_checkpoints() -> None:
     )
 
     # Still able to delete this since it will have no checkpoints meaning no checkpoint gc task.
-    test_session = api_utils.determined_test_session()
+    test_session = api_utils.user_session()
     bindings.delete_DeleteExperiment(session=test_session, experimentId=exp_id)
     ticks = 60
     for i in range(ticks):
@@ -414,7 +413,7 @@ def test_checkpoint_partial_delete() -> None:
         config, model_def_path=conf.fixtures_path("no_op"), expected_trials=1
     )
 
-    test_session = api_utils.determined_test_session()
+    test_session = api_utils.user_session()
     checkpoints = bindings.get_GetExperimentCheckpoints(
         session=test_session,
         id=exp_id,

@@ -12,7 +12,7 @@ from tests import experiment as exp
 
 @pytest.mark.e2e_cpu
 def test_archived_proj_exp_list() -> None:
-    session = api_utils.determined_test_session(admin=True)
+    session = api_utils.admin_session()
     workspaces: List[bindings.v1Workspace] = []
     count = 2
 

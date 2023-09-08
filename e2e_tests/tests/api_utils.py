@@ -7,37 +7,51 @@ from determined.common import api
 from determined.common.api import authentication, bindings, certs, errors
 from tests import config as conf
 
+_cert: Optional[certs.Cert] = None
+
+
+def cert() -> certs.Cert:
+    global _cert
+    if _cert is None:
+        _cert = certs.default_load(conf.make_master_url())
+    return _cert
+
+
+def make_session(creds: authentication.Credentials) -> api.Session:
+    master_url = conf.make_master_url()
+    utp = authentication.login(master_url, creds.username, creds.password, cert())
+    return api.Session(master_url, utp, cert())
+
+
+_user_session: Optional[api.Session] = None
+
+
+def user_session() -> api.Session:
+    global _user_session
+    if _user_session is None:
+        _user_session = make_session(authentication.Credentials("determined", ""))
+    return _user_session
+
+
+_admin_session: Optional[api.Session] = None
+
+
+def admin_session() -> api.Session:
+    global _admin_session
+    if _admin_session is None:
+        _admin_session = make_session(authentication.Credentials("admin", ""))
+    return _admin_session
+
 
 def get_random_string() -> str:
     return str(uuid.uuid4())
 
 
-def determined_test_session(
-    credentials: Optional[authentication.Credentials] = None,
-    admin: Optional[bool] = None,
-) -> api.Session:
-    assert admin is None or credentials is None, "admin and credentials are mutually exclusive"
-
-    if credentials is None:
-        if admin:
-            credentials = conf.ADMIN_CREDENTIALS
-        else:
-            credentials = authentication.Credentials("determined", "")
-
-    murl = conf.make_master_url()
-    certs.cli_cert = certs.default_load(murl)
-    authentication.cli_auth = authentication.Authentication(
-        murl, requested_user=credentials.username, password=credentials.password
-    )
-    return api.Session(murl, credentials.username, authentication.cli_auth, certs.cli_cert)
-
-
 def create_test_user(
     add_password: bool = False,
-    session: Optional[api.Session] = None,
     user: Optional[bindings.v1User] = None,
 ) -> authentication.Credentials:
-    session = session or determined_test_session(admin=True)
+    session = admin_session()
     user = user or bindings.v1User(username=get_random_string(), admin=False, active=True)
     password = get_random_string() if add_password else ""
     bindings.post_PostUser(session, body=bindings.v1PostUserRequest(user=user, password=password))
@@ -65,11 +79,11 @@ def assign_group_role(
 def configure_token_store(credentials: authentication.Credentials) -> None:
     """Authenticate the user for CLI usage with the given credentials."""
     token_store = authentication.TokenStore(conf.make_master_url())
-    certs.cli_cert = certs.default_load(conf.make_master_url())
-    token = authentication.do_login(
-        conf.make_master_url(), credentials.username, credentials.password, certs.cli_cert
+    cert = certs.default_load(conf.make_master_url())
+    utp = authentication.login(
+        conf.make_master_url(), credentials.username, credentials.password, cert
     )
-    token_store.set_token(credentials.username, token)
+    token_store.set_token(credentials.username, utp.token)
     token_store.set_active(credentials.username)
 
 
@@ -174,7 +188,7 @@ def _get_scheduler_type() -> Optional[bindings.v1SchedulerType]:
     global _scheduler_type
     if _scheduler_type is None:
         try:
-            sess = determined_test_session()
+            sess = user_session()
             resourcePool = bindings.get_GetResourcePools(sess).resourcePools
             if not resourcePool:
                 raise ValueError(
@@ -240,7 +254,8 @@ def _get_ee() -> Optional[bool]:
 
     if _is_ee is None:
         try:
-            info = api.get(conf.make_master_url(), "info", authenticated=False).json()
+            sess = api.UnauthSession(conf.make_master_url(), cert())
+            info = sess.get("info").json()
             _is_ee = "sso_providers" in info
         except (errors.APIException, errors.MasterNotFoundException):
             pass
@@ -280,7 +295,8 @@ def _get_scim_enabled() -> Optional[bool]:
 
     if _scim_enabled is None:
         try:
-            info = api.get(conf.make_master_url(), "info", authenticated=False).json()
+            sess = api.UnauthSession(conf.make_master_url(), cert())
+            info = sess.get("info").json()
             _scim_enabled = bool(info.get("sso_providers") and len(info["sso_providers"]) > 0)
         except (errors.APIException, errors.MasterNotFoundException):
             pass

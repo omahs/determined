@@ -15,7 +15,7 @@ from tests.cluster import utils
 def test_slack_webhook() -> None:
     port = 5005
     server = utils.WebhookServer(port, allow_dupes=True)
-    sess = api_utils.determined_test_session(admin=True)
+    sess = api_utils.admin_session()
 
     webhook_trigger = bindings.v1Trigger(
         triggerType=bindings.v1TriggerType.EXPERIMENT_STATE_CHANGE,
@@ -84,7 +84,7 @@ def test_slack_webhook() -> None:
 def test_log_pattern_send_webhook(should_match: bool) -> None:
     port = 5006
     server = utils.WebhookServer(port)
-    sess = api_utils.determined_test_session(admin=True)
+    sess = api_utils.admin_session()
 
     regex = r"assert 0 <= self\.metrics_sigma"
     if not should_match:

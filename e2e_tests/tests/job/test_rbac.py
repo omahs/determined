@@ -18,7 +18,7 @@ from tests.cluster.test_users import det_run, logged_in_user
 
 def seed_workspace(ws: bindings.v1Workspace) -> None:
     """set up each workspace with project, exp, and one of each ntsc"""
-    admin_session = api_utils.determined_test_session(admin=True)
+    admin_session = api_utils.admin_session()
     pid = bindings.post_PostProject(
         admin_session,
         body=bindings.v1PostProjectRequest(name="test", workspaceId=ws.id),
@@ -69,7 +69,7 @@ def test_job_strict_q_control() -> None:
             ],
         ]
     ) as (workspaces, creds):
-        session = api_utils.determined_test_session(creds[0])
+        session = api_utils.make_session(creds[0])
         r = api_utils.launch_ntsc(session, typ=NTSC_Kind.command, workspace_id=workspaces[0].id)
 
         cases = [
@@ -78,7 +78,7 @@ def test_job_strict_q_control() -> None:
         ]
 
         def action(cred: api.authentication.Credentials) -> None:
-            session = api_utils.determined_test_session(cred)
+            session = api_utils.make_session(cred)
             bindings.post_UpdateJobQueue(
                 session,
                 body=bindings.v1UpdateJobQueueRequest(
@@ -124,14 +124,14 @@ def test_job_filtering() -> None:
         workspace_ids = {ws.id for ws in workspaces}
 
         for cred, visible_count in expectations.items():
-            v1_jobs = bindings.get_GetJobs(api_utils.determined_test_session(cred)).jobs
+            v1_jobs = bindings.get_GetJobs(api_utils.make_session(cred)).jobs
             # filterout jobs from other workspaces as the cluster is shared between tests
             v1_jobs = [j for j in v1_jobs if j.workspaceId in workspace_ids]
             assert (
                 len(v1_jobs) == visible_count
             ), f"expected {visible_count} jobs for {cred}. {v1_jobs}"
 
-            jobs = bindings.get_GetJobsV2(api_utils.determined_test_session(cred)).jobs
+            jobs = bindings.get_GetJobsV2(api_utils.make_session(cred)).jobs
             full_jobs = [
                 j for j in jobs if j.full is not None and j.full.workspaceId in workspace_ids
             ]

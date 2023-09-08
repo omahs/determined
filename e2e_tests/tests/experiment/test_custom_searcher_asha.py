@@ -63,7 +63,7 @@ def test_run_asha_searcher_exp_core_api(
     experiment_id = exp.run_basic_test_with_temp_config(
         config, conf.fixtures_path("custom_searcher"), 1
     )
-    session = api_utils.determined_test_session()
+    session = api_utils.user_session()
 
     # searcher experiment
     searcher_exp = bindings.get_GetExperiment(session, experimentId=experiment_id).experiment

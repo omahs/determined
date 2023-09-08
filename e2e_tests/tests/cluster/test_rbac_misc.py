@@ -24,7 +24,7 @@ def test_cluster_admin_only_calls() -> None:
             add_password=True,
             user=bindings.v1User(username=api_utils.get_random_string(), active=True, admin=False),
         )
-        session = api_utils.determined_test_session(admin=True)
+        session = api_utils.admin_session()
         api_utils.assign_user_role(
             session=session, user=u_admin_role.username, role="ClusterAdmin", workspace=None
         )
@@ -36,7 +36,7 @@ def test_cluster_admin_only_calls() -> None:
         )
 
         def get_agent_slot_ids(creds: authentication.Credentials) -> Tuple[str, str]:
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             agents = sorted(bindings.get_GetAgents(session).agents, key=lambda a: a.id)
             assert len(agents) > 0
             agent = agents[0]
@@ -47,31 +47,31 @@ def test_cluster_admin_only_calls() -> None:
             return agent.id, slot_id
 
         def enable_agent(creds: authentication.Credentials) -> None:
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             agent_id, _ = get_agent_slot_ids(creds)
             bindings.post_EnableAgent(session, agentId=agent_id)
 
         def disable_agent(creds: authentication.Credentials) -> None:
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             agent_id, _ = get_agent_slot_ids(creds)
             bindings.post_DisableAgent(
                 session, agentId=agent_id, body=bindings.v1DisableAgentRequest(agentId=agent_id)
             )
 
         def enable_slot(creds: authentication.Credentials) -> None:
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             agent_id, slot_id = get_agent_slot_ids(creds)
             bindings.post_EnableSlot(session, agentId=agent_id, slotId=slot_id)
 
         def disable_slot(creds: authentication.Credentials) -> None:
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             agent_id, slot_id = get_agent_slot_ids(creds)
             bindings.post_DisableSlot(
                 session, agentId=agent_id, slotId=slot_id, body=bindings.v1DisableSlotRequest()
             )
 
         def get_master_logs(creds: authentication.Credentials) -> None:
-            logs = list(bindings.get_MasterLogs(api_utils.determined_test_session(creds), limit=2))
+            logs = list(bindings.get_MasterLogs(api_utils.make_session(creds), limit=2))
             assert len(logs) == 2
 
         def get_allocations_raw(creds: authentication.Credentials) -> None:
@@ -80,7 +80,7 @@ def test_cluster_admin_only_calls() -> None:
             start_str = start.strftime(EXPECTED_TIME_FMT)
             end_str = (start + datetime.timedelta(seconds=1)).strftime(EXPECTED_TIME_FMT)
             entries = bindings.get_ResourceAllocationRaw(
-                api_utils.determined_test_session(creds),
+                api_utils.make_session(creds),
                 timestampAfter=start_str,
                 timestampBefore=end_str,
             ).resourceEntries
@@ -91,7 +91,7 @@ def test_cluster_admin_only_calls() -> None:
             start = datetime.datetime.now()
             end = start + datetime.timedelta(seconds=1)
             entries = bindings.get_ResourceAllocationAggregated(
-                api_utils.determined_test_session(creds),
+                api_utils.make_session(creds),
                 # fmt: off
                 period=bindings.v1ResourceAllocationAggregationPeriod\
                 .DAILY,
@@ -108,7 +108,7 @@ def test_cluster_admin_only_calls() -> None:
             end_str = (start + datetime.timedelta(seconds=1)).strftime(EXPECTED_TIME_FMT)
             url = "/resources/allocation/raw"
             params = {"timestamp_after": start_str, "timestamp_before": end_str}
-            session = api_utils.determined_test_session(creds)
+            session = api_utils.make_session(creds)
             response = session.get(url, params=params)
             assert response.status_code == 200
 

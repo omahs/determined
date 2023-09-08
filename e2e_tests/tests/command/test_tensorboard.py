@@ -5,10 +5,10 @@ from typing import Dict, Optional
 import pytest
 
 from determined.common import api, util
+from tests import api_utils
 from tests import command as cmd
 from tests import config as conf
 from tests import experiment as exp
-from tests.api_utils import determined_test_session
 from tests.filetree import FileTree
 
 num_trials = 1
@@ -75,7 +75,7 @@ def test_start_tensorboard_for_shared_fs_experiment(tmp_path: pathlib.Path) -> N
     command = ["tensorboard", "start", str(experiment_id), "--no-browser"]
     with cmd.interactive_command(*command) as tensorboard:
         assert tensorboard.task_id is not None
-        err = api.task_is_ready(determined_test_session(), tensorboard.task_id)
+        err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
         assert err is None, err
 
 
@@ -100,7 +100,7 @@ def test_start_tensorboard_for_s3_experiment(
     command = ["tensorboard", "start", str(experiment_id), "--no-browser"]
     with cmd.interactive_command(*command) as tensorboard:
         assert tensorboard.task_id is not None
-        err = api.task_is_ready(determined_test_session(), tensorboard.task_id)
+        err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
         assert err is None, err
 
 
@@ -153,7 +153,7 @@ def test_start_tensorboard_for_multi_experiment(
 
     with cmd.interactive_command(*command) as tensorboard:
         assert tensorboard.task_id is not None
-        err = api.task_is_ready(determined_test_session(), tensorboard.task_id)
+        err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
         assert err is None, err
 
 
@@ -277,5 +277,5 @@ def test_tensorboard_directory_storage(tmp_path: pathlib.Path) -> None:
 
     with cmd.interactive_command(*command) as tensorboard:
         assert tensorboard.task_id is not None
-        err = api.task_is_ready(determined_test_session(), tensorboard.task_id)
+        err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
         assert err is None, err

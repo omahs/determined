@@ -146,7 +146,7 @@ def test_master_restart_continued_experiment(managed_cluster_restarts: ManagedCl
     assert task_ids is not None
     assert len(task_ids) == 2
 
-    sess = api_utils.determined_test_session()
+    sess = api_utils.user_session()
     logs = task_logs(sess, task_ids[-1])
     assert "resources exited successfully with a zero exit code" in "".join(log.log for log in logs)
 
@@ -276,7 +276,7 @@ def _test_master_restart_cmd(managed_cluster: Cluster, slots: int, downtime: int
 
     # Don't just check ready. We want to make sure the command's sleep has started.
     logs = ""
-    for log in task_logs(api_utils.determined_test_session(), command_id, follow=True):
+    for log in task_logs(api_utils.user_session(), command_id, follow=True):
         if "weareready" in log.log:
             break
         logs += log.log
@@ -310,7 +310,7 @@ def _test_master_restart_shell(managed_cluster: Cluster, downtime: int) -> None:
 
         assert task_id is not None
         # Checking running is not correct here, running != ready for shells.
-        task_is_ready(api_utils.determined_test_session(), task_id)
+        task_is_ready(api_utils.user_session(), task_id)
         pre_restart_queue = det_cmd_json(["job", "list", "--json"])
 
         if downtime >= 0:

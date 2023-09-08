@@ -21,7 +21,7 @@ def rbac_disabled() -> bool:
     if roles_not_implemented():
         return True
     try:
-        return not bindings.get_GetMaster(api_utils.determined_test_session()).rbacEnabled
+        return not bindings.get_GetMaster(api_utils.user_session()).rbacEnabled
     except (errors.APIException, errors.MasterNotFoundException):
         return True
 
@@ -30,7 +30,7 @@ def strict_q_control_disabled() -> bool:
     if roles_not_implemented() or rbac_disabled():
         return True
     try:
-        return not bindings.get_GetMaster(api_utils.determined_test_session()).strictJobQueueControl
+        return not bindings.get_GetMaster(api_utils.user_session()).strictJobQueueControl
     except (errors.APIException, errors.MasterNotFoundException):
         return True
 
@@ -57,7 +57,7 @@ def create_users_with_gloabl_roles(user_roles: List[List[str]]) -> List[authenti
     user_roles: list of roles to assign to each user, one entry per user.
     """
     user_creds: List[authentication.Credentials] = []
-    sess = api_utils.determined_test_session(admin=True)
+    sess = api_utils.admin_session()
     for roles in user_roles:
         user = bindings.v1User(username=api_utils.get_random_string(), admin=False, active=True)
         creds = api_utils.create_test_user(True, user=user)
@@ -100,8 +100,7 @@ def create_workspaces_with_users(
         ]
     ]
     """
-    sess = api_utils.determined_test_session(admin=True)
-    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
+    sess = api_utils.admin_session()
     rid_to_creds: Dict[int, authentication.Credentials] = {}
     with setup_workspaces(count=len(assignments_list)) as workspaces:
         for workspace, user_list in zip(workspaces, assignments_list):
@@ -573,7 +572,7 @@ def test_rbac_describe_role() -> None:
             check=True,
         )
 
-        sess = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+        sess = api_utils.admin_session()
         user_id = api.usernames_to_user_ids(sess, [test_user_creds.username])[0]
         group_id = api.group_name_to_group_id(sess, group_name)
 

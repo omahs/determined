@@ -85,6 +85,7 @@ def make_pagination_args(
 default_pagination_args = make_pagination_args()
 
 
+# XXX: this needs to be fixed too I think
 def login_sdk_client(func: Callable[[argparse.Namespace], Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def f(namespace: argparse.Namespace) -> Any:
@@ -94,18 +95,26 @@ def login_sdk_client(func: Callable[[argparse.Namespace], Any]) -> Callable[...,
     return f
 
 
+def unauth_session(args: argparse.Namespace) -> api.UnauthSession:
+    return api.UnauthSession(master=args.master, cert=certs.cli_cert)
+
+
 def setup_session(args: argparse.Namespace) -> api.Session:
     master_url = args.master or util.get_default_master_address()
-    cert = certs.default_load(master_url)
-    retry = api.default_retry()
-
-    return api.Session(master_url, args.user, authentication.cli_auth, cert, retry)
+    cert = certs.cli_cert
+    utp = authentication.login_with_cache(
+        master_address=master_url,
+        requested_user=args.user,
+        password=None,
+        cert=cert,
+    )
+    return api.Session(master_url, utp, cert, api.default_retry())
 
 
 def require_feature_flag(feature_flag: str, error_message: str) -> Callable[..., Any]:
     def decorator(function: Callable[..., Any]) -> Callable[..., Any]:
         def wrapper(args: argparse.Namespace) -> None:
-            resp = bindings.get_GetMaster(setup_session(args))
+            resp = bindings.get_GetMaster(unauth_session(args))
             if not resp.to_json().get("rbacEnabled"):
                 raise errors.FeatureFlagDisabled(error_message)
             function(args)

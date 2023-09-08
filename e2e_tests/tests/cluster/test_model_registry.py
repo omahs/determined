@@ -200,7 +200,7 @@ def test_model_cli() -> None:
     assert "Workspace ID" in output and "1" in output
 
     # add a test workspace.
-    admin_session = api_utils.determined_test_session(admin=True)
+    admin_session = api_utils.admin_session()
     with setup_workspaces(admin_session) as [test_workspace]:
         test_workspace_name = test_workspace.name
         # create model in test_workspace

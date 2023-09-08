@@ -5,8 +5,6 @@ from typing import Any, List
 import determined.cli.render
 from determined import cli
 from determined.cli import render
-from determined.common import api
-from determined.common.api import authentication
 from determined.common.declarative_argparse import Arg, Cmd
 from determined.experimental import Determined, Model, ModelSortBy, ModelVersion, OrderBy
 
@@ -89,14 +87,15 @@ def list_models(args: Namespace) -> None:
 
 
 def model_by_name(args: Namespace) -> Model:
+    # XXX broken
     return Determined(args.master, args.user).get_model(identifier=args.name)
 
 
-@authentication.required
 def list_versions(args: Namespace) -> None:
+    sess = cli.setup_session(args)
     model = model_by_name(args)
     if args.json:
-        r = api.get(args.master, "api/v1/models/{}/versions".format(model.model_id))
+        r = sess.get(f"api/v1/models/{model.model_id}/versions")
         data = r.json()
         determined.cli.render.print_json(data)
 
@@ -135,13 +134,12 @@ def describe(args: Namespace) -> None:
             _render_model_versions([model_version])
 
 
-@authentication.required
 def register_version(args: Namespace) -> None:
+    sess = cli.setup_session(args)
     model = model_by_name(args)
     if args.json:
-        resp = api.post(
-            args.master,
-            "/api/v1/models/{}/versions".format(model.model_id),
+        resp = sess.post(
+            f"/api/v1/models/{model.model_id}/versions",
             json={"checkpointUuid": args.uuid},
         )
 

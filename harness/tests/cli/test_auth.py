@@ -2,14 +2,14 @@ import contextlib
 import json
 import os
 import shutil
+import unittest.mock
 from pathlib import Path
 from typing import Iterator, Optional
 
 import pytest
 import requests_mock
 
-from determined.common.api.authentication import Authentication, TokenStore
-from determined.common.api.certs import default_load as certs_default_load
+from determined.common.api import authentication, certs
 from tests.confdir import use_test_config_dir
 
 MOCK_MASTER_URL = "http://localhost:8080"
@@ -30,7 +30,11 @@ AUTH_JSON = {
 
 
 @pytest.mark.parametrize("user", [None, "bob", "determined"])
-def test_auth_with_store(requests_mock: requests_mock.Mocker, user: Optional[str]) -> None:
+@unittest.mock.patch("determined.common.api.authentication._is_token_valid")
+def test_login_with_cache(
+    is_token_valid_mock: unittest.mock.MagicMock, user: Optional[str]
+) -> None:
+    is_token_valid_mock.return_value = True
     with use_test_config_dir() as config_dir:
         auth_json_path = config_dir / "auth.json"
         with open(auth_json_path, "w") as f:
@@ -38,14 +42,9 @@ def test_auth_with_store(requests_mock: requests_mock.Mocker, user: Optional[str
 
         expected_user = "determined" if user == "determined" else "bob"
         expected_token = "det.token" if user == "determined" else "bob.token"
-        requests_mock.get(
-            "/api/v1/me",
-            status_code=200,
-            json={"username": expected_user},
-        )
-        authentication = Authentication(MOCK_MASTER_URL, user)
-        assert authentication.session.username == expected_user
-        assert authentication.session.token == expected_token
+        utp = authentication.login_with_cache(MOCK_MASTER_URL, user)
+        assert utp.username == expected_user
+        assert utp.token == expected_token
 
 
 @contextlib.contextmanager
@@ -61,7 +60,7 @@ def set_container_env_vars() -> Iterator[None]:
 
 @pytest.mark.parametrize("user", [None, "bob", "determined"])
 @pytest.mark.parametrize("has_token_store", [True, False])
-def test_auth_user_from_env(
+def test_login_user_from_env(
     requests_mock: requests_mock.Mocker, user: Optional[str], has_token_store: bool
 ) -> None:
     with use_test_config_dir() as config_dir, set_container_env_vars():
@@ -74,29 +73,29 @@ def test_auth_user_from_env(
 
         if has_token_store:
             nop_password = "user_password"
-            authentication = Authentication(MOCK_MASTER_URL, user, nop_password)
-            assert authentication.session.username == user or "determined"
-            assert authentication.session.token == (
+            utp = authentication.login_with_cache(MOCK_MASTER_URL, user, nop_password)
+            assert utp.username == user or "determined"
+            assert utp.token == (
                 "det.token" if user == "determined" else "bob.token"
             )
         else:
-            authentication = Authentication(MOCK_MASTER_URL)
-            assert authentication.session.username == "alice"
-            assert authentication.session.token == "alice.token"
+            utp = authentication.login_with_cache(MOCK_MASTER_URL)
+            assert utp.username == "alice"
+            assert utp.token == "alice.token"
 
 
 def test_auth_json_v0_upgrade() -> None:
     with use_test_config_dir() as config_dir:
         auth_json_path = config_dir / "auth.json"
         shutil.copy2(AUTH_V0_PATH, auth_json_path)
-        ts = TokenStore(MOCK_MASTER_URL, auth_json_path)
+        ts = authentication.TokenStore(MOCK_MASTER_URL, auth_json_path)
 
         assert ts.get_active_user() == "determined"
         assert ts.get_token("determined") == "v2.public.this.is.a.test"
 
         ts.set_token("determined", "ai")
 
-        ts2 = TokenStore(MOCK_MASTER_URL, auth_json_path)
+        ts2 = authentication.TokenStore(MOCK_MASTER_URL, auth_json_path)
         assert ts2.get_token("determined") == "ai"
 
         with auth_json_path.open() as fin:
@@ -112,7 +111,7 @@ def test_cert_v0_upgrade() -> None:
         with cert_path.open() as fin:
             cert_data = fin.read()
 
-        cert = certs_default_load(MOCK_MASTER_URL)
+        cert = certs.default_load(MOCK_MASTER_URL)
         assert isinstance(cert.bundle, str)
         with open(cert.bundle) as fin:
             loaded_cert_data = fin.read()
@@ -123,7 +122,7 @@ def test_cert_v0_upgrade() -> None:
         assert v1_certs_path.exists()
 
         # Load once again from v1.
-        cert2 = certs_default_load(MOCK_MASTER_URL)
+        cert2 = certs.default_load(MOCK_MASTER_URL)
         assert isinstance(cert2.bundle, str)
         with open(cert2.bundle) as fin:
             loaded_cert_data = fin.read()

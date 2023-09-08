@@ -17,12 +17,12 @@ from termcolor import colored
 from determined import cli
 from determined.cli import command, render, task
 from determined.common import api
-from determined.common.api import authentication, bindings, certs
+from determined.common.api import bindings, certs
 from determined.common.declarative_argparse import Arg, Cmd, Group
 
 
-@authentication.required
 def start_shell(args: Namespace) -> None:
+    sess = cli.setup_session(args)
     data = {}
     if args.passphrase:
         data["passphrase"] = getpass.getpass("Enter new passphrase: ")
@@ -30,7 +30,7 @@ def start_shell(args: Namespace) -> None:
     workspace_id = cli.workspace.get_workspace_id_from_args(args)
 
     resp = command.launch_command(
-        args.master,
+        sess,
         "api/v1/shells",
         config,
         args.template,
@@ -48,11 +48,9 @@ def start_shell(args: Namespace) -> None:
 
     render.report_job_launched("shell", sid)
 
-    session = cli.setup_session(args)
-
-    shell = bindings.get_GetShell(session, shellId=sid).shell
+    shell = bindings.get_GetShell(sess, shellId=sid).shell
     _open_shell(
-        session,
+        sess,
         args.master,
         shell.to_json(),
         args.ssh_opts,
@@ -61,13 +59,12 @@ def start_shell(args: Namespace) -> None:
     )
 
 
-@authentication.required
 def open_shell(args: Namespace) -> None:
-    shell_id = cast(str, command.expand_uuid_prefixes(args))
-
-    shell = api.get(args.master, f"api/v1/shells/{shell_id}").json()["shell"]
+    sess = cli.setup_session(args)
+    shell_id = cast(str, command.expand_uuid_prefixes(sess, args))
+    shell = sess.get(f"api/v1/shells/{shell_id}").json()["shell"]
     _open_shell(
-        cli.setup_session(args),
+        sess,
         args.master,
         shell,
         args.ssh_opts,
@@ -76,12 +73,12 @@ def open_shell(args: Namespace) -> None:
     )
 
 
-@authentication.required
 def show_ssh_command(args: Namespace) -> None:
-    shell_id = command.expand_uuid_prefixes(args)
-    shell = api.get(args.master, f"api/v1/shells/{shell_id}").json()["shell"]
+    sess = cli.setup_session(args)
+    shell_id = command.expand_uuid_prefixes(sess, args)
+    shell = sess.get(f"api/v1/shells/{shell_id}").json()["shell"]
     _open_shell(
-        cli.setup_session(args),
+        sess,
         args.master,
         shell,
         args.ssh_opts,
@@ -138,6 +135,7 @@ def _prepare_cert_bundle(retention_dir: Union[Path, None]) -> Union[str, bool, N
 
 def _open_shell(
     sess: api.Session,
+    # XXX: master shouldn't be needed, right?
     master: str,
     shell: Dict[str, Any],
     additional_opts: List[str],

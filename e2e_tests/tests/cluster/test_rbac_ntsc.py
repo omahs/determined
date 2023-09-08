@@ -46,7 +46,7 @@ def filter_out_ntsc(
 def test_notebook() -> None:
     u_viewer_ws0 = api_utils.create_test_user(add_password=True)
     u_editor_ws1 = api_utils.create_test_user(add_password=True)
-    admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+    admin_session = api_utils.admin_session()
 
     with setup_workspaces(count=2) as workspaces:
         api_utils.assign_user_role(
@@ -77,15 +77,15 @@ def test_notebook() -> None:
             r = bindings.get_GetNotebooks(admin_session, workspaceId=DEFAULT_WID)
             assert len(filter_out_ntsc(notebooks, r.notebooks)) == 1
 
-            r = bindings.get_GetNotebooks(api_utils.determined_test_session(u_viewer_ws0))
+            r = bindings.get_GetNotebooks(api_utils.make_session(u_viewer_ws0))
             assert len(r.notebooks) == 1
             r = bindings.get_GetNotebooks(
-                api_utils.determined_test_session(u_viewer_ws0), workspaceId=workspaces[0].id
+                api_utils.make_session(u_viewer_ws0), workspaceId=workspaces[0].id
             )
             assert len(r.notebooks) == 1
             with pytest.raises(errors.APIException) as e:
                 r = bindings.get_GetNotebooks(
-                    api_utils.determined_test_session(u_viewer_ws0), workspaceId=workspaces[1].id
+                    api_utils.make_session(u_viewer_ws0), workspaceId=workspaces[1].id
                 )
                 assert e.value.status_code == 404
 
@@ -117,7 +117,7 @@ def only_tensorboard_can_launch(
 @pytest.mark.skipif(rbac_disabled(), reason="ee rbac is required for this test")
 def test_ntsc_iface_access() -> None:
     def can_access_logs(creds: authentication.Credentials, ntsc_id: str) -> bool:
-        session = api_utils.determined_test_session(creds)
+        session = api_utils.make_session(creds)
         try:
             list(bindings.get_TaskLogs(session, taskId=ntsc_id))
             return True
@@ -147,7 +147,7 @@ def test_ntsc_iface_access() -> None:
             experiment_id = None
             if typ == api.NTSC_Kind.tensorboard:
                 pid = bindings.post_PostProject(
-                    api_utils.determined_test_session(creds[0]),
+                    api_utils.make_session(creds[0]),
                     body=bindings.v1PostProjectRequest(name="test", workspaceId=workspaces[0].id),
                     workspaceId=workspaces[0].id,
                 ).project.id
@@ -161,14 +161,14 @@ def test_ntsc_iface_access() -> None:
                     )
 
             created_id = api_utils.launch_ntsc(
-                api_utils.determined_test_session(creds[0]), workspaces[0].id, typ, experiment_id
+                api_utils.make_session(creds[0]), workspaces[0].id, typ, experiment_id
             ).id
 
             # user 0
             assert can_access_logs(
                 creds[0], created_id
             ), f"user 0 should be able to access {typ} logs"
-            session = api_utils.determined_test_session(creds[0])
+            session = api_utils.make_session(creds[0])
             # user 0 should be able to get details.
             api.get_ntsc_details(session, typ, created_id)
             # user 0 should be able to kill.
@@ -185,7 +185,7 @@ def test_ntsc_iface_access() -> None:
             assert can_access_logs(
                 creds[1], created_id
             ), f"user 1 should be able to access {typ} logs"
-            session = api_utils.determined_test_session(creds[1])
+            session = api_utils.make_session(creds[1])
             # user 1 should be able to get details.
             api.get_ntsc_details(session, typ, created_id)
             with pytest.raises(errors.ForbiddenException) as fe:
@@ -211,7 +211,7 @@ def test_ntsc_iface_access() -> None:
             assert not can_access_logs(
                 creds[2], created_id
             ), f"user 2 should not be able to access {typ} logs"
-            session = api_utils.determined_test_session(creds[2])
+            session = api_utils.make_session(creds[2])
             with pytest.raises(errors.APIException) as e:
                 # user 2 should not be able to get details.
                 api.get_ntsc_details(session, typ, created_id)
@@ -236,12 +236,12 @@ def test_ntsc_iface_access() -> None:
 
             # test visibility
             created_id2 = api_utils.launch_ntsc(
-                api_utils.determined_test_session(creds[0]), workspaces[2].id, typ, experiment_id
+                api_utils.make_session(creds[0]), workspaces[2].id, typ, experiment_id
             ).id
 
             # none of the users should be able to get details
             for cred in [creds[1], creds[2]]:
-                session = api_utils.determined_test_session(cred)
+                session = api_utils.make_session(cred)
                 # exception for creds[1], who can access the experiment and tensorboard
                 if typ != api.NTSC_Kind.tensorboard and cred == creds[2]:
                     with pytest.raises(errors.APIException) as e:
@@ -260,14 +260,14 @@ def test_ntsc_iface_access() -> None:
                 assert e.value.status_code == 404, f"{typ} should fail with 404"
 
             # kill the ntsc
-            api_utils.kill_ntsc(api_utils.determined_test_session(creds[0]), typ, created_id)
+            api_utils.kill_ntsc(api_utils.make_session(creds[0]), typ, created_id)
 
 
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(rbac_disabled(), reason="ee rbac is required for this test")
 def test_ntsc_proxy() -> None:
     def get_proxy(creds: authentication.Credentials, task_id: str) -> Optional[errors.APIException]:
-        session = api_utils.determined_test_session(creds)
+        session = api_utils.make_session(creds)
         try:
             session.get(f"proxy/{task_id}/")
             return None
@@ -290,7 +290,7 @@ def test_ntsc_proxy() -> None:
             experiment_id = None
             if typ == api.NTSC_Kind.tensorboard:
                 pid = bindings.post_PostProject(
-                    api_utils.determined_test_session(creds[0]),
+                    api_utils.make_session(creds[0]),
                     body=bindings.v1PostProjectRequest(name="test", workspaceId=workspaces[0].id),
                     workspaceId=workspaces[0].id,
                 ).project.id
@@ -304,24 +304,20 @@ def test_ntsc_proxy() -> None:
                     )
 
             created_id = api_utils.launch_ntsc(
-                api_utils.determined_test_session(creds[0]), workspaces[0].id, typ, experiment_id
+                api_utils.make_session(creds[0]), workspaces[0].id, typ, experiment_id
             ).id
 
             print(f"created {typ} {created_id}")
             api.wait_for_ntsc_state(
-                api_utils.determined_test_session(creds[0]),
+                api_utils.make_session(creds[0]),
                 api.NTSC_Kind(typ),
                 created_id,
                 lambda s: s == bindings.taskv1State.RUNNING,
                 timeout=300,
             )
-            deets = api.get_ntsc_details(
-                api_utils.determined_test_session(creds[0]), typ, created_id
-            )
+            deets = api.get_ntsc_details(api_utils.make_session(creds[0]), typ, created_id)
             assert deets.state == bindings.taskv1State.RUNNING, f"{typ} should be running"
-            err = api.task_is_ready(
-                api_utils.determined_test_session(conf.ADMIN_CREDENTIALS), created_id
-            )
+            err = api.task_is_ready(api_utils.admin_session(), created_id)
             assert err is None, f"{typ} should be ready {err}"
             assert (
                 get_proxy(creds[0], created_id) is None
@@ -334,7 +330,7 @@ def test_ntsc_proxy() -> None:
             assert view_err.status_code == 404, f"user 2 should error out with not found{typ}"
 
             # kill the ntsc
-            api_utils.kill_ntsc(api_utils.determined_test_session(creds[0]), typ, created_id)
+            api_utils.kill_ntsc(api_utils.make_session(creds[0]), typ, created_id)
 
 
 @pytest.mark.e2e_cpu_rbac
@@ -348,13 +344,13 @@ def test_tsb_listed() -> None:
             ],
         ]
     ) as ([workspace], creds):
+        editor_sess = api_utils.make_session(creds[0])
+        viewer_sess = api_utils.make_session(creds[1])
         pid = bindings.post_PostProject(
-            api_utils.determined_test_session(creds[0]),
+            editor_sess,
             body=bindings.v1PostProjectRequest(name="test", workspaceId=workspace.id),
             workspaceId=workspace.id,
         ).project.id
-
-        session = api_utils.determined_test_session(creds[0])
 
         with logged_in_user(creds[0]):
             # experiment for tensorboard
@@ -365,17 +361,15 @@ def test_tsb_listed() -> None:
             )
 
             created_id = api_utils.launch_ntsc(
-                session, workspace.id, api.NTSC_Kind.tensorboard, experiment_id
+                editor_sess, workspace.id, api.NTSC_Kind.tensorboard, experiment_id
             ).id
 
             # list tensorboards and make sure it's included in the response.
-            tsbs = bindings.get_GetTensorboards(session, workspaceId=workspace.id).tensorboards
+            tsbs = bindings.get_GetTensorboards(editor_sess, workspaceId=workspace.id).tensorboards
             assert len(tsbs) == 1, "should be one tensorboard"
             assert tsbs[0].id == created_id, "should be the tensorboard we created"
 
-            tsbs = bindings.get_GetTensorboards(
-                api_utils.determined_test_session(credentials=creds[1]), workspaceId=workspace.id
-            ).tensorboards
+            tsbs = bindings.get_GetTensorboards(viewer_sess, workspaceId=workspace.id).tensorboards
             assert len(tsbs) == 1, "should be one tensorboard"
             assert tsbs[0].id == created_id, "should be the tensorboard we created"
 
@@ -390,7 +384,7 @@ def test_tsb_launch_on_trials() -> None:
             ],
         ]
     ) as ([workspace], creds):
-        session = api_utils.determined_test_session(creds[0])
+        session = api_utils.make_session(creds[0])
         pid = bindings.post_PostProject(
             session,
             body=bindings.v1PostProjectRequest(name="test", workspaceId=workspace.id),

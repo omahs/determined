@@ -71,7 +71,7 @@ def test_continue_config_file_and_args_cli() -> None:
         assert "resources exited successfully with a zero exit code" in stdout.decode("utf-8")
 
     # Name is also still applied.
-    sess = api_utils.determined_test_session()
+    sess = api_utils.user_session()
     resp = bindings.get_GetExperiment(sess, experimentId=exp_id)
     assert resp.experiment.config["name"] == expected_name
     assert (
@@ -150,7 +150,7 @@ def test_continue_trial_time() -> None:
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
 
-    sess = api_utils.determined_test_session()
+    sess = api_utils.user_session()
 
     def exp_start_end_time() -> Tuple[str, str]:
         e = bindings.get_GetExperiment(sess, experimentId=exp_id).experiment
@@ -203,7 +203,7 @@ def test_continue_batches() -> None:
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
 
-    sess = api_utils.determined_test_session()
+    sess = api_utils.user_session()
     trials = exp.experiment_trials(exp_id)
     assert len(trials) == 1
     trial_id = trials[0].trial.id

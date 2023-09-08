@@ -66,7 +66,7 @@ def test_log_policy_exclude_node_k8s(should_match: bool) -> None:
     config["hyperparameters"]["metrics_sigma"] = -1
     config["max_restarts"] = 1
 
-    agents = bindings.get_GetAgents(api_utils.determined_test_session()).agents
+    agents = bindings.get_GetAgents(api_utils.user_session()).agents
     assert len(agents) == 1
     assert agents[0].slots is not None
     config["resources"] = {"slots_per_trial": len(agents[0].slots)}
@@ -122,7 +122,7 @@ def test_log_policy_exclude_node_single_agent(should_match: bool) -> None:
     config["hyperparameters"]["metrics_sigma"] = -1
     config["max_restarts"] = 1
 
-    agents = bindings.get_GetAgents(api_utils.determined_test_session()).agents
+    agents = bindings.get_GetAgents(api_utils.user_session()).agents
     assert len(agents) == 1
     assert agents[0].slots is not None
     config["resources"] = {"slots_per_trial": len(agents[0].slots)}
@@ -134,9 +134,7 @@ def test_log_policy_exclude_node_single_agent(should_match: bool) -> None:
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.RUNNING)
 
-    master_config = bindings.get_GetMasterConfig(
-        api_utils.determined_test_session(admin=True)
-    ).config
+    master_config = bindings.get_GetMasterConfig(api_utils.admin_session()).config
     if master_config.get("launch_error"):
         exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
     else:
@@ -162,7 +160,7 @@ def test_log_policy_exclude_node_single_agent(should_match: bool) -> None:
 @pytest.mark.e2e_slurm
 @pytest.mark.parametrize("should_match", [True, False])
 def test_log_policy_exclude_slurm(should_match: bool) -> None:
-    agents = bindings.get_GetAgents(api_utils.determined_test_session()).agents
+    agents = bindings.get_GetAgents(api_utils.user_session()).agents
     if len(agents) != 1:
         pytest.skip("can only be run on a single agent cluster")
 

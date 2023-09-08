@@ -99,7 +99,7 @@ def register_model_version(
 ) -> Tuple[model.Model, model.ModelVersion]:
     m = None
     model_version = None
-    session = api_utils.determined_test_session(creds)
+    session = api_utils.make_session(creds)
     with logged_in_user(creds):
         pid = bindings.post_PostProject(
             session,
@@ -113,7 +113,7 @@ def register_model_version(
             ["--project_id", str(pid)],
         )
         experiment.wait_for_experiment_state(
-            experiment_id, experimentv1State.COMPLETED, credentials=creds
+            experiment_id, experimentv1State.COMPLETED, sess=session
         )
         checkpoint = bindings.get_GetExperimentCheckpoints(
             id=experiment_id, session=session
@@ -131,7 +131,7 @@ def test_model_registry_rbac() -> None:
     test_user_viewer_creds = api_utils.create_test_user()
     test_user_with_no_perms_creds = api_utils.create_test_user()
     test_user_model_registry_viewer_creds = api_utils.create_test_user()
-    admin_session = api_utils.determined_test_session(admin=True)
+    admin_session = api_utils.admin_session()
     with setup_workspaces(admin_session) as [test_workspace]:
         with logged_in_user(conf.ADMIN_CREDENTIALS):
             # Assign editor role to user in Uncategorized and test_workspace.
@@ -344,7 +344,7 @@ def test_model_rbac_deletes() -> None:
         workspace_id = workspaces[0].id
         # create non-cluster admin user
         editor_creds = creds[0]
-        editor_session = api_utils.determined_test_session(editor_creds)
+        editor_session = api_utils.make_session(editor_creds)
 
         # create cluster admin user
         cluster_admin_creds = api_utils.create_test_user(
@@ -357,14 +357,14 @@ def test_model_rbac_deletes() -> None:
             role="ClusterAdmin",
             workspace=None,
         )
-        cluster_admin_session = api_utils.determined_test_session(cluster_admin_creds)
+        cluster_admin_session = api_utils.make_session(cluster_admin_creds)
 
         # create non-cluster admin user with OSS admin flag
         oss_admin_creds = api_utils.create_test_user(
             add_password=True,
             user=bindings.v1User(username=get_random_string(), active=True, admin=True),
         )
-        oss_admin_session = api_utils.determined_test_session(oss_admin_creds)
+        oss_admin_session = api_utils.make_session(oss_admin_creds)
 
         model_num = 0
         try:
@@ -470,14 +470,14 @@ def test_model_rbac_deletes() -> None:
                     )
                     with pytest.raises(errors.NotFoundException) as notFoundErr:
                         bindings.get_GetModelVersion(
-                            api_utils.determined_test_session(create_creds),
+                            api_utils.make_session(create_creds),
                             modelName=model_name,
                             modelVersionNum=model_version_num,
                         )
                     assert "not found" in str(notFoundErr.value).lower()
         finally:
             for i in range(model_num):
-                admin_session = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+                admin_session = api_utils.admin_session()
                 try:
                     bindings.delete_DeleteModel(admin_session, modelName="model_" + str(i))
                 # model is has already been cleaned up

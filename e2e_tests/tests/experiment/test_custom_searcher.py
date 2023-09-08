@@ -147,7 +147,7 @@ def test_run_random_searcher_exp_core_api(
         config, conf.fixtures_path("custom_searcher"), 1
     )
 
-    session = api_utils.determined_test_session()
+    session = api_utils.user_session()
 
     # searcher experiment
     searcher_exp = bindings.get_GetExperiment(session, experimentId=experiment_id).experiment
@@ -219,18 +219,18 @@ def test_pause_multi_trial_random_searcher_core_api() -> None:
 
     # searcher experiment
     searcher_exp = bindings.get_GetExperiment(
-        api_utils.determined_test_session(), experimentId=searcher_exp_id
+        api_utils.user_session(), experimentId=searcher_exp_id
     ).experiment
     assert searcher_exp.state == bindings.experimentv1State.COMPLETED
 
     # actual experiment
     experiment = bindings.get_GetExperiment(
-        api_utils.determined_test_session(), experimentId=multi_trial_exp_id
+        api_utils.user_session(), experimentId=multi_trial_exp_id
     ).experiment
     assert experiment.numTrials == 5
 
     trials = bindings.get_GetExperimentTrials(
-        api_utils.determined_test_session(), experimentId=experiment.id
+        api_utils.user_session(), experimentId=experiment.id
     ).trials
 
     ok = True

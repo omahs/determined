@@ -202,3 +202,9 @@ message GetTaskAcceleratorDataResponse {
   // The accelerator data for each allocation associated with the task.
   repeated AcceleratorData accelerator_data = 1;
 }
+
+/*
+TODO: 
+- apis based on master/internal/ft/api_ft.go
+- move messages defined in agent here?
+*/

@@ -53,3 +53,18 @@ message Slot {
   // will be allowed to finish but no new ones will be scheduled.
   bool draining = 5;
 }
+
+// DetectedHWFailure describes a detected hardware failure.
+message DetectedHWFailure {
+  option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
+    json_schema: { required: [ "node_id", "devices", "task_id" ] }
+  };
+  // The job that the failure was detected on.
+  string job_id = 1;
+  // Agent or node identifier.
+  string node_id = 2;
+  // The task that the failure was detected on.
+  string task_id = 3;
+  // The suspected devices that failed, if known.
+  repeated determined.device.v1.Device devices = 4;
+}

@@ -241,6 +241,82 @@ func (x *Slot) GetDraining() bool {
 	return false
 }
 
+// DetectedHWFailure describes a detected hardware failure.
+type DetectedHWFailure struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// The job that the failure was detected on.
+	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	// Agent or node identifier.
+	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	// The task that the failure was detected on.
+	TaskId string `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	// The suspected devices that failed, if known.
+	Devices []*devicev1.Device `protobuf:"bytes,4,rep,name=devices,proto3" json:"devices,omitempty"`
+}
+
+func (x *DetectedHWFailure) Reset() {
+	*x = DetectedHWFailure{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_determined_agent_v1_agent_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DetectedHWFailure) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DetectedHWFailure) ProtoMessage() {}
+
+func (x *DetectedHWFailure) ProtoReflect() protoreflect.Message {
+	mi := &file_determined_agent_v1_agent_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DetectedHWFailure.ProtoReflect.Descriptor instead.
+func (*DetectedHWFailure) Descriptor() ([]byte, []int) {
+	return file_determined_agent_v1_agent_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *DetectedHWFailure) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *DetectedHWFailure) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *DetectedHWFailure) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *DetectedHWFailure) GetDevices() []*devicev1.Device {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
 var File_determined_agent_v1_agent_proto protoreflect.FileDescriptor
 
 var file_determined_agent_v1_agent_proto_rawDesc = []byte{
@@ -306,11 +382,23 @@ var file_determined_agent_v1_agent_proto_rawDesc = []byte{
 	0x64, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x43,
 	0x6f, 0x6e, 0x74, 0x61, 0x69, 0x6e, 0x65, 0x72, 0x52, 0x09, 0x63, 0x6f, 0x6e, 0x74, 0x61, 0x69,
 	0x6e, 0x65, 0x72, 0x12, 0x1a, 0x0a, 0x08, 0x64, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x18,
-	0x05, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x64, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x42,
-	0x37, 0x5a, 0x35, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65,
-	0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64, 0x2d, 0x61, 0x69, 0x2f, 0x64, 0x65, 0x74, 0x65,
-	0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x70, 0x6b, 0x67,
-	0x2f, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x05, 0x20, 0x01, 0x28, 0x08, 0x52, 0x08, 0x64, 0x72, 0x61, 0x69, 0x6e, 0x69, 0x6e, 0x67, 0x22,
+	0xb9, 0x01, 0x0a, 0x11, 0x44, 0x65, 0x74, 0x65, 0x63, 0x74, 0x65, 0x64, 0x48, 0x57, 0x46, 0x61,
+	0x69, 0x6c, 0x75, 0x72, 0x65, 0x12, 0x15, 0x0a, 0x06, 0x6a, 0x6f, 0x62, 0x5f, 0x69, 0x64, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x6a, 0x6f, 0x62, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07,
+	0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x6e,
+	0x6f, 0x64, 0x65, 0x49, 0x64, 0x12, 0x17, 0x0a, 0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69, 0x64,
+	0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x74, 0x61, 0x73, 0x6b, 0x49, 0x64, 0x12, 0x36,
+	0x0a, 0x07, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65, 0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x1c, 0x2e, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e, 0x65, 0x64, 0x2e, 0x64, 0x65, 0x76,
+	0x69, 0x63, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x44, 0x65, 0x76, 0x69, 0x63, 0x65, 0x52, 0x07, 0x64,
+	0x65, 0x76, 0x69, 0x63, 0x65, 0x73, 0x3a, 0x23, 0x92, 0x41, 0x20, 0x0a, 0x1e, 0xd2, 0x01, 0x07,
+	0x6e, 0x6f, 0x64, 0x65, 0x5f, 0x69, 0x64, 0xd2, 0x01, 0x07, 0x64, 0x65, 0x76, 0x69, 0x63, 0x65,
+	0x73, 0xd2, 0x01, 0x07, 0x74, 0x61, 0x73, 0x6b, 0x5f, 0x69, 0x64, 0x42, 0x37, 0x5a, 0x35, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d,
+	0x69, 0x6e, 0x65, 0x64, 0x2d, 0x61, 0x69, 0x2f, 0x64, 0x65, 0x74, 0x65, 0x72, 0x6d, 0x69, 0x6e,
+	0x65, 0x64, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x67, 0x65,
+	0x6e, 0x74, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -325,29 +413,31 @@ func file_determined_agent_v1_agent_proto_rawDescGZIP() []byte {
 	return file_determined_agent_v1_agent_proto_rawDescData
 }
 
-var file_determined_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_determined_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_determined_agent_v1_agent_proto_goTypes = []interface{}{
 	(*Agent)(nil),                 // 0: determined.agent.v1.Agent
 	(*Slot)(nil),                  // 1: determined.agent.v1.Slot
-	nil,                           // 2: determined.agent.v1.Agent.SlotsEntry
-	nil,                           // 3: determined.agent.v1.Agent.ContainersEntry
-	(*timestamp.Timestamp)(nil),   // 4: google.protobuf.Timestamp
-	(*devicev1.Device)(nil),       // 5: determined.device.v1.Device
-	(*containerv1.Container)(nil), // 6: determined.container.v1.Container
+	(*DetectedHWFailure)(nil),     // 2: determined.agent.v1.DetectedHWFailure
+	nil,                           // 3: determined.agent.v1.Agent.SlotsEntry
+	nil,                           // 4: determined.agent.v1.Agent.ContainersEntry
+	(*timestamp.Timestamp)(nil),   // 5: google.protobuf.Timestamp
+	(*devicev1.Device)(nil),       // 6: determined.device.v1.Device
+	(*containerv1.Container)(nil), // 7: determined.container.v1.Container
 }
 var file_determined_agent_v1_agent_proto_depIdxs = []int32{
-	4, // 0: determined.agent.v1.Agent.registered_time:type_name -> google.protobuf.Timestamp
-	2, // 1: determined.agent.v1.Agent.slots:type_name -> determined.agent.v1.Agent.SlotsEntry
-	3, // 2: determined.agent.v1.Agent.containers:type_name -> determined.agent.v1.Agent.ContainersEntry
-	5, // 3: determined.agent.v1.Slot.device:type_name -> determined.device.v1.Device
-	6, // 4: determined.agent.v1.Slot.container:type_name -> determined.container.v1.Container
-	1, // 5: determined.agent.v1.Agent.SlotsEntry.value:type_name -> determined.agent.v1.Slot
-	6, // 6: determined.agent.v1.Agent.ContainersEntry.value:type_name -> determined.container.v1.Container
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	5, // 0: determined.agent.v1.Agent.registered_time:type_name -> google.protobuf.Timestamp
+	3, // 1: determined.agent.v1.Agent.slots:type_name -> determined.agent.v1.Agent.SlotsEntry
+	4, // 2: determined.agent.v1.Agent.containers:type_name -> determined.agent.v1.Agent.ContainersEntry
+	6, // 3: determined.agent.v1.Slot.device:type_name -> determined.device.v1.Device
+	7, // 4: determined.agent.v1.Slot.container:type_name -> determined.container.v1.Container
+	6, // 5: determined.agent.v1.DetectedHWFailure.devices:type_name -> determined.device.v1.Device
+	1, // 6: determined.agent.v1.Agent.SlotsEntry.value:type_name -> determined.agent.v1.Slot
+	7, // 7: determined.agent.v1.Agent.ContainersEntry.value:type_name -> determined.container.v1.Container
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_determined_agent_v1_agent_proto_init() }
@@ -380,6 +470,18 @@ func file_determined_agent_v1_agent_proto_init() {
 				return nil
 			}
 		}
+		file_determined_agent_v1_agent_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DetectedHWFailure); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -387,7 +489,7 @@ func file_determined_agent_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_determined_agent_v1_agent_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -204,7 +204,7 @@ message GetTaskAcceleratorDataResponse {
 }
 
 /*
-TODO: 
+TODO:
 - apis based on master/internal/ft/api_ft.go
 - move messages defined in agent here?
 */

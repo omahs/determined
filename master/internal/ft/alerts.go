@@ -17,3 +17,8 @@ func NodeBlacklist(ar *sproto.AllocateRequest) ([]string, error) {
 func UserOwnsTask(userID, taskID string) (bool, error) {
 	return true, nil
 }
+
+// GetAlertsMerged mapping of action to relative alert(s)
+func GetAlertsMerged(taskID string) (map[any]any, error) {
+	return nil, nil
+}

@@ -14,5 +14,7 @@ func AddAlert(alert *agentv1.RunAlert) (err error) {
 // GetAlerts retrieves all alerts for a given job.
 func GetAlerts(jobID string) (alerts []*agentv1.RunAlert, err error) {
 	// has allocation id and task id, rp, node id
+	// retrieve one of every action
+	// active tasks only?
 	return
 }

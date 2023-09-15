@@ -25,3 +25,6 @@
 /e2e_tests/tests/nightly          @determined-ai/ml-sys
 
 /webui @determined-ai/web
+
+/somepath  @determined-ai/fe/pad
+/someotherpath @determined-ai/nosuchgroup

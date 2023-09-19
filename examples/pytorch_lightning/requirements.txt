@@ -1,0 +1,5 @@
+pytorch-lightning==2.0.1
+omegaconf
+filelock
+torchmetrics
+torchvision

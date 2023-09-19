@@ -1,0 +1,15 @@
+name: ptl test
+resources:
+  slots_per_trial: 2
+environment:
+  image:  determinedai/environments-dev:python-3.10-pytorch-2.0-deepspeed-0.10.0-smartsim
+hyperparameters:
+  lr: 0.02
+  batch_size: 256
+  num_workers: 4
+searcher:
+  name: single
+  metric: loss
+  max_length: 5
+entrypoint: python3 -m determined.launch.torch_distributed python3 mnist_ptl.py
+max_restarts: 0

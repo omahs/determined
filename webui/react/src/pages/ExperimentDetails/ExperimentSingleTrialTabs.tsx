@@ -7,8 +7,10 @@ import Button from 'components/kit/Button';
 import Notes from 'components/kit/Notes';
 import Pivot from 'components/kit/Pivot';
 import Spinner from 'components/kit/Spinner';
+import Tooltip from 'components/kit/Tooltip';
 import Message, { MessageType } from 'components/Message';
 import TrialLogPreview from 'components/TrialLogPreview';
+import { UNMANAGED_MESSAGE } from 'constant';
 import { terminalRunStates } from 'constants/states';
 import useModalHyperparameterSearch from 'hooks/useModal/HyperparameterSearch/useModalHyperparameterSearch';
 import usePermissions from 'hooks/usePermissions';
@@ -277,8 +279,14 @@ const ExperimentSingleTrialTabs: React.FC<Props> = ({
             onSelectFile={handleSelectFile}
           />
         ),
+        disabled: experiment.modelDefinitionSize === 0,
         key: TabType.Code,
-        label: 'Code',
+        label:
+          experiment.modelDefinitionSize !== 0 ? (
+            'Code'
+          ) : (
+            <Tooltip content="Code file non-exist.">Code</Tooltip>
+          ),
       });
     }
 
@@ -300,8 +308,13 @@ const ExperimentSingleTrialTabs: React.FC<Props> = ({
       children: (
         <TrialDetailsProfiles experiment={experiment} trial={trialDetails as TrialDetails} />
       ),
+      disabled: experiment.unmanaged,
       key: TabType.Profiler,
-      label: 'Profiler',
+      label: experiment.unmanaged ? (
+        <Tooltip content={UNMANAGED_MESSAGE}>Profiler</Tooltip>
+      ) : (
+        'Profiler'
+      ),
     });
 
     if (showExperimentArtifacts) {
@@ -339,8 +352,8 @@ const ExperimentSingleTrialTabs: React.FC<Props> = ({
         activeKey={tabKey}
         items={tabItems}
         tabBarExtraContent={
-          tabKey === TabType.Hyperparameters && showCreateExperiment ? (
-            <div style={{ padding: 8 }}>
+          tabKey === TabType.Hyperparameters && showCreateExperiment && !experiment.unmanaged ? (
+            <div style={{ padding: 4 }}>
               <Button onClick={handleHPSearch}>Hyperparameter Search</Button>
             </div>
           ) : undefined

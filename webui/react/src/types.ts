@@ -643,6 +643,8 @@ export interface ExperimentItem {
   description?: string;
   duration?: number;
   endTime?: string;
+  externalExperimentId?: string;
+  externalTrialId?: string;
   forkedFrom?: number;
   hyperparameters: HyperparametersFlattened; // Nested HP keys are flattened, eg) foo.bar
   id: number;
@@ -664,6 +666,8 @@ export interface ExperimentItem {
   userId: number;
   workspaceId?: number;
   workspaceName?: string;
+  modelDefinitionSize?: number;
+  unmanaged?: boolean;
 }
 
 export interface ExperimentWithTrial {

@@ -303,11 +303,11 @@ type RunAlert struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// The job that the failure was detected on. REMOVEME?
+	// The job that the alert was detected on. REMOVEME?
 	JobId string `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	// Agent or node identifier.
 	NodeId string `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
-	// The task that the failure was detected on.
+	// The task that the alert was detected on.
 	TaskId string `protobuf:"bytes,3,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	// The suspected devices that failed, if known.
 	Devices []*devicev1.Device `protobuf:"bytes,4,rep,name=devices,proto3" json:"devices,omitempty"`

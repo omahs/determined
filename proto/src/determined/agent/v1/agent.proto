@@ -72,11 +72,11 @@ message RunAlert {
   option (grpc.gateway.protoc_gen_swagger.options.openapiv2_schema) = {
     json_schema: { required: [ "node_id", "devices", "task_id", "action" ] }
   };
-  // The job that the failure was detected on. REMOVEME?
+  // The job that the alert was detected on. REMOVEME?
   string job_id = 1;
   // Agent or node identifier.
   string node_id = 2;
-  // The task that the failure was detected on.
+  // The task that the alert was detected on.
   string task_id = 3;
   // The suspected devices that failed, if known.
   repeated determined.device.v1.Device devices = 4;

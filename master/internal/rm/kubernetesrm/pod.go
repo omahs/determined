@@ -31,9 +31,12 @@ import (
 )
 
 const (
-	initContainerTarSrcPath   = "/run/determined/temp/tar/src"
-	initContainerTarDstPath   = "/run/determined/temp/tar/dst"
-	initContainerWorkDir      = "/run/determined/temp/"
+	initWrapperSrcPath = "/run/determined/temp/tar/src"
+	initWrapperWorkDir = "/run/determined/temp/"
+
+	// initContainerTarSrcPath   = "/run/determined/temp/tar/src"
+	// initContainerTarDstPath   = "/run/determined/temp/tar/dst"
+
 	determinedLabel           = "determined"
 	determinedPreemptionLabel = "determined-preemption"
 	determinedSystemLabel     = "determined-system"
@@ -305,11 +308,14 @@ func (p *pod) kill() {
 	}
 
 	p.syslog.Infof("requesting to delete kubernetes resources")
-	p.resourceRequestQueue.deleteKubernetesResources(
-		p.namespace,
-		p.podName,
-		p.configMapName,
-	)
+	// TODO uncomment me
+	/*
+		p.resourceRequestQueue.deleteKubernetesResources(
+			p.namespace,
+			p.podName,
+			p.configMapName,
+		)
+	*/
 }
 
 func (p *pod) getPodNodeInfo() podNodeInfo {
@@ -514,11 +520,6 @@ func (p *pod) getPodState(
 }
 
 func getExitCodeAndMessage(pod *k8sV1.Pod, containerNames set.Set[string]) (int, string, error) {
-	if len(pod.Status.InitContainerStatuses) == 0 {
-		return 0, "", errors.Errorf(
-			"unexpected number of init containers when processing exit code for pod %s", pod.Name)
-	}
-
 	for _, initContainerStatus := range pod.Status.InitContainerStatuses {
 		if initContainerStatus.State.Terminated == nil {
 			continue

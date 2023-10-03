@@ -2,7 +2,6 @@ package kubernetesrm
 
 import (
 	"fmt"
-	"path"
 
 	"github.com/determined-ai/determined/master/pkg/etc"
 
@@ -80,15 +79,11 @@ func configureShmVolume(_ int64) (k8sV1.VolumeMount, k8sV1.Volume) {
 func configureAdditionalFilesVolumes(
 	configMapName string,
 	runArchives []cproto.RunArchive,
-) ([]k8sV1.VolumeMount, []k8sV1.VolumeMount, []k8sV1.Volume) {
-	initContainerVolumeMounts := make([]k8sV1.VolumeMount, 0)
-	mainContainerVolumeMounts := make([]k8sV1.VolumeMount, 0)
-	volumes := make([]k8sV1.Volume, 0)
+) ([]k8sV1.VolumeMount, []k8sV1.Volume) {
+	var volumeMounts []k8sV1.VolumeMount
+	var volumes []k8sV1.Volume
 
-	// In order to inject additional files into k8 pods, we un-tar the archives
-	// in an initContainer from a configMap to an emptyDir, and then mount the
-	// emptyDir into the main container.
-
+	// Add a volume for the archive itself from the config map to this.
 	archiveVolumeName := "archive-volume"
 	archiveVolume := k8sV1.Volume{
 		Name: archiveVolumeName,
@@ -101,11 +96,14 @@ func configureAdditionalFilesVolumes(
 	volumes = append(volumes, archiveVolume)
 	archiveVolumeMount := k8sV1.VolumeMount{
 		Name:      archiveVolumeName,
-		MountPath: initContainerTarSrcPath,
+		MountPath: initWrapperSrcPath,
 		ReadOnly:  true,
 	}
-	initContainerVolumeMounts = append(initContainerVolumeMounts, archiveVolumeMount)
+	volumeMounts = append(volumeMounts, archiveVolumeMount)
 
+	// Add a volume for the wrapper script.
+	// TODO we can likely move this?
+	// Where is the other entrypoint??? It is in the volume right?
 	entryPointVolumeName := "entrypoint-volume"
 	var entryPointVolumeMode int32 = 0o555
 	entryPointVolume := k8sV1.Volume{
@@ -114,8 +112,8 @@ func configureAdditionalFilesVolumes(
 			ConfigMap: &k8sV1.ConfigMapVolumeSource{
 				LocalObjectReference: k8sV1.LocalObjectReference{Name: configMapName},
 				Items: []k8sV1.KeyToPath{{
-					Key:  etc.K8InitContainerEntryScriptResource,
-					Path: etc.K8InitContainerEntryScriptResource,
+					Key:  etc.K8WrapperResource,
+					Path: etc.K8WrapperResource,
 				}},
 				DefaultMode: &entryPointVolumeMode,
 			},
@@ -124,33 +122,10 @@ func configureAdditionalFilesVolumes(
 	volumes = append(volumes, entryPointVolume)
 	entrypointVolumeMount := k8sV1.VolumeMount{
 		Name:      entryPointVolumeName,
-		MountPath: initContainerWorkDir,
+		MountPath: initWrapperWorkDir,
 		ReadOnly:  true,
 	}
-	initContainerVolumeMounts = append(initContainerVolumeMounts, entrypointVolumeMount)
+	volumeMounts = append(volumeMounts, entrypointVolumeMount)
 
-	additionalFilesVolumeName := "additional-files-volume"
-	dstVolume := k8sV1.Volume{
-		Name:         additionalFilesVolumeName,
-		VolumeSource: k8sV1.VolumeSource{EmptyDir: &k8sV1.EmptyDirVolumeSource{}},
-	}
-	volumes = append(volumes, dstVolume)
-	dstVolumeMount := k8sV1.VolumeMount{
-		Name:      additionalFilesVolumeName,
-		MountPath: initContainerTarDstPath,
-		ReadOnly:  false,
-	}
-	initContainerVolumeMounts = append(initContainerVolumeMounts, dstVolumeMount)
-
-	for idx, runArchive := range runArchives {
-		for _, item := range runArchive.Archive {
-			mainContainerVolumeMounts = append(mainContainerVolumeMounts, k8sV1.VolumeMount{
-				Name:      additionalFilesVolumeName,
-				MountPath: path.Join(runArchive.Path, item.Path),
-				SubPath:   path.Join(fmt.Sprintf("%d", idx), item.Path),
-			})
-		}
-	}
-
-	return initContainerVolumeMounts, mainContainerVolumeMounts, volumes
+	return volumeMounts, volumes
 }

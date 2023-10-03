@@ -38,8 +38,8 @@ const (
 	TrialEntrypointScriptResource = "entrypoint.sh"
 	// AgentSetupScriptTemplateResource is the template for the script to run a dynamic agent.
 	AgentSetupScriptTemplateResource = "agent_setup_script.sh.template"
-	// K8InitContainerEntryScriptResource is the script to run the init container on k8s.
-	K8InitContainerEntryScriptResource = "k8_init_container_entrypoint.sh"
+	// K8WrapperResource is the wrapper script to do set up for Kubernetes.
+	K8WrapperResource = "k8s-wrapper.sh"
 	// TaskLoggingSetupScriptResource is the script to setup prerequistites for logging.
 	TaskLoggingSetupScriptResource = "task-logging-setup.sh"
 	// TaskLoggingTeardownScriptResource is the script to teardown stuff for logging.

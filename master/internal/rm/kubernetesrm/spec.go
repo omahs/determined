@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/docker/docker/api/types/mount"
 	petName "github.com/dustinkirkland/golang-petname"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/determined-ai/determined/master/pkg/archive"
@@ -119,22 +117,43 @@ func (p *pod) configureEnvVars(
 	return envVars, nil
 }
 
+// Combine multiple runArchives into a single tarGZ.
+// Originally we used to copy each seperately to Kubernetes.
+// There is a reason for doing this on Docker but not so much on Kubernetes.
+// On Kubernetes for better or worse we ignore cproto.RunArchive.CopyOptions.
+func makeMegaArchive(runArchives []cproto.RunArchive) ([]byte, error) {
+	// combinedArchived := cproto.RunArchive{Path: "/"}
+
+	// TODO maybe move this to archive package and unit test it.
+	var items archive.Archive
+	for _, runArchive := range runArchives {
+		for _, item := range runArchive.Archive {
+			item.Path = runArchive.Path + "/" + item.Path // TODO make this use stdlib path
+			items = append(items, item)
+		}
+	}
+
+	tared, err := archive.ToTarGz(items)
+	if err != nil {
+		return nil, fmt.Errorf("failed to tar archive: %w", err)
+	}
+	return tared, err
+}
+
 func (p *pod) configureConfigMapSpec(
 	runArchives []cproto.RunArchive,
 ) (*k8sV1.ConfigMap, error) {
 	configMapData := make(map[string][]byte, len(runArchives))
-	// Add additional files as tar.gz archive.
-	for idx, runArchive := range runArchives {
-		zippedArchive, err := archive.ToTarGz(runArchive.Archive)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to zip archive")
-		}
-		configMapData[fmt.Sprintf("%d.tar.gz", idx)] = zippedArchive
+	megaTarGZ, err := makeMegaArchive(runArchives)
+	if err != nil {
+		return nil, err
 	}
+	configMapData["mega.tar.gz"] = megaTarGZ
+	// TODO we pass mega.tar.gz down.
+	// We can simply the parameters.
 
 	// Add initContainer script.
-	configMapData[etc.K8InitContainerEntryScriptResource] = etc.MustStaticFile(
-		etc.K8InitContainerEntryScriptResource)
+	configMapData[etc.K8WrapperResource] = etc.MustStaticFile(etc.K8WrapperResource)
 
 	// Create configMap of AdditionalFiles as .tar.gz archive and the entrypoint script
 	// for the init container.
@@ -151,7 +170,7 @@ func (p *pod) configureConfigMapSpec(
 func (p *pod) configureVolumes(
 	dockerMounts []mount.Mount,
 	runArchives []cproto.RunArchive,
-) ([]k8sV1.VolumeMount, []k8sV1.VolumeMount, []k8sV1.Volume) {
+) ([]k8sV1.VolumeMount, []k8sV1.Volume) {
 	volumeMounts := make([]k8sV1.VolumeMount, 0)
 	volumes := make([]k8sV1.Volume, 0)
 
@@ -167,16 +186,15 @@ func (p *pod) configureVolumes(
 	volumeMounts = append(volumeMounts, shmVolumeMount)
 	volumes = append(volumes, shmVolume)
 
-	// //nolint:lll // There isn't a great way to break this line that makes it more readable.
-	initContainerVolumeMounts, mainContainerRunArchiveVolumeMounts, runArchiveVolumes := configureAdditionalFilesVolumes(
+	runArchiveVolumeMounts, runArchiveVolumes := configureAdditionalFilesVolumes(
 		p.configMapName,
 		runArchives,
 	)
 
-	volumeMounts = append(volumeMounts, mainContainerRunArchiveVolumeMounts...)
+	volumeMounts = append(volumeMounts, runArchiveVolumeMounts...)
 	volumes = append(volumes, runArchiveVolumes...)
 
-	return initContainerVolumeMounts, volumeMounts, volumes
+	return volumeMounts, volumes
 }
 
 func (p *pod) modifyPodSpec(newPod *k8sV1.Pod, scheduler string) {
@@ -309,7 +327,6 @@ func (p *pod) createPriorityClass(name string, priority int32) error {
 
 func (p *pod) configurePodSpec(
 	volumes []k8sV1.Volume,
-	determinedInitContainers k8sV1.Container,
 	determinedContainer k8sV1.Container,
 	sidecarContainers []k8sV1.Container,
 	podSpec *k8sV1.Pod,
@@ -366,7 +383,7 @@ func (p *pod) configurePodSpec(
 	podSpec.Spec.Containers = append(podSpec.Spec.Containers, determinedContainer)
 	podSpec.Spec.Volumes = append(podSpec.Spec.Volumes, volumes...)
 	podSpec.Spec.HostNetwork = p.submissionInfo.taskSpec.TaskContainerDefaults.NetworkMode.IsHost()
-	podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, determinedInitContainers)
+	// podSpec.Spec.InitContainers = append(podSpec.Spec.InitContainers, determinedInitContainers)
 	podSpec.Spec.RestartPolicy = k8sV1.RestartPolicyNever
 
 	return podSpec
@@ -384,7 +401,7 @@ func (p *pod) createPodSpec(scheduler string) error {
 
 	runArchives, rootArchives := spec.Archives()
 
-	initContainerVolumeMounts, volumeMounts, volumes := p.configureVolumes(spec.Mounts, runArchives)
+	volumeMounts, volumes := p.configureVolumes(spec.Mounts, runArchives)
 
 	env := spec.Environment
 
@@ -404,21 +421,16 @@ func (p *pod) createPodSpec(scheduler string) error {
 		return err
 	}
 
-	initContainer := configureInitContainer(
-		len(runArchives),
-		initContainerVolumeMounts,
-		env.Image().For(deviceType),
-		configureImagePullPolicy(env),
-		spec.AgentUserGroup,
-	)
-
 	var sidecars []k8sV1.Container
 
 	envVars = append(envVars, k8sV1.EnvVar{Name: "DET_K8S_LOG_TO_FILE", Value: "true"})
 
 	container := k8sV1.Container{
-		Name:            model.DeterminedK8ContainerName,
-		Command:         spec.Entrypoint,
+		Name: model.DeterminedK8ContainerName,
+		Command: append(
+			[]string{fmt.Sprintf("%s%s", initWrapperWorkDir, etc.K8WrapperResource)},
+			spec.Entrypoint...,
+		),
 		Env:             envVars,
 		Image:           env.Image().For(deviceType),
 		ImagePullPolicy: configureImagePullPolicy(env),
@@ -445,7 +457,7 @@ func (p *pod) createPodSpec(scheduler string) error {
 	container.VolumeMounts = append(container.VolumeMounts, rootVolumeMounts...)
 
 	p.pod = p.configurePodSpec(
-		volumes, initContainer, container, sidecars, (*k8sV1.Pod)(env.PodSpec()), scheduler)
+		volumes, container, sidecars, (*k8sV1.Pod)(env.PodSpec()), scheduler)
 	return nil
 }
 
@@ -518,27 +530,6 @@ func configureImagePullPolicy(environment expconf.EnvironmentConfig) k8sV1.PullP
 		pullPolicy = k8sV1.PullIfNotPresent
 	}
 	return pullPolicy
-}
-
-func configureInitContainer(
-	numArchives int,
-	volumeMounts []k8sV1.VolumeMount,
-	image string,
-	imagePullPolicy k8sV1.PullPolicy,
-	agentUserGroup *model.AgentUserGroup,
-) k8sV1.Container {
-	return k8sV1.Container{
-		Name:    "determined-init-container",
-		Command: []string{path.Join(initContainerWorkDir, etc.K8InitContainerEntryScriptResource)},
-		Args: []string{
-			fmt.Sprintf("%d", numArchives), initContainerTarSrcPath, initContainerTarDstPath,
-		},
-		Image:           image,
-		ImagePullPolicy: imagePullPolicy,
-		VolumeMounts:    volumeMounts,
-		WorkingDir:      initContainerWorkDir,
-		SecurityContext: configureSecurityContext(agentUserGroup),
-	}
 }
 
 func handleRootArchiveFiles(

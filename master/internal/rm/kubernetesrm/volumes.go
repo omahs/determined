@@ -2,6 +2,7 @@ package kubernetesrm
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/determined-ai/determined/master/pkg/etc"
 
@@ -94,6 +95,7 @@ func configureAdditionalFilesVolumes(
 		},
 	}
 	volumes = append(volumes, archiveVolume)
+	// TODO can we reduce to keyS? I think we are mounting everything??
 	archiveVolumeMount := k8sV1.VolumeMount{
 		Name:      archiveVolumeName,
 		MountPath: initWrapperSrcPath,
@@ -126,6 +128,30 @@ func configureAdditionalFilesVolumes(
 		ReadOnly:  true,
 	}
 	volumeMounts = append(volumeMounts, entrypointVolumeMount)
+
+	// HMM will this work?
+	additionalFilesVolumeName := "additional-files-volume"
+	dstVolume := k8sV1.Volume{
+		Name:         additionalFilesVolumeName,
+		VolumeSource: k8sV1.VolumeSource{EmptyDir: &k8sV1.EmptyDirVolumeSource{}},
+	}
+	volumes = append(volumes, dstVolume)
+	dstVolumeMount := k8sV1.VolumeMount{
+		Name:      additionalFilesVolumeName,
+		MountPath: initContainerTarDstPath,
+		ReadOnly:  false,
+	}
+	volumeMounts = append(volumeMounts, dstVolumeMount)
+
+	for idx, runArchive := range runArchives {
+		for _, item := range runArchive.Archive {
+			volumeMounts = append(volumeMounts, k8sV1.VolumeMount{
+				Name:      additionalFilesVolumeName,
+				MountPath: path.Join(runArchive.Path, item.Path),
+				SubPath:   path.Join(fmt.Sprintf("%d", idx), item.Path),
+			})
+		}
+	}
 
 	return volumeMounts, volumes
 }

@@ -31,11 +31,12 @@ import (
 )
 
 const (
-	initWrapperSrcPath = "/run/determined/temp/tar/src"
-	initWrapperWorkDir = "/run/determined/temp/"
+	// If you update this also update srv/k8s-wrapper.sh.
+	initWrapperSrcPath      = "/run/determined/temp/tar/src"
+	initWrapperWorkDir      = "/run/determined/temp/"
+	initContainerTarDstPath = "/run/determined/temp/tar/dst"
 
 	// initContainerTarSrcPath   = "/run/determined/temp/tar/src"
-	// initContainerTarDstPath   = "/run/determined/temp/tar/dst"
 
 	determinedLabel           = "determined"
 	determinedPreemptionLabel = "determined-preemption"

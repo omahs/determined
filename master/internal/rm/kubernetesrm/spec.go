@@ -34,6 +34,8 @@ const (
 
 	gcTask  = "gc"
 	cmdTask = "cmd"
+
+	archiveTarFileName = "mega.tar.gz" // If you change this update srv/k8s-wrapper.sh.
 )
 
 func (p *pod) configureResourcesRequirements() k8sV1.ResourceRequirements {
@@ -144,13 +146,24 @@ func (p *pod) configureConfigMapSpec(
 	runArchives []cproto.RunArchive,
 ) (*k8sV1.ConfigMap, error) {
 	configMapData := make(map[string][]byte, len(runArchives))
-	megaTarGZ, err := makeMegaArchive(runArchives)
-	if err != nil {
-		return nil, err
+	// Add additional files as tar.gz archive.
+	for idx, runArchive := range runArchives {
+		zippedArchive, err := archive.ToTarGz(runArchive.Archive)
+		if err != nil {
+			return nil, fmt.Errorf("failed to zip archive: %w", err)
+		}
+		configMapData[fmt.Sprintf("%d.tar.gz", idx)] = zippedArchive
 	}
-	configMapData["mega.tar.gz"] = megaTarGZ
-	// TODO we pass mega.tar.gz down.
-	// We can simply the parameters.
+
+	/*
+		megaTarGZ, err := makeMegaArchive(runArchives)
+		if err != nil {
+			return nil, err
+		}
+		configMapData[archiveTarFileName] = megaTarGZ
+		// TODO we pass mega.tar.gz down.
+		// We can simply the parameters.
+	*/
 
 	// Add initContainer script.
 	configMapData[etc.K8WrapperResource] = etc.MustStaticFile(etc.K8WrapperResource)

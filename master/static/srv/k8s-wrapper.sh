@@ -31,15 +31,11 @@ ls /run/determined/temp/tar/src
 src_dir="/run/determined/temp/tar/src/"
 dst_dir="/run/determined/temp/tar/dst/"
 
-# Loop through each .tar.gz file in the src directory
 for src_file in "${src_dir}"*.tar.gz; do
-    # Extract the file name without extension
     file_name=$(basename "$src_file" .tar.gz)
-    # Create a destination directory
     mkdir -p "${dst_dir}${file_name}"
 
     echo "IN" $src_file "NOW DEST" "${dst_dir}${file_name}"
-    # Extract the tar.gz file into the destination directory
     tar -xvf "$src_file" -C "${dst_dir}${file_name}"
 done
 

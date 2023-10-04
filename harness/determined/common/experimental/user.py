@@ -82,6 +82,10 @@ class User:
         patch_user = bindings.v1PatchUser(password=new_password, isHashed=True)
         resp = bindings.patch_PatchUser(self._session, body=patch_user, userId=self.user_id)
         self._reload(resp.user)
+    
+    def edit_user(self, patch_user: bindings.v1PatchUser) -> None:
+        resp = bindings.patch_PatchUser(self._session, body=patch_user, userId=self.user_id)
+        self._reload(resp.user)
 
     def link_with_agent(
         self,

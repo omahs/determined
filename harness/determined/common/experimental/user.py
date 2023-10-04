@@ -66,6 +66,11 @@ class User:
         patch_user = bindings.v1PatchUser(displayName=display_name)
         resp = bindings.patch_PatchUser(self._session, body=patch_user, userId=self.user_id)
         self._reload(resp.user)
+    
+    def change_remote(self, remote:bool) -> None:
+        patch_user = bindings.v1PatchUser(remote=remote)
+        resp = bindings.patch_PatchUser(self._session, body=patch_user, userId=self.user_id)
+        self._reload(resp.user)
 
     def change_password(self, new_password: str) -> None:
         new_password = api.salt_and_hash(new_password)

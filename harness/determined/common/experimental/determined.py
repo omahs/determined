@@ -101,6 +101,21 @@ class Determined:
                 display_name=raw.displayName,
             )
 
+    def _switch_user(self, token: str) -> None:
+        """Switch the user associated with this Determined object.
+
+        Given an active token, this method will create a new session with the same master and
+        certificate, but with a new authentication object that uses the provided token. This
+        method is used by the CLI to switch the user associated with the Determined object.
+        """
+        auth = authentication.Authentication(self._master, None, None, self._session._cert)
+        self._token = token
+        temp_session = api.Session(self._master, None, auth, self._session._cert)
+        username = bindings.get_GetMe(temp_session).user.username
+        auth.token_store.set_token(username, token)
+        auth.token_store.set_active(username)
+        self._session = api.Session(self._master, username, auth, self._session._cert)
+
     def create_user(
         self, username: str, admin: bool, password: Optional[str], remote: bool = False
     ) -> user.User:

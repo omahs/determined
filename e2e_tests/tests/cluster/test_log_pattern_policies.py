@@ -1,8 +1,5 @@
 import tempfile
-import threading
 import time
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-from typing import Dict, Tuple, Type
 
 import pytest
 import yaml
@@ -11,44 +8,7 @@ from determined.common.api import bindings
 from tests import api_utils
 from tests import config as conf
 from tests import experiment as exp
-
-
-class HTTPServerWithRequest(HTTPServer):
-    def __init__(
-        self, server_address: Tuple[str, int], RequestHandlerClass: Type[SimpleHTTPRequestHandler]
-    ):
-        super().__init__(server_address, RequestHandlerClass)
-        self.url_to_request_body: Dict[str, str] = {}
-        self.url_to_request_body_lock = threading.Lock()
-
-
-class WebhookServer:
-    def __init__(self, port: int):
-        class WebhookRequestHandler(SimpleHTTPRequestHandler):
-            def do_POST(self) -> None:
-                assert isinstance(self.server, HTTPServerWithRequest)
-                with self.server.url_to_request_body_lock:
-                    if self.path in self.server.url_to_request_body:
-                        pytest.fail(f"got two webhooks sent to path {self.path}")
-
-                    content_length = int(self.headers.get("content-length"))
-                    request_body = self.rfile.read(content_length)
-                    self.server.url_to_request_body[self.path] = request_body.decode("utf-8")
-
-                    self.send_response(200, "Success")
-                    self.end_headers()
-                    self.wfile.write("".encode("utf-8"))
-
-        self.server = HTTPServerWithRequest(("", port), WebhookRequestHandler)
-
-        self.server_thread = threading.Thread(target=self.server.serve_forever)
-        self.server_thread.start()
-
-    def close_and_return_responses(self) -> Dict[str, str]:
-        self.server.shutdown()
-        self.server.server_close()
-        self.server_thread.join()
-        return self.server.url_to_request_body
+from tests.cluster.utils import WebhookServer
 
 
 @pytest.mark.e2e_cpu

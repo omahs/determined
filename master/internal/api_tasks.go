@@ -3,6 +3,8 @@ package internal
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -21,11 +23,14 @@ import (
 	"github.com/determined-ai/determined/master/internal/db"
 	expauth "github.com/determined-ai/determined/master/internal/experiment"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
+	"github.com/determined-ai/determined/master/internal/logpattern"
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task"
+	"github.com/determined-ai/determined/master/internal/webhooks"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 	"github.com/determined-ai/determined/proto/pkg/taskv1"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -371,6 +376,66 @@ func (a *apiServer) TaskLogs(
 	})
 }
 
+func (a *apiServer) Monitor(ctx context.Context, taskID string, logs []*model.TaskLog) error {
+	// TODO(ft) do all logs have same taskID? Or should we just assume that they don't need to.
+	// TODO(ft) do all logs stream through here? K8S I think we are planning to add log through
+	// k8s api too.
+
+	isExp, exp, err := expFromTaskID(ctx, model.TaskID(taskID))
+	if err != nil {
+		return err
+	}
+	if isExp == false {
+		return nil
+	}
+
+	activeConfig, err := a.m.db.ActiveExperimentConfig(exp.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, l := range logs {
+		if l.AgentID == nil {
+			return fmt.Errorf("agentID must be non nil") // TODO can we get away with this?
+			// It feels kinda annoying to let our database have a possible null that theoretically
+			// shouldn't happen.
+		}
+
+		for _, lpp := range activeConfig.LogPatternPolicies() {
+			regex := fmt.Sprintf("(.*)%s(.*)", lpp.Pattern())
+			r, _ := regexp.Compile(regex)
+
+			if r.MatchString(l.Log) {
+				policy := lpp.Policy().GetUnionMember()
+				switch reflect.TypeOf(policy).String() {
+				case "expconf.DontRetryPolicyV0":
+					if err := logpattern.AddDontRetry(
+						ctx, model.TaskID(l.TaskID), *l.AgentID, regex, l.Log,
+					); err != nil {
+						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
+					}
+				case "expconf.OnFailureExcludeNodePolicyV0":
+					if err := logpattern.AddRetryOnDifferentNode(
+						ctx, model.TaskID(l.TaskID), *l.AgentID, regex, l.Log,
+					); err != nil {
+						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
+					}
+				case "expconf.SendWebhookPolicyV0":
+					if err := logpattern.AddWebhookAlert(
+						ctx, model.TaskID(l.TaskID), "webhookName", *l.AgentID, regex, l.Log,
+					); err != nil {
+						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
+					}
+				default:
+					log.Errorf("error unrecognized policy")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (a *apiServer) PostTaskLogs(
 	ctx context.Context, req *apiv1.PostTaskLogsRequest,
 ) (*apiv1.PostTaskLogsResponse, error) {
@@ -399,6 +464,10 @@ func (a *apiServer) PostTaskLogs(
 		}
 
 		logs[i] = model.TaskLogFromProto(req.Logs[i])
+	}
+
+	if err := a.Monitor(ctx, taskID, logs); err != nil {
+		return nil, err
 	}
 
 	if err := a.m.taskLogBackend.AddTaskLogs(logs); err != nil {

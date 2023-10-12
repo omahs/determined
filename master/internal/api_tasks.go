@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -28,6 +27,7 @@ import (
 	"github.com/determined-ai/determined/master/internal/task"
 	"github.com/determined-ai/determined/master/internal/webhooks"
 	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 	"github.com/determined-ai/determined/proto/pkg/taskv1"
 	log "github.com/sirupsen/logrus"
@@ -376,6 +376,17 @@ func (a *apiServer) TaskLogs(
 	})
 }
 
+func webhookTypeFromPolicy(p expconf.SendWebhookPolicy) webhooks.WebhookType {
+	switch p.WebhookType() {
+	case "default":
+		return webhooks.WebhookTypeDefault
+	case "slack":
+		return webhooks.WebhookTypeSlack
+	default:
+		return webhooks.WebhookTypeDefault
+	}
+}
+
 func (a *apiServer) Monitor(ctx context.Context, taskID string, logs []*model.TaskLog) error {
 	// TODO(ft) do all logs have same taskID? Or should we just assume that they don't need to.
 	// TODO(ft) do all logs stream through here? K8S I think we are planning to add log through
@@ -406,23 +417,23 @@ func (a *apiServer) Monitor(ctx context.Context, taskID string, logs []*model.Ta
 			r, _ := regexp.Compile(regex)
 
 			if r.MatchString(l.Log) {
-				policy := lpp.Policy().GetUnionMember()
-				switch reflect.TypeOf(policy).String() {
-				case "expconf.DontRetryPolicyV0":
+				switch policy := lpp.Policy().GetUnionMember().(type) {
+				case expconf.DontRetryPolicy:
 					if err := logpattern.AddDontRetry(
 						ctx, model.TaskID(l.TaskID), *l.AgentID, regex, l.Log,
 					); err != nil {
 						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
 					}
-				case "expconf.OnFailureExcludeNodePolicyV0":
+				case expconf.OnFailureExcludeNodePolicy:
 					if err := logpattern.AddRetryOnDifferentNode(
 						ctx, model.TaskID(l.TaskID), *l.AgentID, regex, l.Log,
 					); err != nil {
 						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
 					}
-				case "expconf.SendWebhookPolicyV0":
+				case expconf.SendWebhookPolicy:
 					if err := logpattern.AddWebhookAlert(
-						ctx, model.TaskID(l.TaskID), "webhookName", *l.AgentID, regex, l.Log,
+						ctx, model.TaskID(l.TaskID), *l.AgentID, regex, l.Log,
+						policy.WebhookURL(), webhookTypeFromPolicy(policy),
 					); err != nil {
 						log.Errorf("error disallowing node") // Failing adding logs seems super bad.
 					}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/determined-ai/determined/master/internal/db"
@@ -254,4 +255,11 @@ func ShouldRetry(ctx context.Context, taskID model.TaskID) ([]RetryInfo, error) 
 	}
 
 	return out, nil
+}
+
+// SetDisallowedNodesCacheTest is used only in unit tests. export_test.go does not work as expected.
+func SetDisallowedNodesCacheTest(t *testing.T, c map[model.TaskID]*set.Set[string]) {
+	mu.Lock()
+	defer mu.Unlock()
+	blockListCache = c
 }

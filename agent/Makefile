@@ -2,4 +2,4 @@
 
 .PHONY: build
 build:
-	make -C ../master build-agent
+	make -C ../cluster build-agent

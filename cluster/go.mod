@@ -169,8 +169,8 @@ require (
 
 require (
 	cloud.google.com/go/storage v1.10.0
-	github.com/docker/distribution v2.8.3+incompatible
-	github.com/docker/docker-credential-helpers v0.8.0
+	github.com/docker/distribution v2.8.2+incompatible
+	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/go-test/deep v1.1.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/jinzhu/copier v0.3.5
@@ -184,7 +184,6 @@ require (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

@@ -260,7 +260,7 @@ package: export DET_SEGMENT_MASTER_KEY ?=
 package: export DET_SEGMENT_WEBUI_KEY ?=
 package: export GORELEASER_CURRENT_TAG := $(VERSION)
 package: gen buildx
-	$(GORELEASER) --snapshot --rm-dist
+	$(GORELEASER) --config=master.goreleaser.yml --snapshot --rm-dist
 
 .PHONY: release
 release: export DET_SEGMENT_MASTER_KEY ?=
@@ -268,7 +268,7 @@ release: export DET_SEGMENT_WEBUI_KEY ?=
 release: export GORELEASER_CURRENT_TAG := $(VERSION)
 release: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
 release: gen buildx
-	$(GORELEASER) --rm-dist
+	$(GORELEASER) --config=master.goreleaser.yml --rm-dist
 	make publish-nvcr
 
 define manifest_publish
@@ -294,5 +294,71 @@ publish:
 publish-nvcr:
 	for image in $(NVCR_TAGS); do \
 		docker tag $(DOCKER_REPO)/$(PROJECT_NAME):$(FULL_COMMIT)-amd64 $$image; \
+		docker push $$image; \
+	done
+
+
+# Agent.
+PROJECT_NAME_AGENT = determined-agent
+MULTI_ARCH_IMAGES_AGENT = $(shell for arch in $(ARCHS); do echo $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-$$arch; done)
+
+PUB_MANIFESTS_AGENT = \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
+
+DEV_MANIFESTS_AGENT = \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(DOCKER_REPO)/determined-dev:$(PROJECT_NAME_AGENT)-$(FULL_COMMIT)
+
+NVCR_TAGS_AGENT = \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
+
+
+.PHONY: build-agent
+build-agent:
+	go build \
+		-ldflags "-X main.version=$(VERSION)" \
+		-o build/determined-agent \
+		./cmd/determined-agent
+
+.PHONY: build-agent-race
+build-agent-race:
+	go build \
+		-ldflags "-X main.version=$(VERSION)" \
+		-o build/determined-agent \
+		-race \
+		./cmd/determined-agent
+
+
+packaging-agent/LICENSE: $(shell find ../tools/scripts/licenses -type f)
+	../tools/scripts/gen-attributions.py agent $@
+
+.PHONY: package-agent
+package-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
+package-agent: packaging-agent/LICENSE buildx
+	goreleaser --config=agent.goreleaser.yml --snapshot --rm-dist
+
+.PHONY: release-agent
+release-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
+release-agent: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
+release-agent: packaging/LICENSE buildx
+	goreleaser --config=agent.goreleaser.yml --rm-dist
+	make publish-nvcr
+
+.PHONY: publish-dev-agent
+publish-dev-agent:
+	@$(call manifest_publish, $(DEV_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
+
+.PHONY: publish-agent
+publish-agent:
+	@$(call manifest_publish, $(PUB_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
+
+.PHONY: publish-nvcr-agent
+publish-nvcr-agent:
+	for image in $(NVCR_TAGS_AGENT); do \
+		docker tag $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-amd64 $$image; \
 		docker push $$image; \
 	done

@@ -151,6 +151,7 @@ dockers:
   - goos: linux
     goarch: amd64
     use: buildx
+    dockerfile: master-Dockerfile
     build_flag_templates:
       - --platform=linux/amd64
       - --builder=buildx-build
@@ -168,6 +169,7 @@ dockers:
   - goos: linux
     goarch: arm64
     use: buildx
+    dockerfile: master-Dockerfile
     build_flag_templates:
       - --platform=linux/arm64
       - --builder=buildx-build
@@ -185,6 +187,7 @@ dockers:
   - goos: linux
     goarch: ppc64
     use: buildx
+    dockerfile: master-Dockerfile
     build_flag_templates:
       - --platform=linux/ppc64le
       - --builder=buildx-build

@@ -12,9 +12,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/agent/internal/container"
-	"github.com/determined-ai/determined/agent/internal/detect"
-	"github.com/determined-ai/determined/agent/internal/options"
+	"github.com/determined-ai/determined/cluster/agentinternal/container"
+	"github.com/determined-ai/determined/cluster/agentinternal/detect"
+	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/agent/pkg/docker"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/cproto"

@@ -1,4 +1,4 @@
-module github.com/determined-ai/determined/master
+module github.com/determined-ai/determined/cluster
 
 go 1.21
 

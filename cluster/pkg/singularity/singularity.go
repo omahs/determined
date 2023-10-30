@@ -23,8 +23,8 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/agent/internal/container"
-	"github.com/determined-ai/determined/agent/internal/options"
+	"github.com/determined-ai/determined/cluster/agentinternal/container"
+	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/agent/pkg/cruntimes"
 	"github.com/determined-ai/determined/agent/pkg/docker"
 	"github.com/determined-ai/determined/agent/pkg/events"

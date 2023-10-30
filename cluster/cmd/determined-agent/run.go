@@ -10,8 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/determined-ai/determined/agent/internal"
-	"github.com/determined-ai/determined/agent/internal/options"
+	"github.com/determined-ai/determined/cluster/agentinternal"
+	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/check"
 )

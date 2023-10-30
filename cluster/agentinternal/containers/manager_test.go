@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/agent/internal/options"
+	"github.com/determined-ai/determined/cluster/agentinternal/options"
 )
 
 func TestAddProxyInfo(t *testing.T) {

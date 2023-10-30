@@ -17,8 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/agent/internal/container"
-	"github.com/determined-ai/determined/agent/internal/containers"
+	"github.com/determined-ai/determined/cluster/agentinternal/container"
+	"github.com/determined-ai/determined/cluster/agentinternal/containers"
 	"github.com/determined-ai/determined/agent/pkg/docker"
 	"github.com/determined-ai/determined/agent/pkg/events"
 	"github.com/determined-ai/determined/agent/test/testutils"

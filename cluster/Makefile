@@ -33,7 +33,7 @@ NVCR_TAGS = \
 
 # Proto stuff.
 # String constants.
-build_path := build/build-proto/github.com/determined-ai/determined/master/pkg/generatedproto/
+build_path := build/build-proto/github.com/determined-ai/determined/cluster/pkg/generatedproto/
 src_path := proto/determined
 
 # Pre-defined list of all source files.
@@ -46,7 +46,7 @@ swagger_in := $(src_path)/api/v1/api.proto
 swagger_out := build/swagger/determined/api/v1/api.swagger.json
 swagger_patch := patches/api.json
 
-go_src_path := ../master/internal
+go_src_path := ../cluster/internal
 echo_swagger_source_files := $(shell find $(go_src_path) -type f -name 'core*.go')
 echo_swagger_patch_dir := build/echo-swagger
 echo_swagger_patch := $(echo_swagger_patch_dir)/swagger.json
@@ -86,7 +86,7 @@ $(echo_swagger_patch_dir):
 	mkdir -p $(echo_swagger_patch_dir)
 
 $(echo_swagger_patch): $(echo_swagger_patch_dir) $(echo_swagger_source_files)
-	swag init -g ../master/cmd/determined-master/main.go -d ../master/. -o $(echo_swagger_patch_dir) -ot json
+	swag init -g ../cluster/cmd/determined-master/main.go -d ../cluster/. -o $(echo_swagger_patch_dir) -ot json
 	jq 'del(.swagger, .info)' $(echo_swagger_patch) > $(echo_swagger_patch).tmp
 	mv $(echo_swagger_patch).tmp $(echo_swagger_patch)
 
@@ -99,12 +99,6 @@ $(swagger_out): $(source_files) build/swagger $(swagger_patch) $(echo_swagger_pa
 	python3 scripts/swagger.py $@ $(echo_swagger_patch)
 
 # Master stuff.
-.PHONY: clean
-clean: ungen
-	rm -rf build pkg/generatedproto
-	rm -rf dist
-	rm -rf build
-
 .PHONY: ungen
 ungen:
 	rm -f $(GENERATED)
@@ -151,32 +145,149 @@ check-gen: force-gen gen build/mock_gen.stamp
 	# git reports the files as unchanged after forcibly regenerating the files:
 	test -z "$(shell git status --porcelain '**/zgen*')"
 
-.PHONY: get-deps
-get-deps:
-	./get-deps.sh
-
-.PHONY: build
-build: export DET_SEGMENT_MASTER_KEY ?=
-build: export DET_SEGMENT_WEBUI_KEY ?=
-build: gen build-proto
+.PHONY: build-master
+build-master: export DET_SEGMENT_MASTER_KEY ?=
+build-master: export DET_SEGMENT_WEBUI_KEY ?=
+build-master: gen build-proto
 	go build \
-		-ldflags "-X github.com/determined-ai/determined/master/version.Version=$(VERSION) \
-		          -X github.com/determined-ai/determined/master/internal/config.DefaultSegmentMasterKey=$(DET_SEGMENT_MASTER_KEY) \
-		          -X github.com/determined-ai/determined/master/internal/config.DefaultSegmentWebUIKey=$(DET_SEGMENT_WEBUI_KEY)" \
+		-ldflags "-X github.com/determined-ai/determined/cluster/version.Version=$(VERSION) \
+		          -X github.com/determined-ai/determined/cluster/internal/config.DefaultSegmentMasterKey=$(DET_SEGMENT_MASTER_KEY) \
+		          -X github.com/determined-ai/determined/cluster/internal/config.DefaultSegmentWebUIKey=$(DET_SEGMENT_WEBUI_KEY)" \
 		-o build/determined-master \
 		./cmd/determined-master
 
-.PHONY: build-race
-build-race: export DET_SEGMENT_MASTER_KEY ?=
-build-race: export DET_SEGMENT_WEBUI_KEY ?=
-build-race: gen build-proto
+.PHONY: build-race-master
+build-race-master: export DET_SEGMENT_MASTER_KEY ?=
+build-race-master: export DET_SEGMENT_WEBUI_KEY ?=
+build-race-master: gen build-proto
 	go build \
-		-ldflags "-X github.com/determined-ai/determined/master/version.Version=$(VERSION) \
-		          -X github.com/determined-ai/determined/master/internal/config.DefaultSegmentMasterKey=$(DET_SEGMENT_MASTER_KEY) \
-		          -X github.com/determined-ai/determined/master/internal/config.DefaultSegmentWebUIKey=$(DET_SEGMENT_WEBUI_KEY)" \
+		-ldflags "-X github.com/determined-ai/determined/cluster/version.Version=$(VERSION) \
+		          -X github.com/determined-ai/determined/cluster/internal/config.DefaultSegmentMasterKey=$(DET_SEGMENT_MASTER_KEY) \
+		          -X github.com/determined-ai/determined/cluster/internal/config.DefaultSegmentWebUIKey=$(DET_SEGMENT_WEBUI_KEY)" \
 		-o build/determined-master \
 		-race \
 		./cmd/determined-master
+
+# TODO switch to one license command???
+packaging/LICENSE: $(shell find ../tools/scripts/licenses -type f)
+	../tools/scripts/gen-attributions.py master $@
+
+define manifest_publish
+	for image in $(2); do \
+		docker push $$image; \
+	done
+	for manifest in $(1); do \
+		docker manifest rm $$manifest; \
+		docker manifest create $$manifest $(2); \
+		docker manifest push $$manifest || exit 1; \
+	done
+endef
+
+.PHONY: package-master
+package: export DET_SEGMENT_MASTER_KEY ?=
+package: export DET_SEGMENT_WEBUI_KEY ?=
+package: export GORELEASER_CURRENT_TAG := $(VERSION)
+package: gen buildx
+	$(GORELEASER) --config=master.goreleaser.yml --snapshot --rm-dist
+
+.PHONY: release-master
+release: export DET_SEGMENT_MASTER_KEY ?=
+release: export DET_SEGMENT_WEBUI_KEY ?=
+release: export GORELEASER_CURRENT_TAG := $(VERSION)
+release: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
+release: gen buildx
+	$(GORELEASER) --config=master.goreleaser.yml --rm-dist
+	make publish-nvcr-master
+
+.PHONY: publish-dev-master
+publish-dev:
+	@$(call manifest_publish, $(DEV_MANIFESTS), $(MULTI_ARCH_IMAGES))
+
+.PHONY: publish-master
+publish:
+	@$(call manifest_publish, $(PUB_MANIFESTS), $(MULTI_ARCH_IMAGES))
+
+.PHONY: publish-nvcr-master
+publish-nvcr:
+	for image in $(NVCR_TAGS); do \
+		docker tag $(DOCKER_REPO)/$(PROJECT_NAME):$(FULL_COMMIT)-amd64 $$image; \
+		docker push $$image; \
+	done
+
+# Agent.
+PROJECT_NAME_AGENT = determined-agent
+MULTI_ARCH_IMAGES_AGENT = $(shell for arch in $(ARCHS); do echo $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-$$arch; done)
+
+PUB_MANIFESTS_AGENT = \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
+
+DEV_MANIFESTS_AGENT = \
+	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(DOCKER_REPO)/determined-dev:$(PROJECT_NAME_AGENT)-$(FULL_COMMIT)
+
+NVCR_TAGS_AGENT = \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
+	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
+
+
+.PHONY: build-agent
+build-agent:
+	go build \
+		-ldflags "-X main.version=$(VERSION)" \
+		-o build/determined-agent \
+		./cmd/determined-agent
+
+.PHONY: build-race-agent
+build-race-agent:
+	go build \
+		-ldflags "-X main.version=$(VERSION)" \
+		-o build/determined-agent \
+		-race \
+		./cmd/determined-agent
+
+packaging-agent/LICENSE: $(shell find ../tools/scripts/licenses -type f)
+	../tools/scripts/gen-attributions.py agent $@
+
+.PHONY: package-agent
+package-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
+package-agent: packaging-agent/LICENSE buildx
+	goreleaser --config=agent.goreleaser.yml --snapshot --rm-dist
+
+.PHONY: release-agent
+release-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
+release-agent: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
+release-agent: packaging-agent/LICENSE buildx
+	goreleaser --config=agent.goreleaser.yml --rm-dist
+	make publish-nvcr-agent
+
+.PHONY: publish-dev-agent
+publish-dev-agent:
+	@$(call manifest_publish, $(DEV_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
+
+.PHONY: publish-agent
+publish-agent:
+	@$(call manifest_publish, $(PUB_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
+
+.PHONY: publish-nvcr-agent
+publish-nvcr-agent:
+	for image in $(NVCR_TAGS_AGENT); do \
+		docker tag $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-amd64 $$image; \
+		docker push $$image; \
+	done
+
+# Common stuff.
+.PHONY: clean
+clean: ungen
+	rm -rf build pkg/generatedproto
+	rm -rf dist
+	rm -rf build
+
+.PHONY: get-deps
+get-deps:
+	./get-deps.sh
 
 .PHONY: check
 check: check-gen
@@ -214,6 +325,15 @@ fmt:
 	swag fmt
 	git ls-files -z 'proto/determined/**/*.proto' | xargs -0 -P8 clang-format -i
 
+.PHONY: build
+build: export DET_SEGMENT_MASTER_KEY ?=
+build: export DET_SEGMENT_WEBUI_KEY ?=
+build: build-master build-agent
+
+.PHONY: build-race
+build-race: export DET_SEGMENT_MASTER_KEY ?=
+build-race: export DET_SEGMENT_WEBUI_KEY ?=
+build-race: build-race-master build-race-agent
 
 .PHONY: test
 test: build/mock_gen.stamp
@@ -251,114 +371,3 @@ buildx:
 		docker --context=buildx-context buildx create --platform $$platform_list --bootstrap --use --name buildx-build; \
 	}
 	docker buildx ls
-
-packaging/LICENSE: $(shell find ../tools/scripts/licenses -type f)
-	../tools/scripts/gen-attributions.py master $@
-
-.PHONY: package
-package: export DET_SEGMENT_MASTER_KEY ?=
-package: export DET_SEGMENT_WEBUI_KEY ?=
-package: export GORELEASER_CURRENT_TAG := $(VERSION)
-package: gen buildx
-	$(GORELEASER) --config=master.goreleaser.yml --snapshot --rm-dist
-
-.PHONY: release
-release: export DET_SEGMENT_MASTER_KEY ?=
-release: export DET_SEGMENT_WEBUI_KEY ?=
-release: export GORELEASER_CURRENT_TAG := $(VERSION)
-release: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
-release: gen buildx
-	$(GORELEASER) --config=master.goreleaser.yml --rm-dist
-	make publish-nvcr
-
-define manifest_publish
-	for image in $(2); do \
-		docker push $$image; \
-	done
-	for manifest in $(1); do \
-		docker manifest rm $$manifest; \
-		docker manifest create $$manifest $(2); \
-		docker manifest push $$manifest || exit 1; \
-	done
-endef
-
-.PHONY: publish-dev
-publish-dev:
-	@$(call manifest_publish, $(DEV_MANIFESTS), $(MULTI_ARCH_IMAGES))
-
-.PHONY: publish
-publish:
-	@$(call manifest_publish, $(PUB_MANIFESTS), $(MULTI_ARCH_IMAGES))
-
-.PHONY: publish-nvcr
-publish-nvcr:
-	for image in $(NVCR_TAGS); do \
-		docker tag $(DOCKER_REPO)/$(PROJECT_NAME):$(FULL_COMMIT)-amd64 $$image; \
-		docker push $$image; \
-	done
-
-
-# Agent.
-PROJECT_NAME_AGENT = determined-agent
-MULTI_ARCH_IMAGES_AGENT = $(shell for arch in $(ARCHS); do echo $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-$$arch; done)
-
-PUB_MANIFESTS_AGENT = \
-	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
-	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
-	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
-
-DEV_MANIFESTS_AGENT = \
-	$(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
-	$(DOCKER_REPO)/determined-dev:$(PROJECT_NAME_AGENT)-$(FULL_COMMIT)
-
-NVCR_TAGS_AGENT = \
-	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT) \
-	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(SHORT_COMMIT) \
-	$(NVCR_REPO)/$(PROJECT_NAME_AGENT):$(VERSION)
-
-
-.PHONY: build-agent
-build-agent:
-	go build \
-		-ldflags "-X main.version=$(VERSION)" \
-		-o build/determined-agent \
-		./cmd/determined-agent
-
-.PHONY: build-agent-race
-build-agent-race:
-	go build \
-		-ldflags "-X main.version=$(VERSION)" \
-		-o build/determined-agent \
-		-race \
-		./cmd/determined-agent
-
-
-packaging-agent/LICENSE: $(shell find ../tools/scripts/licenses -type f)
-	../tools/scripts/gen-attributions.py agent $@
-
-.PHONY: package-agent
-package-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
-package-agent: packaging-agent/LICENSE buildx
-	goreleaser --config=agent.goreleaser.yml --snapshot --rm-dist
-
-.PHONY: release-agent
-release-agent: export GORELEASER_CURRENT_TAG := $(VERSION)
-release-agent: export GORELEASER_PREVIOUS_TAG := $(shell git tag --sort=-creatordate | grep -E '^[0-9.]+$$' | grep "$(VERSION)" -A1 | sed -n '2 p')
-release-agent: packaging/LICENSE buildx
-	goreleaser --config=agent.goreleaser.yml --rm-dist
-	make publish-nvcr
-
-.PHONY: publish-dev-agent
-publish-dev-agent:
-	@$(call manifest_publish, $(DEV_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
-
-.PHONY: publish-agent
-publish-agent:
-	@$(call manifest_publish, $(PUB_MANIFESTS_AGENT), $(MULTI_ARCH_IMAGES_AGENT))
-
-.PHONY: publish-nvcr-agent
-publish-nvcr-agent:
-	for image in $(NVCR_TAGS_AGENT); do \
-		docker tag $(DOCKER_REPO)/$(PROJECT_NAME_AGENT):$(FULL_COMMIT)-amd64 $$image; \
-		docker push $$image; \
-	done

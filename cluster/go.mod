@@ -147,7 +147,7 @@ require (
 	go.opentelemetry.io/proto/otlp v0.12.1 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
@@ -178,7 +178,22 @@ require (
 	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
 )
 
-require github.com/rogpeppe/go-internal v1.9.0 // indirect
+require (
+	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/distribution/reference v0.5.0 // indirect
+	github.com/docker/distribution v2.8.3+incompatible // indirect
+	github.com/docker/docker-credential-helpers v0.8.0 // indirect
+	github.com/docker/go-metrics v0.0.1 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/moby/term v0.5.0 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/tklauser/go-sysconf v0.3.12 // indirect
+	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
+)
 
 require (
 	github.com/fatih/color v1.15.0 // indirect

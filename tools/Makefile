@@ -8,8 +8,8 @@ prep-root:
 	@mkdir -p build/webui/docs
 	@mkdir -p build/webui/react
 	@mkdir -p build/wheels/
-	@ln -s $(abspath ../master/static) build/
-	@ln -s $(abspath ../master/build/swagger) build/swagger
+	@ln -s $(abspath ../cluster/static) build/
+	@ln -s $(abspath ../cluster/build/swagger) build/swagger
 	@ln -s $(abspath ../docs/site/html/*) build/webui/docs
 	@ln -s $(abspath ../webui/react/build/*) build/webui/react
 	@ln -s $(abspath ../harness/dist/*.whl) build/wheels/

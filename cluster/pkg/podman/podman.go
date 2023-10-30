@@ -25,9 +25,9 @@ import (
 
 	"github.com/determined-ai/determined/cluster/agentinternal/container"
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
-	"github.com/determined-ai/determined/agent/pkg/cruntimes"
-	"github.com/determined-ai/determined/agent/pkg/docker"
-	"github.com/determined-ai/determined/agent/pkg/events"
+	"github.com/determined-ai/determined/cluster/pkg/cruntimes"
+	"github.com/determined-ai/determined/cluster/pkg/docker"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/cproto"
 	"github.com/determined-ai/determined/cluster/pkg/model"

@@ -9,7 +9,7 @@ import (
 	"github.com/docker/distribution/reference"
 	"github.com/docker/docker/api/types"
 
-	"github.com/determined-ai/determined/agent/pkg/events"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 
 	"github.com/stretchr/testify/require"
 )

@@ -451,7 +451,7 @@ def gen_go_struct(
     for imp in imports:
         lines.append("\t" + imp)
     lines.append("")
-    lines.append('\t"github.com/determined-ai/determined/master/pkg/schemas"')
+    lines.append('\t"github.com/determined-ai/determined/cluster/pkg/schemas"')
     lines.append(")")
 
     lines += go_getters_and_setters(gotype, schema, field_spec)

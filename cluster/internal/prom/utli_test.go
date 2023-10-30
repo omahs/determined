@@ -6,7 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/determined-ai/determined/master/internal/prom"
+	"github.com/determined-ai/determined/cluster/internal/prom"
 )
 
 var (

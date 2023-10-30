@@ -3,7 +3,7 @@ package aproto
 import (
 	"time"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 const (

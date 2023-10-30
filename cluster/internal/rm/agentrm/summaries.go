@@ -1,9 +1,9 @@
 package agentrm
 
 import (
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // newAgentSummary returns a new immutable view of the agent.

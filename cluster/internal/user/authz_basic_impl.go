@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // UserAuthZBasic is basic OSS controls.

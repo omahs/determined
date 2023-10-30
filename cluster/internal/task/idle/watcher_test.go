@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
 )
 
 func TestIdleTimeoutWatcherUseRunnerState(t *testing.T) {

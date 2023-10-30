@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 // LegacyConfig represents a config that was once valid but might no longer be shimmable to the

@@ -3,10 +3,10 @@ package project
 import (
 	"context"
 
-	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/projectv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/workspacev1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/projectv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/workspacev1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // ProjectAuthZ is the interface for project authorization.

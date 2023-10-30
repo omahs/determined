@@ -1,9 +1,9 @@
 package model
 
 import (
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // ToExpconf translates old model objects into an expconf object.

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // AddAllocationAcceleratorData stores acceleration data for an allocation.

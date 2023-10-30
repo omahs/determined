@@ -9,11 +9,11 @@ import (
 	"cloud.google.com/go/compute/metadata"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/union"
-	"github.com/determined-ai/determined/master/version"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/union"
+	"github.com/determined-ai/determined/cluster/version"
 )
 
 const defaultMasterPort = "8080"

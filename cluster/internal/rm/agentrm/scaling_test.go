@@ -3,11 +3,11 @@ package agentrm
 import (
 	"testing"
 
-	"github.com/determined-ai/determined/master/internal/rm/tasklist"
+	"github.com/determined-ai/determined/cluster/internal/rm/tasklist"
 
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 func TestCalculatingDesiredInstanceNum(t *testing.T) {

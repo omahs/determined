@@ -7,8 +7,8 @@ import (
 
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 func TestIsViable(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 
-	"github.com/determined-ai/determined/master/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
 )
 
 func Test_addHostMounts(t *testing.T) {

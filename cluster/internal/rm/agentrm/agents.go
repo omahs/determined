@@ -10,15 +10,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/soheilhy/cmux"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/connsave"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/actor/api"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/connsave"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor/api"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // initializeAgents creates a new global agents actor.

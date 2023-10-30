@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/internal/mocks"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/mocks"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 func newInstanceIDSet(instanceIDs []string) map[string]bool {

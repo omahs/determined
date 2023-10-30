@@ -7,15 +7,15 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/taskv1"
-	"github.com/determined-ai/determined/master/pkg/logger"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
-	"github.com/determined-ai/determined/master/pkg/syncx/queue"
-	"github.com/determined-ai/determined/master/pkg/tasks"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/taskv1"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/queue"
+	"github.com/determined-ai/determined/cluster/pkg/tasks"
 )
 
 // Task-related cluster level messages.

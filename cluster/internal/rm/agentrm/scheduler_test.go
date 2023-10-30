@@ -7,15 +7,15 @@ import (
 	"github.com/shopspring/decimal"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/rm/tasklist"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/jobv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/rm/tasklist"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/jobv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 func newMaxSlot(maxSlot int) *int {

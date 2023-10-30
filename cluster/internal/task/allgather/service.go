@@ -3,7 +3,7 @@ package allgather
 import (
 	"github.com/google/uuid"
 
-	"github.com/determined-ai/determined/master/pkg/syncx/mapx"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/mapx"
 )
 
 var groups = mapx.New[string, *allGather]()

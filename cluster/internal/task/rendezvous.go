@@ -8,11 +8,11 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 
-	apiutils "github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	apiutils "github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 const (

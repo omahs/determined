@@ -10,11 +10,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 
-	conf "github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/workspace"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	conf "github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/workspace"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 
 	"github.com/google/uuid"
 )

@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/nprand"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/nprand"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // PartialUnits represent partial epochs, batches or records where the Unit is implied.

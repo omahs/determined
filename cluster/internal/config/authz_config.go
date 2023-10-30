@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 )
 
 var (

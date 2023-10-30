@@ -3,10 +3,10 @@ package command
 import (
 	"context"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/tensorboardv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/tensorboardv1"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // NSCAuthZBasic is basic OSS controls.

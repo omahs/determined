@@ -7,7 +7,7 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 )
 
 type pullInfo struct {

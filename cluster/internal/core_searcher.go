@@ -7,9 +7,9 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
-	"github.com/determined-ai/determined/master/pkg/searcher"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/searcher"
 )
 
 func (m *Master) getSearcherPreview(c echo.Context) (interface{}, error) {

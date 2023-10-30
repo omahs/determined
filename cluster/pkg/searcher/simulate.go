@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // ValidationFunction calculates the validation metric for the validation step.

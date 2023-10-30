@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/experimentv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/experimentv1"
 
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/nprand"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/nprand"
 )
 
 // Operation represents the base interface for possible operations that a search method can return.

@@ -9,7 +9,7 @@ import (
 	"github.com/docker/go-units"
 	"google.golang.org/api/iterator"
 
-	"github.com/determined-ai/determined/master/pkg/checkpoints/archive"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/archive"
 )
 
 // GCSDownloader implements downloading a checkpoint from GCS

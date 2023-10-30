@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sV1 "k8s.io/api/core/v1"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 func TestEnvironmentVarsDefaultMerging(t *testing.T) {

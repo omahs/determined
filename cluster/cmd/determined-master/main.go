@@ -3,7 +3,7 @@ package main
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
 )
 
 func main() {

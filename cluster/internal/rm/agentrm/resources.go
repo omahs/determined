@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/logger"
-	"github.com/determined-ai/determined/master/pkg/tasks"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/tasks"
 )
 
 // containerResources contains information for tasks have been allocated but not yet started.

@@ -4,8 +4,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/pkg/archive"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
+	"github.com/determined-ai/determined/cluster/pkg/archive"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
 )
 
 // An AgentUserGroup represents a username and primary group for a user on an

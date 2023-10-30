@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/config"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

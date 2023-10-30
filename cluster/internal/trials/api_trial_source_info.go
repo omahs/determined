@@ -6,10 +6,10 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	expauth "github.com/determined-ai/determined/master/internal/experiment"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	expauth "github.com/determined-ai/determined/cluster/internal/experiment"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
 )
 
 // TrialSourceInfoAPIServer is a dummy struct to do dependency injection to the api.

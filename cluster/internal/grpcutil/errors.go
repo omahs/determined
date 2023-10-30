@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/determined-ai/determined/master/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/authz"
 )
 
 // UnimplementedError is the error return by API endpoints that are not yet implemented.

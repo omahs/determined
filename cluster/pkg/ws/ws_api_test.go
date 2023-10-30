@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/pkg/ws"
+	"github.com/determined-ai/determined/cluster/pkg/ws"
 )
 
 func TestWebsocket(t *testing.T) {

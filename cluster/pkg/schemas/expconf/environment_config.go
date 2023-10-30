@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // PodSpec is just a k8sV1.Pod with custom methods, since k8sV1.Pod is not reflect-friendly.

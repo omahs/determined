@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // Detect the devices available. If artificial devices are configured, prefers those, otherwise,

@@ -10,8 +10,8 @@ import (
 
 	k8sV1 "k8s.io/api/core/v1"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 func TestBindMountsMerge(t *testing.T) {

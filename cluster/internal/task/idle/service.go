@@ -3,8 +3,8 @@ package idle
 import (
 	"time"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/syncx/mapx"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/mapx"
 )
 
 var idlers = mapx.New[string, *Watcher]()

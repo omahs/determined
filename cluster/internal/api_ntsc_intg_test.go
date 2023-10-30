@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/tensorboardv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/tensorboardv1"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
@@ -16,17 +16,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	apiPkg "github.com/determined-ai/determined/master/internal/api"
-	authz2 "github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/command"
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/mocks"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/commandv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/notebookv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/shellv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	apiPkg "github.com/determined-ai/determined/cluster/internal/api"
+	authz2 "github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/command"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/mocks"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/commandv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/notebookv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/shellv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 /*

@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // AddJob persists the existence of a job.

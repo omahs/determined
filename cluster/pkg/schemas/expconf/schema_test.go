@@ -15,7 +15,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v2"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 type JSON = interface{}

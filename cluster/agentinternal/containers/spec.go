@@ -16,9 +16,9 @@ import (
 	"github.com/determined-ai/determined/cluster/agentinternal/detect"
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/agent/pkg/docker"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 func overwriteSpec(

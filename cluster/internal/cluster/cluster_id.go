@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/db"
 )
 
 type clusterID struct {

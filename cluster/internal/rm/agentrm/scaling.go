@@ -1,9 +1,9 @@
 package agentrm
 
 import (
-	"github.com/determined-ai/determined/master/internal/rm/tasklist"
-	"github.com/determined-ai/determined/master/pkg/mathx"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/rm/tasklist"
+	"github.com/determined-ai/determined/cluster/pkg/mathx"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // calculateDesiredNewAgentNum calculates the new instances based on pending tasks and

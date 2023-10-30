@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	"github.com/determined-ai/determined/master/internal/user"
+	"github.com/determined-ai/determined/cluster/internal/user"
 )
 
 // WithCredentials returns a logged in context.Context to call gRPC APIs directly with.

@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/determined-ai/determined/master/pkg/set"
+	"github.com/determined-ai/determined/cluster/pkg/set"
 
 	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db/bunutils"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db/bunutils"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // RPWorkspaceBinding is a struct reflecting the db table rp_workspace_bindings.

@@ -3,9 +3,9 @@ package agentrm
 import (
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // Scheduler schedules tasks on agents.  Its only function Schedule is called

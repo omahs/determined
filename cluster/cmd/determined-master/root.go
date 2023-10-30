@@ -11,10 +11,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/determined-ai/determined/master/internal"
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/logger"
+	"github.com/determined-ai/determined/cluster/internal"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
 )
 
 const defaultConfigPath = "/etc/determined/master.yaml"

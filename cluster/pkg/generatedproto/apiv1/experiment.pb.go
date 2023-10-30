@@ -15,13 +15,13 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	checkpointv1 "github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	commonv1 "github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	experimentv1 "github.com/determined-ai/determined/master/pkg/generatedproto/experimentv1"
-	jobv1 "github.com/determined-ai/determined/master/pkg/generatedproto/jobv1"
-	metricv1 "github.com/determined-ai/determined/master/pkg/generatedproto/metricv1"
-	trialv1 "github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	utilv1 "github.com/determined-ai/determined/master/pkg/generatedproto/utilv1"
+	checkpointv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	commonv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	experimentv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/experimentv1"
+	jobv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/jobv1"
+	metricv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/metricv1"
+	trialv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	utilv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/utilv1"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/determined-ai/determined/master/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/config"
 )
 
 // DeterminedNamespace is the prometheus namespace for Determined metrics.

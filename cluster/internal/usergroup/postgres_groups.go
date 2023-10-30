@@ -10,9 +10,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/groupv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/groupv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // addGroup adds a group to the database. Returns ErrDuplicateRow if a

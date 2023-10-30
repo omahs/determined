@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/union"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/union"
 )
 
 // SearcherConfigV0 holds the searcher configurations.

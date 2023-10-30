@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/experimentv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/experimentv1"
 )
 
 func TestNestedFile(t *testing.T) {

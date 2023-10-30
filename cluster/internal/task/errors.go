@@ -3,8 +3,8 @@ package task
 import (
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
 )
 
 // ErrTimeoutExceeded is return, with a bit of detail, when a timeout is exceeded.

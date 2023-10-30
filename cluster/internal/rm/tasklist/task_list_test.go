@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
 )
 
 func TestAllocationRequestComparator(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/internal/task/preemptible"
+	"github.com/determined-ai/determined/cluster/internal/task/preemptible"
 )
 
 func TestPreemption(t *testing.T) {

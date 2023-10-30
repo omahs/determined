@@ -3,7 +3,7 @@ package agentrm
 import (
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
 )
 
 // Hard Constraints

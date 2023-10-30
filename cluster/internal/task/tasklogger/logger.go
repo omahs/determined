@@ -3,7 +3,7 @@ package tasklogger
 import (
 	"time"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 var (

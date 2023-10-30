@@ -9,11 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
-	"github.com/determined-ai/determined/master/internal/rm"
-	"github.com/determined-ai/determined/master/internal/rm/rmerrors"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/jobv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/rm"
+	"github.com/determined-ai/determined/cluster/internal/rm/rmerrors"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/jobv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // Job is the interface for commands/experiments types that implement

@@ -23,11 +23,11 @@ import (
 	"github.com/determined-ai/determined/agent/pkg/events"
 	"github.com/determined-ai/determined/agent/pkg/podman"
 	"github.com/determined-ai/determined/agent/pkg/singularity"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/syncx/errgroupx"
-	"github.com/determined-ai/determined/master/pkg/ws"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/errgroupx"
+	"github.com/determined-ai/determined/cluster/pkg/ws"
 )
 
 const (

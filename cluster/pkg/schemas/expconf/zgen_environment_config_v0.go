@@ -6,7 +6,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/santhosh-tekuri/jsonschema/v2"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 func (e EnvironmentConfigV0) Image() EnvironmentImageMapV0 {

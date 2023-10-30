@@ -5,9 +5,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 
-	"github.com/determined-ai/determined/master/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
 )
 
 // AgentShutdown is an explicit message from master to agent it should shutdown itself.

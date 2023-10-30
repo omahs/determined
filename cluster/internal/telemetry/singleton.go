@@ -4,7 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/segmentio/analytics-go.v3"
 
-	"github.com/determined-ai/determined/master/pkg/config"
+	"github.com/determined-ai/determined/cluster/pkg/config"
 )
 
 var (

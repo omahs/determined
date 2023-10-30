@@ -3,7 +3,7 @@ package device
 import (
 	"fmt"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/devicev1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/devicev1"
 )
 
 // Type is a string holding the type of the Device.

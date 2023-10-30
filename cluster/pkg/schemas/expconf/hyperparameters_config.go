@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/determined-ai/determined/master/pkg/union"
+	"github.com/determined-ai/determined/cluster/pkg/union"
 )
 
 // HyperparametersV0 is a versioned hyperparameters config.

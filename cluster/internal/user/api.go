@@ -3,7 +3,7 @@ package user
 import (
 	"github.com/labstack/echo/v4"
 
-	"github.com/determined-ai/determined/master/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/api"
 )
 
 // RegisterAPIHandler initializes and registers the API handlers for all command related features.

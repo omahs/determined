@@ -13,14 +13,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/determined-ai/determined/master/pkg/checkpoints"
-	"github.com/determined-ai/determined/master/pkg/checkpoints/archive"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/archive"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	detContext "github.com/determined-ai/determined/master/internal/context"
-	expauth "github.com/determined-ai/determined/master/internal/experiment"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	detContext "github.com/determined-ai/determined/cluster/internal/context"
+	expauth "github.com/determined-ai/determined/cluster/internal/experiment"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 const (

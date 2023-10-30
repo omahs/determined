@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/determined-ai/determined/master/pkg/checkpoints/archive"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/archive"
 )
 
 // WriteAt writes the content in buffer p.

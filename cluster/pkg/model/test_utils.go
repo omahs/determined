@@ -6,9 +6,9 @@ package model
 import (
 	"time"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 var defaultDeterminedUID UserID = 2

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/determined-ai/determined/master/internal/rm/actorrm"
-	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/rm/actorrm"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -21,19 +21,19 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	apiPkg "github.com/determined-ai/determined/master/internal/api"
-	authz2 "github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/mocks"
-	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/etc"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/tasks"
+	apiPkg "github.com/determined-ai/determined/cluster/internal/api"
+	authz2 "github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/mocks"
+	"github.com/determined-ai/determined/cluster/internal/user"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/tasks"
 )
 
 var (

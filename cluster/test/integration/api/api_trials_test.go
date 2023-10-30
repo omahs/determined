@@ -20,19 +20,19 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
 
-	"github.com/determined-ai/determined/master/internal"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/internal"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 
-	"github.com/determined-ai/determined/master/test/testutils"
+	"github.com/determined-ai/determined/cluster/test/testutils"
 
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 func TestTrialDetail(t *testing.T) {

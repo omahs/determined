@@ -3,8 +3,8 @@ package internal
 import (
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 const clusterCrashMessage = `Detected a resource manager crashed.`

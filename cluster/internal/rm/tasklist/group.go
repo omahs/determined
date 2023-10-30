@@ -1,7 +1,7 @@
 package tasklist
 
 import (
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // Group manages the common state for a set of tasks that all share the same scheduling restrictions

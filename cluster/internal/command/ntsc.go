@@ -3,7 +3,7 @@ package command
 import (
 	"fmt"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 // TellNTSC sends a msg to all ntsc managers.

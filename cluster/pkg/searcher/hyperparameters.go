@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/determined-ai/determined/master/pkg/nprand"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/nprand"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // HParamSample is a sampling of the hyperparameters for a model.

@@ -25,20 +25,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	apiPkg "github.com/determined-ai/determined/master/internal/api"
-	authz2 "github.com/determined-ai/determined/master/internal/authz"
-	detContext "github.com/determined-ai/determined/master/internal/context"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/user"
-	dets3 "github.com/determined-ai/determined/master/pkg/checkpoints/s3"
-	"github.com/determined-ai/determined/master/pkg/etc"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/modelv1"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	apiPkg "github.com/determined-ai/determined/cluster/internal/api"
+	authz2 "github.com/determined-ai/determined/cluster/internal/authz"
+	detContext "github.com/determined-ai/determined/cluster/internal/context"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/user"
+	dets3 "github.com/determined-ai/determined/cluster/pkg/checkpoints/s3"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/modelv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 const (

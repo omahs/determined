@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/grpcutil"
-	"github.com/determined-ai/determined/master/internal/rm"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	workspaceauth "github.com/determined-ai/determined/master/internal/workspace"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/resourcepoolv1"
-	"github.com/determined-ai/determined/master/pkg/set"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/grpcutil"
+	"github.com/determined-ai/determined/cluster/internal/rm"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	workspaceauth "github.com/determined-ai/determined/cluster/internal/workspace"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/resourcepoolv1"
+	"github.com/determined-ai/determined/cluster/pkg/set"
 )
 
 func (a *apiServer) getUnboundResourcePools(ctx context.Context,

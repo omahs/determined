@@ -6,7 +6,7 @@ import (
 
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 )
 
 type X struct {

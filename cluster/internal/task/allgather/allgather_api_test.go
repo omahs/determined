@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/internal/task/allgather"
+	"github.com/determined-ai/determined/cluster/internal/task/allgather"
 )
 
 func TestAllGather(t *testing.T) {

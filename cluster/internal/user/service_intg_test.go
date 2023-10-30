@@ -19,15 +19,15 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	authz2 "github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/context"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/mocks"
-	"github.com/determined-ai/determined/master/pkg/etc"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	authz2 "github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/context"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/mocks"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // Mocks don't like being initialized more than once?

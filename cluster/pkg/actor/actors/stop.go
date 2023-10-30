@@ -3,7 +3,7 @@ package actors
 import (
 	"github.com/google/uuid"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 type stopNotifier struct {

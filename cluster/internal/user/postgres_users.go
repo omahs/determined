@@ -11,9 +11,9 @@ import (
 	"github.com/uptrace/bun"
 	"golang.org/x/exp/slices"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // SessionDuration is how long a newly created session is valid.

@@ -4,22 +4,22 @@ import (
 	"context"
 	"sync"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
 
 	"golang.org/x/exp/maps"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/rm"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/internal/task/allgather"
-	"github.com/determined-ai/determined/master/internal/task/preemptible"
-	detLogger "github.com/determined-ai/determined/master/pkg/logger"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/tasks"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/rm"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/task/allgather"
+	"github.com/determined-ai/determined/cluster/internal/task/preemptible"
+	detLogger "github.com/determined-ai/determined/cluster/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/tasks"
 )
 
 var syslog = logrus.WithField("component", "allocation_service")

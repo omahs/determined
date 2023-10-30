@@ -12,9 +12,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // SpotPriceNotSetPlaceholder set placeholder.

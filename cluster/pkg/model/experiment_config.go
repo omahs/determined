@@ -11,7 +11,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/check"
 )
 
 const (

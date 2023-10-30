@@ -11,7 +11,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v2"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg/schemas/extensions"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/extensions"
 )
 
 // Schema defines some basic knowledge needed by helper functions like SaneBytes or IsComplete.

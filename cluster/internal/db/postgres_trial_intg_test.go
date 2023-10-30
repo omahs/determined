@@ -23,15 +23,15 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/yaml.v3" // Can't use ghodss/yaml since NaNs error.
 
-	"github.com/determined-ai/determined/master/pkg/etc"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 func addMetrics(ctx context.Context,

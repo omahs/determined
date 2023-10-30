@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
-	"github.com/determined-ai/determined/master/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
 )
 
 type agentAPIServer struct {

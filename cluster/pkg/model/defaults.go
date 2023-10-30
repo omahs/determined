@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // DefaultResourcesConfig returns the default resources configuration.

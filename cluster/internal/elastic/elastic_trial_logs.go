@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
 
-	"github.com/determined-ai/determined/master/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/api"
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // TrialLogsCount returns the number of trial logs for the given trial.

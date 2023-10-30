@@ -15,17 +15,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/command"
-	"github.com/determined-ai/determined/master/internal/db"
-	expauth "github.com/determined-ai/determined/master/internal/experiment"
-	"github.com/determined-ai/determined/master/internal/grpcutil"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/internal/task"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/taskv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/command"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	expauth "github.com/determined-ai/determined/cluster/internal/experiment"
+	"github.com/determined-ai/determined/cluster/internal/grpcutil"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/task"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/taskv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 const (

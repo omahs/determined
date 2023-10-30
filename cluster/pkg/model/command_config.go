@@ -1,8 +1,8 @@
 package model
 
 import (
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 const (

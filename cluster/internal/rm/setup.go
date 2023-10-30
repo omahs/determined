@@ -5,13 +5,13 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm"
-	"github.com/determined-ai/determined/master/internal/rm/kubernetesrm"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm"
+	"github.com/determined-ai/determined/cluster/internal/rm/kubernetesrm"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // New sets up the actor and endpoints for resource managers.

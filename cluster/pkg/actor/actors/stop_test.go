@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 type ActorStopped struct{}

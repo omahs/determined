@@ -3,7 +3,7 @@ package cluster
 import (
 	"net/http"
 
-	detContext "github.com/determined-ai/determined/master/internal/context"
+	detContext "github.com/determined-ai/determined/cluster/internal/context"
 
 	"github.com/labstack/echo/v4"
 )

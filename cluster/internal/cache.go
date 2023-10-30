@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/determined-ai/determined/master/internal/cache"
-	"github.com/determined-ai/determined/master/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/cache"
+	"github.com/determined-ai/determined/cluster/internal/config"
 )
 
 var (

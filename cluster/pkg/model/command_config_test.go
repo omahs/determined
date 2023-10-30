@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/check"
 )
 
 func TestConfigValidate(t *testing.T) {

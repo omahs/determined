@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/compute/v1"
 
-	"github.com/determined-ai/determined/master/internal/config/provconfig"
+	"github.com/determined-ai/determined/cluster/internal/config/provconfig"
 )
 
 type trackOperationDone struct {

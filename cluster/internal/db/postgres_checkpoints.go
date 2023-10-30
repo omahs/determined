@@ -9,8 +9,8 @@ import (
 	"github.com/uptrace/bun"
 	"golang.org/x/exp/maps"
 
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/set"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/set"
 )
 
 // CheckpointByUUID looks up a checkpoint by UUID, returning nil if none exists.

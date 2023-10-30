@@ -10,7 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/union"
+	"github.com/determined-ai/determined/cluster/pkg/union"
 )
 
 // LoggingConfig configures logging for tasks (currently only trials) in Determined.

@@ -18,8 +18,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg"
-	"github.com/determined-ai/determined/master/pkg/tasklog"
+	"github.com/determined-ai/determined/cluster/pkg"
+	"github.com/determined-ai/determined/cluster/pkg/tasklog"
 )
 
 type (

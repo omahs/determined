@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
 
-	"github.com/determined-ai/determined/master/internal/api"
+	"github.com/determined-ai/determined/cluster/internal/api"
 )
 
 var validField = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)

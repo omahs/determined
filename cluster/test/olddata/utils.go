@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/db"
 )
 
 type migrationExtra struct {

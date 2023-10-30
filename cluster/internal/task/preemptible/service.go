@@ -3,7 +3,7 @@ package preemptible
 import (
 	"github.com/google/uuid"
 
-	"github.com/determined-ai/determined/master/pkg/syncx/mapx"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/mapx"
 )
 
 var preemptibles = mapx.New[string, *Preemptible]()

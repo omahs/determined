@@ -1,7 +1,7 @@
 package user
 
 import (
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // ByExternalToken returns a user session derived from an external authentication token.

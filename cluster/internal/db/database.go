@@ -9,11 +9,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // DB is an interface for _all_ the functionality packed into the DB.

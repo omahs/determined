@@ -15,9 +15,9 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 
-	"github.com/determined-ai/determined/master/internal/config/provconfig"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/agentsetup"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config/provconfig"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/agentsetup"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // GCP has a character length limit of 63.

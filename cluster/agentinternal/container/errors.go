@@ -3,7 +3,7 @@ package container
 import (
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
 )
 
 // ErrMissing indicates a container was missing when we tried to reattach it after a crash.

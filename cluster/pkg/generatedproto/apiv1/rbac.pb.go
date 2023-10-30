@@ -13,9 +13,9 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	groupv1 "github.com/determined-ai/determined/master/pkg/generatedproto/groupv1"
-	rbacv1 "github.com/determined-ai/determined/master/pkg/generatedproto/rbacv1"
-	userv1 "github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
+	groupv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/groupv1"
+	rbacv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/rbacv1"
+	userv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
 )
 
 const (

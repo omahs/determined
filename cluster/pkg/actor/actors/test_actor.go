@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 type (

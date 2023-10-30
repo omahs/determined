@@ -8,7 +8,7 @@ import (
 
 	prom "github.com/prometheus/client_golang/prometheus"
 
-	"github.com/determined-ai/determined/master/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/config"
 )
 
 const (

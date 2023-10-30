@@ -3,9 +3,9 @@ package task
 import (
 	"sort"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/internal/task/taskmodel"
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/task/taskmodel"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // resourcesList tracks resourcesList with their state.

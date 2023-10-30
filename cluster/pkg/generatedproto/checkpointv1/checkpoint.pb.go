@@ -15,7 +15,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	commonv1 "github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
+	commonv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
 )
 
 const (

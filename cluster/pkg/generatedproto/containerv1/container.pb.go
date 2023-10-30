@@ -12,7 +12,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	devicev1 "github.com/determined-ai/determined/master/pkg/generatedproto/devicev1"
+	devicev1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/devicev1"
 )
 
 const (

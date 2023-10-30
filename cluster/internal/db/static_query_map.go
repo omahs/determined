@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/determined-ai/determined/master/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
 )
 
 // StaticQueryMap caches static sql files.

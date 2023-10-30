@@ -8,9 +8,9 @@ import (
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/jobv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/jobv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 var invalidJobQPos = decimal.NewFromInt(0)

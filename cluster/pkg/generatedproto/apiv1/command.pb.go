@@ -13,8 +13,8 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	commandv1 "github.com/determined-ai/determined/master/pkg/generatedproto/commandv1"
-	utilv1 "github.com/determined-ai/determined/master/pkg/generatedproto/utilv1"
+	commandv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/commandv1"
+	utilv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/utilv1"
 )
 
 const (

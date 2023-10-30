@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/pkg/etc"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/modelv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/modelv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 func sortUUIDSlice(uuids []uuid.UUID) {

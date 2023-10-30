@@ -3,16 +3,16 @@ package agentrm
 import (
 	"testing"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 
 	"github.com/labstack/echo/v4"
 
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/user"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 const defaultResourcePoolName = "default"

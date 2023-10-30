@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/determined-ai/determined/master/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/config"
 )
 
 // AuthZProviderType is a per-module registry for authz implementations.

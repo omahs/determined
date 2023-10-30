@@ -7,7 +7,7 @@ import (
 	"github.com/ghodss/yaml"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/check"
 )
 
 func TestDefaultAWSClusterConfig(t *testing.T) {

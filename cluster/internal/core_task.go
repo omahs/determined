@@ -3,10 +3,10 @@ package internal
 import (
 	"github.com/labstack/echo/v4"
 
-	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/context"
-	expauth "github.com/determined-ai/determined/master/internal/experiment"
-	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/internal/context"
+	expauth "github.com/determined-ai/determined/cluster/internal/experiment"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
 )
 
 func (m *Master) getTasks(c echo.Context) (interface{}, error) {

@@ -13,7 +13,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	templatev1 "github.com/determined-ai/determined/master/pkg/generatedproto/templatev1"
+	templatev1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/templatev1"
 )
 
 const (

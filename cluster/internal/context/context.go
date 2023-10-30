@@ -3,7 +3,7 @@ package context
 import (
 	"github.com/labstack/echo/v4"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // DetContext is a wrapper around echo.Context so that some convenience functions that depend on

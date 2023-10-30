@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/determined-ai/determined/master/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
 
 	"github.com/docker/docker/api/types/mount"
 
 	k8sV1 "k8s.io/api/core/v1"
 
-	"github.com/determined-ai/determined/master/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
 )
 
 func configureMountPropagation(b *mount.BindOptions) *k8sV1.MountPropagationMode {

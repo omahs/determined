@@ -7,9 +7,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/workspacev1"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/workspacev1"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 const (

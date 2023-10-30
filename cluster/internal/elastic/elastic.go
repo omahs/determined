@@ -12,7 +12,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // Elastic is an interface around an elasticsearch client that abstracts away

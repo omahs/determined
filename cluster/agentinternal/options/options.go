@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/check"
 
 	"github.com/pkg/errors"
 )

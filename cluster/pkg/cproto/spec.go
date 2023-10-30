@@ -5,8 +5,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 
-	"github.com/determined-ai/determined/master/pkg/archive"
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/archive"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 )
 
 // Spec provides the necessary information for an agent to start a container.

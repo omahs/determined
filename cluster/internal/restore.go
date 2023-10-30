@@ -6,20 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/determined-ai/determined/master/internal/workspace"
+	"github.com/determined-ai/determined/cluster/internal/workspace"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/telemetry"
-	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/internal/webhooks"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/searcher"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/telemetry"
+	"github.com/determined-ai/determined/cluster/internal/user"
+	"github.com/determined-ai/determined/cluster/internal/webhooks"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/searcher"
 )
 
 // The current experiment snapshot version. Once this is incremented, older versions should be

@@ -27,13 +27,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"gopkg.in/guregu/null.v3"
 
-	"github.com/determined-ai/determined/master/pkg/archive"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/archive"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 const (

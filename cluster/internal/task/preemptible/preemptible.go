@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/determined-ai/determined/master/pkg/syncx/waitgroupx"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/waitgroupx"
 )
 
 // ErrPreemptionTimeoutExceeded indicates that an allocation not halt within the expected deadline.

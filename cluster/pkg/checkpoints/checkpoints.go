@@ -6,10 +6,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/determined-ai/determined/master/pkg/checkpoints/archive"
-	"github.com/determined-ai/determined/master/pkg/checkpoints/gcs"
-	"github.com/determined-ai/determined/master/pkg/checkpoints/s3"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/archive"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/gcs"
+	"github.com/determined-ai/determined/cluster/pkg/checkpoints/s3"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // CheckpointDownloader defines the interface for downloading checkpoints.

@@ -11,12 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"gotest.tools/assert"
 
-	. "github.com/determined-ai/determined/master/internal/config/provconfig"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/scaledecider"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	errInfo "github.com/determined-ai/determined/master/pkg/errors"
-	"github.com/determined-ai/determined/master/pkg/model"
+	. "github.com/determined-ai/determined/cluster/internal/config/provconfig"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/scaledecider"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	errInfo "github.com/determined-ai/determined/cluster/pkg/errors"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 type TestInstanceType struct {

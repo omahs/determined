@@ -14,8 +14,8 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	checkpointv1 "github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	workspacev1 "github.com/determined-ai/determined/master/pkg/generatedproto/workspacev1"
+	checkpointv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	workspacev1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/workspacev1"
 )
 
 const (

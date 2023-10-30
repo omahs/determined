@@ -8,7 +8,7 @@ import (
 	_ "embed"
 	"testing"
 
-	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/db"
 )
 
 //go:embed pre_remove_steps.sql

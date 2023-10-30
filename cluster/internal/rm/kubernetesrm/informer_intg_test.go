@@ -13,7 +13,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"github.com/determined-ai/determined/master/internal/mocks"
+	"github.com/determined-ai/determined/cluster/internal/mocks"
 )
 
 const namespace = "default"

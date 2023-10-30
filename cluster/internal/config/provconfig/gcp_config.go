@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/api/compute/v1"
 
-	"github.com/determined-ai/determined/master/pkg"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // MaxNamePrefixLen is the max length of the instance name prefix. The full name of an instance

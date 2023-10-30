@@ -3,7 +3,7 @@ package waitgroupx
 import (
 	"context"
 
-	"github.com/determined-ai/determined/master/pkg/syncx/errgroupx"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/errgroupx"
 )
 
 // Group is a thin wrapper around sync.WaitGroup that associates a cancelable context with it.

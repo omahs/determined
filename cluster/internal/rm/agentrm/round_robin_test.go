@@ -3,7 +3,7 @@ package agentrm
 import (
 	"testing"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 func TestRoundRobinScheduler(t *testing.T) {

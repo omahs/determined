@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/segmentio/analytics-go.v3"
 
-	"github.com/determined-ai/determined/master/version"
+	"github.com/determined-ai/determined/cluster/version"
 )
 
 // telemeter manages gathering and sending telemetry data.

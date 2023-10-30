@@ -8,8 +8,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
-	detContext "github.com/determined-ai/determined/master/internal/context"
-	"github.com/determined-ai/determined/master/internal/rbac/audit"
+	detContext "github.com/determined-ai/determined/cluster/internal/context"
+	"github.com/determined-ai/determined/cluster/internal/rbac/audit"
 )
 
 // LogrusLogFn is an interface for all the logrus Levelf log functions.

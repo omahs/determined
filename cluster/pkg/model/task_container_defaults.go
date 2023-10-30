@@ -14,11 +14,11 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
-	"github.com/determined-ai/determined/master/pkg/set"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/set"
 )
 
 // TaskContainerDefaultsConfig configures docker defaults for all containers.

@@ -10,10 +10,10 @@ import (
 	"google.golang.org/api/compute/v1"
 	"gotest.tools/assert"
 
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/version"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/version"
 )
 
 func TestProvisionerConfigMissingFields(t *testing.T) {

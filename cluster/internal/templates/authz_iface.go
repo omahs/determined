@@ -3,8 +3,8 @@ package templates
 import (
 	"context"
 
-	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/authz"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // TemplateAuthZ describes authz methods for template actions.

@@ -5,7 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/pkg/logger"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
 )
 
 // Context holds contextual information for the context's recipient and the current message.

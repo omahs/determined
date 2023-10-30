@@ -5,10 +5,10 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/webhookv1"
-	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/protoutils"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/webhookv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/protoutils"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 
 	"github.com/google/uuid"
 )

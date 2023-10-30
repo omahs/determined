@@ -9,7 +9,7 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/userv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/userv1"
 )
 
 var (

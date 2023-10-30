@@ -14,11 +14,11 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	checkpointv1 "github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	commonv1 "github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	experimentv1 "github.com/determined-ai/determined/master/pkg/generatedproto/experimentv1"
-	logv1 "github.com/determined-ai/determined/master/pkg/generatedproto/logv1"
-	trialv1 "github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
+	checkpointv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	commonv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	experimentv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/experimentv1"
+	logv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/logv1"
+	trialv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
 )
 
 const (

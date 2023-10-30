@@ -12,7 +12,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 
-	jobv1 "github.com/determined-ai/determined/master/pkg/generatedproto/jobv1"
+	jobv1 "github.com/determined-ai/determined/cluster/pkg/generatedproto/jobv1"
 )
 
 const (

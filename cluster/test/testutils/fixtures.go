@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/internal/config"
-	"github.com/determined-ai/determined/master/internal/elastic"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config"
+	"github.com/determined-ai/determined/cluster/internal/elastic"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 
 	"github.com/sirupsen/logrus"
 
@@ -25,10 +25,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/determined-ai/determined/master/internal"
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/logger"
+	"github.com/determined-ai/determined/cluster/internal"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/logger"
 )
 
 const (

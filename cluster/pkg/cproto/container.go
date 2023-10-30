@@ -3,10 +3,10 @@ package cproto
 import (
 	"slices"
 
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/device"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/containerv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/devicev1"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/containerv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/devicev1"
 )
 
 // Container tracks a container running in the cluster.

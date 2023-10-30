@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 // ParseAnyExperimentConfigJSON will return the latest-available experiment config version, even if

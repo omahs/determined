@@ -3,8 +3,8 @@ package cluster
 import (
 	"context"
 
-	"github.com/determined-ai/determined/master/internal/grpcutil"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/grpcutil"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // MiscAuthZBasic is basic OSS controls.

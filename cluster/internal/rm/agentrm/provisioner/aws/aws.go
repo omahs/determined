@@ -14,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/internal/config/provconfig"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/agentsetup"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config/provconfig"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/agentsetup"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // awsCluster wraps an EC2 client. Determined recognizes agent EC2 instances by:

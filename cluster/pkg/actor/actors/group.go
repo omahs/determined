@@ -1,7 +1,7 @@
 package actors
 
 import (
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
 )
 
 // Group is an actor that manages a set of child actors.

@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/mathx"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/pkg/mathx"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // ScaleDecider makes decisions based on the following assumptions:

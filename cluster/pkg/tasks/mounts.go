@@ -5,7 +5,7 @@ import (
 
 	"github.com/docker/docker/api/types/mount"
 
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // ToDockerMounts converts expconf bind mounts to container mounts.

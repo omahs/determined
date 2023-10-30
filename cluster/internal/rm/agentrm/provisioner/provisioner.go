@@ -10,17 +10,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/master/internal/config/provconfig"
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/agentsetup"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/aws"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/gcp"
-	"github.com/determined-ai/determined/master/internal/rm/agentrm/provisioner/scaledecider"
-	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/internal/telemetry"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	errInfo "github.com/determined-ai/determined/master/pkg/errors"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/config/provconfig"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/agentsetup"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/aws"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/gcp"
+	"github.com/determined-ai/determined/cluster/internal/rm/agentrm/provisioner/scaledecider"
+	"github.com/determined-ai/determined/cluster/internal/sproto"
+	"github.com/determined-ai/determined/cluster/internal/telemetry"
+	"github.com/determined-ai/determined/cluster/pkg/actor"
+	errInfo "github.com/determined-ai/determined/cluster/pkg/errors"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 const (

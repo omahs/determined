@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/go-cleanhttp"
 	log "github.com/sirupsen/logrus"
 
-	conf "github.com/determined-ai/determined/master/internal/config"
+	conf "github.com/determined-ai/determined/cluster/internal/config"
 )
 
 const (

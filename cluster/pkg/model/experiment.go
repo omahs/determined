@@ -10,21 +10,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/pkg/protoutils"
+	"github.com/determined-ai/determined/cluster/pkg/protoutils"
 
 	"github.com/jackc/pgtype"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/experimentv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/experimentv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/logv1"
-	"github.com/determined-ai/determined/master/pkg/ptrs"
-	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/logv1"
+	"github.com/determined-ai/determined/cluster/pkg/ptrs"
+	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
 )
 
 // StateWithReason is the run state of an experiment with

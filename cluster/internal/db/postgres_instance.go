@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // RecordInstanceStats insert a record of instance start time if instance has not been

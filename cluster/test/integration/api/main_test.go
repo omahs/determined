@@ -8,10 +8,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/determined-ai/determined/master/internal/elastic"
+	"github.com/determined-ai/determined/cluster/internal/elastic"
 
-	"github.com/determined-ai/determined/master/internal/db"
-	"github.com/determined-ai/determined/master/test/testutils"
+	"github.com/determined-ai/determined/cluster/internal/db"
+	"github.com/determined-ai/determined/cluster/test/testutils"
 )
 
 var (

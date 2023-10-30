@@ -11,8 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	detContext "github.com/determined-ai/determined/master/internal/context"
-	"github.com/determined-ai/determined/master/pkg/model"
+	detContext "github.com/determined-ai/determined/cluster/internal/context"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 type logStore struct {

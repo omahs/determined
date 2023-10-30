@@ -5,7 +5,7 @@ package expconf
 import (
 	"github.com/santhosh-tekuri/jsonschema/v2"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 func (k KerberosConfigV0) ConfigFile() string {

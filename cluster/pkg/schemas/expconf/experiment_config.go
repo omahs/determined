@@ -11,7 +11,7 @@ import (
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/schemas"
+	"github.com/determined-ai/determined/cluster/pkg/schemas"
 )
 
 // ExperimentConfigV0 is a versioned experiment config.

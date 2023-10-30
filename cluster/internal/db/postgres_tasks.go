@@ -9,15 +9,15 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/internal/api"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
 
 	"github.com/jmoiron/sqlx"
 
 	"github.com/o1egl/paseto"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 // initAllocationSessions purges sessions of all closed allocations.

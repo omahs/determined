@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/determined-ai/determined/master/internal/task/tasklogger"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/internal/task/tasklogger"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 type arrayWriter struct {

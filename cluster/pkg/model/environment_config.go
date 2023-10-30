@@ -6,13 +6,13 @@ import (
 
 	k8sV1 "k8s.io/api/core/v1"
 
-	"github.com/determined-ai/determined/master/pkg/check"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/apiv1"
+	"github.com/determined-ai/determined/cluster/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
 
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 
-	"github.com/determined-ai/determined/master/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/device"
 
 	"github.com/ghodss/yaml"
 	"google.golang.org/protobuf/encoding/protojson"

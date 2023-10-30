@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
-	"github.com/determined-ai/determined/master/pkg/syncx/errgroupx"
+	"github.com/determined-ai/determined/cluster/pkg/syncx/errgroupx"
 )
 
 // Run runs a new agent system and actor with the provided options.

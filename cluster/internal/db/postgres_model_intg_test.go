@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"github.com/determined-ai/determined/master/pkg/etc"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/checkpointv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/commonv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/modelv1"
-	"github.com/determined-ai/determined/master/pkg/generatedproto/trialv1"
-	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/cluster/pkg/etc"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/checkpointv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/commonv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/modelv1"
+	"github.com/determined-ai/determined/cluster/pkg/generatedproto/trialv1"
+	"github.com/determined-ai/determined/cluster/pkg/model"
 )
 
 var emptyMetadata = []byte(`{}`)

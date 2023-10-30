@@ -12,8 +12,8 @@ import (
 
 	"github.com/determined-ai/determined/cluster/agentinternal"
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
-	"github.com/determined-ai/determined/master/pkg/aproto"
-	"github.com/determined-ai/determined/master/pkg/check"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
+	"github.com/determined-ai/determined/cluster/pkg/check"
 )
 
 const (

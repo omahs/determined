@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/determined-ai/determined/cluster/internal/config"
 	"github.com/determined-ai/determined/cluster/internal/elastic"
+	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/model"
 
 	"github.com/sirupsen/logrus"
@@ -25,6 +27,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/cluster/internal"
 	"github.com/determined-ai/determined/cluster/pkg/check"
 	"github.com/determined-ai/determined/cluster/pkg/generatedproto/apiv1"
@@ -230,7 +233,7 @@ func DefaultMasterSetAgentConfig() aproto.MasterSetAgentOptions {
 func ElasticMasterSetAgentConfig() aproto.MasterSetAgentOptions {
 	return aproto.MasterSetAgentOptions{
 		MasterInfo:     aproto.MasterInfo{},
-		LoggingOptions: testutils.DefaultElasticConfig(),
+		LoggingOptions: DefaultElasticConfig(),
 	}
 }
 

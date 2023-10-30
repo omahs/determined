@@ -4,10 +4,10 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/determined-ai/determined/cluster/pkg/docker"
-	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/docker"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"

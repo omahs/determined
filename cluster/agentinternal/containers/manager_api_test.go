@@ -19,13 +19,13 @@ import (
 
 	"github.com/determined-ai/determined/cluster/agentinternal/container"
 	"github.com/determined-ai/determined/cluster/agentinternal/containers"
-	"github.com/determined-ai/determined/cluster/pkg/docker"
-	"github.com/determined-ai/determined/cluster/pkg/events"
-	"github.com/determined-ai/determined/agent/test/testutils"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/cproto"
 	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/docker"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/model"
+	"github.com/determined-ai/determined/cluster/test/testutils"
 )
 
 //nolint:maintidx // Come on, it is a test.

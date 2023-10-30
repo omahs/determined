@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
+	"github.com/determined-ai/determined/cluster/pkg/cproto"
 	"github.com/determined-ai/determined/cluster/pkg/docker"
 	"github.com/determined-ai/determined/cluster/pkg/events"
-	"github.com/determined-ai/determined/cluster/pkg/singularity"
-	"github.com/determined-ai/determined/cluster/pkg/cproto"
 	"github.com/determined-ai/determined/cluster/pkg/schemas/expconf"
+	"github.com/determined-ai/determined/cluster/pkg/singularity"
 )
 
 // TODO(DET-9077): Get coverage to 70-80%.

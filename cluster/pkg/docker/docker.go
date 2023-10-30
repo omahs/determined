@@ -21,10 +21,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/archive"
 	"github.com/determined-ai/determined/cluster/pkg/cproto"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/model"
 	"github.com/determined-ai/determined/cluster/pkg/ptrs"
 )

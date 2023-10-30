@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/determined-ai/determined/cluster/agentinternal"
+	internal "github.com/determined-ai/determined/cluster/agentinternal"
 	"github.com/determined-ai/determined/cluster/agentinternal/options"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/check"

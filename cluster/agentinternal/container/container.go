@@ -12,11 +12,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/determined-ai/determined/cluster/pkg/docker"
-	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/aproto"
 	"github.com/determined-ai/determined/cluster/pkg/cproto"
 	"github.com/determined-ai/determined/cluster/pkg/device"
+	"github.com/determined-ai/determined/cluster/pkg/docker"
+	"github.com/determined-ai/determined/cluster/pkg/events"
 	"github.com/determined-ai/determined/cluster/pkg/model"
 	"github.com/determined-ai/determined/cluster/pkg/syncx/errgroupx"
 	"github.com/determined-ai/determined/cluster/pkg/syncx/waitgroupx"

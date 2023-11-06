@@ -186,7 +186,7 @@ export default defineConfig(({ mode }) => ({
       // necessary to fix react-dnd jsx runtime issue
       registerNodeLoader: true,
       // resolve css imports
-      inline: [/determined-ui/],
+      inline: [/hew/],
     },
     environment: 'jsdom',
     exclude: [...configDefaults.exclude, './src/e2e/*'],

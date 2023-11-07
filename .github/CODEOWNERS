@@ -36,3 +36,6 @@
 # Owned by @determined-ai/web except for generated files
 /webui    @determined-ai/web
 /webui/react/src/services/api-ts-sdk/
+
+# Owned by contributors
+/examples       @MikhailKardash

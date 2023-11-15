@@ -9,6 +9,7 @@ import pytest
 
 from determined.common.api.bindings import experimentv1State as EXP_STATE
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 from .managed_cluster import ManagedCluster
@@ -54,9 +55,9 @@ def _local_container_ids_for_command(command_id: str) -> Iterator[str]:
             yield container_id
 
 
-def _task_list_json(master_url: str) -> Dict[str, Dict[str, Any]]:
-    command = ["det", "-m", master_url, "task", "list", "--json"]
-    tasks_data: Dict[str, Dict[str, Any]] = json.loads(subprocess.check_output(command).decode())
+def _task_list_json() -> Dict[str, Dict[str, Any]]:
+    command = ["det", "task", "list", "--json"]
+    tasks_data: Dict[str, Dict[str, Any]] = json.loads(detproc.check_output(command))
     return tasks_data
 
 
@@ -81,7 +82,7 @@ def test_agent_restart_exp_container_failure(restartable_managed_cluster: Manage
         exp_task_before = list(tasks_data.values())[0]
 
         restartable_managed_cluster.kill_agent()
-        subprocess.run(["docker", "kill", container_ids[0]], check=True, stdout=subprocess.PIPE)
+        subprocess.check_output(["docker", "kill", container_ids[0]])
     except Exception:
         restartable_managed_cluster.restart_agent()
         raise

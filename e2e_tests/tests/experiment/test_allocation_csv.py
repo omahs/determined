@@ -61,28 +61,23 @@ def test_notebook_capture() -> None:
 # Create a No_Op Experiment/Tensorboard & Confirm Tensorboard task is captured
 @pytest.mark.e2e_cpu
 def test_tensorboard_experiment_capture() -> None:
+    sess = api_utils.user_session()
     start_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     experiment_id = exp.create_experiment(
-        conf.fixtures_path("no_op/single.yaml"), conf.fixtures_path("no_op")
+        sess, conf.fixtures_path("no_op/single.yaml"), conf.fixtures_path("no_op")
     )
 
-    exp.wait_for_experiment_state(experiment_id, experimentv1State.COMPLETED)
+    exp.wait_for_experiment_state(sess, experiment_id, experimentv1State.COMPLETED)
 
-    task_id = None
-    with cmd.interactive_command("tensorboard", "start", "--detach", str(experiment_id)) as tb:
-        task_id = tb.task_id
-        for line in tb.stdout:
-            if "TensorBoard is running at: http" in line:
-                break
-            if "TensorBoard is awaiting metrics" in line:
-                raise AssertionError("Tensorboard did not find metrics")
-    assert task_id is not None
-    clu.utils.wait_for_task_state("tensorboard", task_id, "TERMINATED")
+    with cmd.interactive_command(
+        sess, "tensorboard", "start", "--detach", str(experiment_id)
+    ) as tb:
+        clu.utils.wait_for_task_state(sess, "tensorboard", tb.task_id, "RUNNING")
+    clu.utils.wait_for_task_state(sess, "tensorboard", task_id, "TERMINATED")
 
     # Ensure that end_time captures tensorboard
     end_time = (datetime.now(timezone.utc) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    sess = api_utils.user_session()
     r = sess.get(f"{API_URL}timestamp_after={start_time}&timestamp_before={end_time}")
     assert r.status_code == requests.codes.ok, r.text
 

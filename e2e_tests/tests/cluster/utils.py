@@ -1,5 +1,4 @@
 import copy
-import json
 import subprocess
 import threading
 import time
@@ -11,8 +10,10 @@ import pytest
 import requests
 from typing_extensions import Literal
 
+from determined.common import api
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests.command import print_command_logs
 
 
@@ -99,11 +100,11 @@ def num_free_slots() -> int:
     )
 
 
-def run_command_set_priority(sleep: int = 30, slots: int = 1, priority: int = 0) -> str:
+def run_command_set_priority(
+    sess: api.Session, sleep: int = 30, slots: int = 1, priority: int = 0
+) -> str:
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "command",
         "run",
         "-d",
@@ -114,14 +115,12 @@ def run_command_set_priority(sleep: int = 30, slots: int = 1, priority: int = 0)
         "sleep",
         str(sleep),
     ]
-    return subprocess.check_output(command).decode().strip()
+    return detproc.check_output(sess, command).strip()
 
 
-def run_command(sleep: int = 30, slots: int = 1) -> str:
+def run_command(sess: api.Session, sleep: int = 30, slots: int = 1) -> str:
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "command",
         "run",
         "-d",
@@ -130,32 +129,32 @@ def run_command(sleep: int = 30, slots: int = 1) -> str:
         "sleep",
         str(sleep),
     ]
-    return subprocess.check_output(command).decode().strip()
+    return detproc.check_output(sess, command).strip()
 
 
-def run_zero_slot_command(sleep: int = 30) -> str:
-    return run_command(sleep=sleep, slots=0)
+def run_zero_slot_command(sess: api.Session, sleep: int = 30) -> str:
+    return run_command(sess, sleep=sleep, slots=0)
 
 
 TaskType = Literal["command", "notebook", "tensorboard", "shell"]
 
 
-def get_task_info(task_type: TaskType, task_id: str) -> Dict[str, Any]:
-    task = ["det", "-m", conf.make_master_url(), task_type, "list", "--json"]
-    task_data = json.loads(subprocess.check_output(task).decode())
+def get_task_info(sess: api.Session, task_type: TaskType, task_id: str) -> Dict[str, Any]:
+    cmd = ["det", task_type, "list", "--json"]
+    task_data = detproc.check_json(sess, cmd)
     return next((d for d in task_data if d["id"] == task_id), {})
 
 
-def get_command_info(command_id: str) -> Dict[str, Any]:
-    return get_task_info("command", command_id)
+def get_command_info(sess: api.Session, command_id: str) -> Dict[str, Any]:
+    return get_task_info(sess, "command", command_id)
 
 
 # assert_command_succeded checks if a command succeeded or not. It prints the command logs if the
 # command failed.
-def assert_command_succeeded(command_id: str) -> None:
-    command_info = get_command_info(command_id)
+def assert_command_succeeded(sess: api.Session, command_id: str) -> None:
+    command_info = get_command_info(sess, command_id)
     succeeded = "success" in command_info["exitStatus"]
-    assert succeeded, print_command_logs(command_id)
+    assert succeeded, print_command_logs(sess, command_id)
 
 
 def wait_for_task_state(task_type: TaskType, task_id: str, state: str, ticks: int = 60) -> None:

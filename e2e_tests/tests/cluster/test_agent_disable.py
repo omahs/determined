@@ -1,6 +1,4 @@
 import contextlib
-import json
-import subprocess
 import time
 from typing import Any, Dict, Iterator, List, Optional, cast
 
@@ -9,6 +7,7 @@ import pytest
 from determined.common.api.bindings import experimentv1State, get_GetSlot
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 from .test_users import logged_in_user
@@ -17,56 +16,33 @@ from .utils import assert_command_succeeded, run_zero_slot_command, wait_for_com
 
 @pytest.mark.e2e_cpu
 def test_disable_and_enable_slots() -> None:
-    with logged_in_user(conf.ADMIN_CREDENTIALS):
-        command = [
-            "det",
-            "-m",
-            conf.make_master_url(),
-            "slot",
-            "list",
-            "--json",
-        ]
-        output = subprocess.check_output(command).decode()
-        slots = json.loads(output)
-        assert len(slots) == 1
+    sess = api_utils.admin_session()
 
-        slot_id, agent_id = slots[0]["slot_id"], slots[0]["agent_id"]
+    command = ["det", "slot", "list", "--json"]
+    slots = detproc.check_json(sess, command)
+    assert len(slots) == 1
 
-        command = [
-            "det",
-            "-m",
-            conf.make_master_url(),
-            "slot",
-            "disable",
-            agent_id,
-            slot_id,
-        ]
-        subprocess.check_call(command)
+    slot_id, agent_id = slots[0]["slot_id"], slots[0]["agent_id"]
 
-        slot = get_GetSlot(api_utils.user_session(), agentId=agent_id, slotId=slot_id).slot
-        assert slot is not None
-        assert slot.enabled is False
+    command = ["det", "slot", "disable", agent_id, slot_id]
+    detproc.check_call(sess, command)
 
-        command = ["det", "-m", conf.make_master_url(), "slot", "enable", agent_id, slot_id]
-        subprocess.check_call(command)
+    slot = get_GetSlot(sess, agentId=agent_id, slotId=slot_id).slot
+    assert slot is not None
+    assert slot.enabled is False
 
-        slot = get_GetSlot(api_utils.user_session(), agentId=agent_id, slotId=slot_id).slot
-        assert slot is not None
-        assert slot.enabled is True
+    command = ["det", "slot", "enable", agent_id, slot_id]
+    detproc.check_call(sess, command)
+
+    slot = get_GetSlot(sess, agentId=agent_id, slotId=slot_id).slot
+    assert slot is not None
+    assert slot.enabled is True
 
 
 def _fetch_slots() -> List[Dict[str, Any]]:
-    command = [
-        "det",
-        "-m",
-        conf.make_master_url(),
-        "slot",
-        "list",
-        "--json",
-    ]
-    output = subprocess.check_output(command).decode()
-    slots = cast(List[Dict[str, str]], json.loads(output))
-    return slots
+    command = ["det", "slot", "list", "--json"]
+    slots = detproc.check_json(command)
+    return cast(List[Dict[str, str]], slots)
 
 
 def _wait_for_slots(min_slots_expected: int, max_ticks: int = 60 * 2) -> List[Dict[str, Any]]:
@@ -81,20 +57,21 @@ def _wait_for_slots(min_slots_expected: int, max_ticks: int = 60 * 2) -> List[Di
 
 @contextlib.contextmanager
 def _disable_agent(agent_id: str, drain: bool = False, json: bool = False) -> Iterator[str]:
+    sess = api_utils.admin_session()
     command = (
-        ["det", "-m", conf.make_master_url(), "agent", "disable"]
+        ["det", "agent", "disable"]
         + (["--drain"] if drain else [])
         + (["--json"] if json else [])
         + [agent_id]
     )
     try:
         with logged_in_user(conf.ADMIN_CREDENTIALS):
-            out = subprocess.check_output(command).decode()
+            out = detproc.check_output(sess, command)
         yield out
     finally:
         with logged_in_user(conf.ADMIN_CREDENTIALS):
-            command = ["det", "-m", conf.make_master_url(), "agent", "enable", agent_id]
-            subprocess.check_call(command)
+            command = ["det", "agent", "enable", agent_id]
+            detproc.check_call(sess, command)
 
 
 @pytest.mark.e2e_cpu
@@ -139,17 +116,18 @@ def test_disable_agent_zero_slots() -> None:
     assert len(slots) == 1
     agent_id = slots[0]["agent_id"]
 
-    command_id = run_zero_slot_command(sleep=180)
+    sess = api_utils.user_session()
+    command_id = run_zero_slot_command(sess, sleep=180)
     # Wait for it to run.
-    wait_for_command_state(command_id, "RUNNING", 300)
+    wait_for_command_state(sess, command_id, "RUNNING", 300)
 
     try:
-        with _disable_agent(agent_id):
-            wait_for_command_state(command_id, "TERMINATED", 30)
+        with _disable_agent(api_utils.admin_session(), agent_id):
+            wait_for_command_state(sess, command_id, "TERMINATED", 30)
     finally:
         # Kill the command before failing so it does not linger.
-        command = ["det", "-m", conf.make_master_url(), "command", "kill", command_id]
-        subprocess.check_call(command)
+        command = ["det", "command", "kill", command_id]
+        detproc.check_call(sess, command)
 
 
 @pytest.mark.e2e_cpu
@@ -207,9 +185,9 @@ def test_drain_agent() -> None:
         assert slots[0]["allocation_id"] == "FREE"
 
         # Check agent state.
-        command = ["det", "-m", conf.make_master_url(), "agent", "list", "--json"]
-        output = subprocess.check_output(command).decode()
-        agent_data = cast(List[Dict[str, Any]], json.loads(output))[0]
+        command = ["det", "agent", "list", "--json"]
+        output = detproc.check_json(command)
+        agent_data = cast(List[Dict[str, Any]], output)[0]
         assert agent_data["id"] == agent_id
         assert agent_data["enabled"] is False
         assert agent_data["draining"] is True
@@ -270,8 +248,8 @@ def test_drain_agent_sched() -> None:
 
 
 def _task_data(task_id: str) -> Optional[Dict[str, Any]]:
-    command = ["det", "-m", conf.make_master_url(), "task", "list", "--json"]
-    tasks_data: Dict[str, Dict[str, Any]] = json.loads(subprocess.check_output(command).decode())
+    command = ["det", "task", "list", "--json"]
+    tasks_data: Dict[str, Dict[str, Any]] = detproc.check_json(command)
     matches = [t for t in tasks_data.values() if t["taskId"] == task_id]
     return matches[0] if matches else None
 

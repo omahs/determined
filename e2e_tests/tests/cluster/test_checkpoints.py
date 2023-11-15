@@ -16,8 +16,6 @@ from tests import api_utils
 from tests import config as conf
 from tests import experiment as exp
 
-from .test_users import det_spawn
-
 EXPECT_TIMEOUT = 5
 
 
@@ -76,12 +74,14 @@ def test_set_gc_policy() -> None:
 
 
 def run_command_gc_policy(
-    save_exp_best: str, save_trial_latest: str, save_trial_best: str, exp_id: str
+    sess: api.Session, save_exp_best: str, save_trial_latest: str, save_trial_best: str, exp_id: str
 ) -> None:
     command = [
+        "det",
         "e",
         "set",
         "gc-policy",
+        "--yes",
         "--save-experiment-best",
         str(save_exp_best),
         "--save-trial-best",
@@ -90,14 +90,7 @@ def run_command_gc_policy(
         str(save_trial_latest),
         str(exp_id),
     ]
-
-    child = det_spawn(command)
-    child.expect("Do you wish to " "proceed?", timeout=EXPECT_TIMEOUT)
-    child.sendline("y")
-    child.read()
-    child.wait()
-    child.close()
-    assert child.exitstatus == 0
+    detproc.check_output(sess, command)
 
 
 def run_command_master_checkpoint_download(uuid: str) -> None:
@@ -113,10 +106,7 @@ def run_command_master_checkpoint_download(uuid: str) -> None:
             uuid,
         ]
 
-        child = det_spawn(command)
-        child.wait()
-        child.close()
-        assert child.exitstatus == 0
+        output = detproc.check_output(sess, command)
         assert os.path.exists(outdir + "/metadata.json")
 
 

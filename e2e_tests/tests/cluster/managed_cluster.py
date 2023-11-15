@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterator, List, Union, cast
 import pytest
 
 from tests import config as conf
+from tests import detproc
 
 from .abstract_cluster import Cluster
 from .test_users import logged_in_user
@@ -18,9 +19,9 @@ DEVCLUSTER_REATTACH_ON_CONFIG_PATH = DEVCLUSTER_CONFIG_ROOT_PATH / "double-reatt
 DEVCLUSTER_PRIORITY_SCHEDULER_CONFIG_PATH = DEVCLUSTER_CONFIG_ROOT_PATH / "priority.devcluster.yaml"
 
 
-def get_agent_data(master_url: str) -> List[Dict[str, Any]]:
-    command = ["det", "-m", master_url, "agent", "list", "--json"]
-    output = subprocess.check_output(command).decode()
+def get_agent_data() -> List[Dict[str, Any]]:
+    command = ["det", "agent", "list", "--json"]
+    output = detproc.check_output(command).decode()
     agent_data = cast(List[Dict[str, Any]], json.loads(output))
     return agent_data
 
@@ -131,11 +132,7 @@ class ManagedCluster(Cluster):
     def fetch_config(self) -> Dict:
         with logged_in_user(conf.ADMIN_CREDENTIALS):
             master_config = json.loads(
-                subprocess.run(
-                    ["det", "-m", conf.make_master_url(), "master", "config", "show", "--json"],
-                    stdout=subprocess.PIPE,
-                    check=True,
-                ).stdout.decode()
+                detproc.check_output(["det", "master", "config", "show", "--json"])
             )
         return cast(Dict, master_config)
 

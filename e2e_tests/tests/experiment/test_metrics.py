@@ -1,6 +1,5 @@
 import json
 import multiprocessing as mp
-import subprocess
 from typing import Dict, List, Set, Union
 
 import pytest
@@ -8,6 +7,7 @@ import pytest
 from determined.common.api import bindings
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 
@@ -327,8 +327,6 @@ def test_trial_describe_metrics() -> None:
 
     cmd = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "trial",
         "describe",
         "--json",
@@ -336,7 +334,7 @@ def test_trial_describe_metrics() -> None:
         str(trial_id),
     ]
 
-    output = json.loads(subprocess.check_output(cmd))
+    output = detproc.check_json(cmd)
 
     workloads = output["workloads"]
     assert len(workloads) == 102

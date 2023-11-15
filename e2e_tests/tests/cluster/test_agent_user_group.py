@@ -33,32 +33,29 @@ def _delete_workspace_and_check(
             break
 
 
-def _check_test_command(workspace_name: str) -> None:
-    with command.interactive_command(
-        "cmd", "run", "-w", workspace_name, "bash", "-c", "echo $(id -g -n):$(id -g)"
-    ) as cmd:
-        for line in cmd.stdout:
-            if f"{GROUPNAME}:{GID}" in line:
-                break
-        else:
-            raise AssertionError(f"Did not find {GROUPNAME}:{GID} in output")
+def _check_test_command(sess: api.Session, workspace_name: str) -> None:
+    cmd = ["cmd", "run", "-w", workspace_name, "bash", "-c", "echo $(id -g -n):$(id -g)"]
+    output = detproc.check_output(sess, cmd)
+    assert f"{GROUPNAME}:{GID}" in output
 
 
-def _check_test_experiment(project_id: int) -> None:
+def _check_test_experiment(sess: api.Session, project_id: int) -> None:
     # Create an experiment in that project.
     test_exp_id = exp.create_experiment(
+        sess,
         conf.fixtures_path("core_api/whoami.yaml"),
         conf.fixtures_path("core_api"),
         ["--project_id", str(project_id)],
     )
     exp.wait_for_experiment_state(
+        sess,
         test_exp_id,
         experimentv1State.COMPLETED,
     )
 
-    trials = exp.experiment_trials(test_exp_id)
+    trials = exp.experiment_trials(sess, test_exp_id)
     trial_id = trials[0].trial.id
-    trial_logs = exp.trial_logs(trial_id)
+    trial_logs = exp.trial_logs(sess, trial_id)
 
     marker = "id output: "
     for line in trial_logs:
@@ -101,8 +98,8 @@ def test_workspace_post_gid() -> None:
         )
         p = resp_p.project
 
-        _check_test_experiment(p.id)
-        _check_test_command(w.name)
+        _check_test_experiment(sess, p.id)
+        _check_test_command(sess, w.name)
     finally:
         _delete_workspace_and_check(sess, w)
 
@@ -140,8 +137,8 @@ def test_workspace_patch_gid() -> None:
         )
         p = resp_p.project
 
-        _check_test_experiment(p.id)
-        _check_test_command(w.name)
+        _check_test_experiment(sess, p.id)
+        _check_test_command(sess, w.name)
     finally:
         _delete_workspace_and_check(sess, w)
 

@@ -34,21 +34,15 @@ def test_start_and_write_to_shell(tmp_path: Path) -> None:
 
 @pytest.mark.e2e_cpu
 def test_open_shell() -> None:
-    with cmd.interactive_command("shell", "start", "--detach") as shell:
-        task_id = shell.task_id
-        assert task_id is not None
+    sess = api_utils.user_session()
+    with cmd.interactive_command(sess, "shell", "start", "--detach") as shell:
 
-        child = test_users.det_spawn(["shell", "open", task_id])
-        child.setecho(True)
-        child.expect(r".*Permanently added.+([0-9a-f-]{36}).+known hosts\.", timeout=180)
-        child.sendline("det user whoami")
-        child.expect("You are logged in as user \\'(.*)\\'", timeout=10)
-        child.sendline("exit")
-        child.read()
-        child.wait()
-        assert child.exitstatus == 0
+        command = ["det", "shell", "open", task_id, "det", "user", "whoami"]
+        output = detproc.check_output(sess, command)
+        assert "You are logged in as user" in output
 
 
+# XXX change to be a unit test; this just keys off of variables.
 @pytest.mark.e2e_cpu
 def test_user_flag_shell() -> None:
     new_user_creds = api_utils.create_test_user(True)

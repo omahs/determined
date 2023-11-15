@@ -3,12 +3,15 @@ import subprocess
 
 import pytest
 
+from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 
 @pytest.mark.e2e_cpu
 def test_support_bundle() -> None:
+    sess = api_utils.user_session()
     exp_id = exp.run_basic_test(
         config_file=conf.fixtures_path("no_op/single-one-short-step.yaml"),
         model_def_file=conf.fixtures_path("no_op"),
@@ -21,10 +24,9 @@ def test_support_bundle() -> None:
 
     command = ["det", "trial", "support-bundle", str(trial_id), "-o", output_dir]
 
-    completed_process = subprocess.run(
-        command, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    p = detproc.run(
+        sess, command, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
-    assert completed_process.returncode == 0, "\nstdout:\n{} \nstderr:\n{}".format(
-        completed_process.stdout, completed_process.stderr
-    )
+    # XXX: find all of these and make them check_call() with custom error messages?
+    assert p.returncode == 0, f"\nstdout:\n{p.stdout} \nstderr:\n{p.stderr}"

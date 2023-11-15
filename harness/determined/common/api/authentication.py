@@ -17,13 +17,6 @@ Credentials = NamedTuple("Credentials", [("username", str), ("password", str)])
 PASSWORD_SALT = "GubPEmmotfiK9TMD6Zdw"
 
 
-def get_allocation_token() -> str:
-    info = det.get_cluster_info()
-    if info is None:
-        return ""
-    return info.session_token
-
-
 def salt_and_hash(password: str) -> str:
     if password:
         return hashlib.sha512((PASSWORD_SALT + password).encode()).hexdigest()

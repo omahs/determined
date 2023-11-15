@@ -1,6 +1,5 @@
 import logging
 import pathlib
-import subprocess
 import tempfile
 import time
 from typing import Iterator, List, Optional
@@ -14,6 +13,7 @@ from determined.common.api import bindings
 from determined.experimental import client
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 from tests.fixtures.custom_searcher import searchers
 
@@ -172,11 +172,7 @@ def test_run_random_searcher_exp_core_api(
         assert trial.totalBatchesProcessed == 500
 
     # check logs to ensure failures actually happened
-    logs = str(
-        subprocess.check_output(
-            ["det", "-m", conf.make_master_url(), "experiment", "logs", str(experiment_id)]
-        )
-    )
+    logs = detproc.check_output(["det", "experiment", "logs", str(experiment_id)])
     failures = logs.count("Max retries exceeded with url: http://dummyurl (Caused by None)")
     assert failures == len(exception_points)
 

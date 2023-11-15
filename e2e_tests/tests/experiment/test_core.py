@@ -10,6 +10,7 @@ from determined.experimental import Determined
 from tests import api_utils
 from tests import command as cmd
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 from tests.cluster.test_checkpoints import wait_for_gc_to_finish
 
@@ -39,8 +40,6 @@ def test_experiment_archive_unarchive() -> None:
 
     describe_args = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "experiment",
         "describe",
         "--json",
@@ -48,31 +47,23 @@ def test_experiment_archive_unarchive() -> None:
     ]
 
     # Check that the experiment is initially unarchived.
-    infos = json.loads(subprocess.check_output(describe_args))
+    infos = json.loads(detproc.check_output(describe_args))
     assert len(infos) == 1
     assert not infos[0]["experiment"]["archived"]
 
     # Check that archiving a non-terminal experiment fails, then terminate it.
     with pytest.raises(subprocess.CalledProcessError):
-        subprocess.check_call(
-            ["det", "-m", conf.make_master_url(), "experiment", "archive", str(experiment_id)]
-        )
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "experiment", "cancel", str(experiment_id)]
-    )
+        detproc.check_call(["det", "experiment", "archive", str(experiment_id)])
+    detproc.check_call(["det", "experiment", "cancel", str(experiment_id)])
 
     # Check that we can archive and unarchive the experiment and see the expected effects.
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "experiment", "archive", str(experiment_id)]
-    )
-    infos = json.loads(subprocess.check_output(describe_args))
+    detproc.check_call(["det", "experiment", "archive", str(experiment_id)])
+    infos = json.loads(detproc.check_output(describe_args))
     assert len(infos) == 1
     assert infos[0]["experiment"]["archived"]
 
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "experiment", "unarchive", str(experiment_id)]
-    )
-    infos = json.loads(subprocess.check_output(describe_args))
+    detproc.check_call(["det", "experiment", "unarchive", str(experiment_id)])
+    infos = json.loads(detproc.check_output(describe_args))
     assert len(infos) == 1
     assert not infos[0]["experiment"]["archived"]
 
@@ -82,23 +73,19 @@ def test_create_test_mode() -> None:
     # test-mode should succeed with a valid experiment.
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "experiment",
         "create",
         "--test-mode",
         conf.fixtures_path("mnist_pytorch/adaptive_short.yaml"),
         conf.tutorials_path("mnist_pytorch"),
     ]
-    output = subprocess.check_output(command, universal_newlines=True)
+    output = detproc.check_output(command, universal_newlines=True)
     assert "Model definition test succeeded" in output
 
     # test-mode should fail when an error is introduced into the trial
     # implementation.
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "experiment",
         "create",
         "--test-mode",
@@ -106,7 +93,7 @@ def test_create_test_mode() -> None:
         conf.fixtures_path("trial_error"),
     ]
     with pytest.raises(subprocess.CalledProcessError):
-        subprocess.check_call(command)
+        detproc.check_call(command)
 
 
 @pytest.mark.e2e_cpu
@@ -115,12 +102,12 @@ def test_trial_logs() -> None:
         conf.fixtures_path("no_op/single.yaml"), conf.fixtures_path("no_op"), 1
     )
     trial_id = exp.experiment_trials(experiment_id)[0].trial.id
-    subprocess.check_call(["det", "-m", conf.make_master_url(), "trial", "logs", str(trial_id)])
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "trial", "logs", "--head", "10", str(trial_id)],
+    detproc.check_call(["det", "trial", "logs", str(trial_id)])
+    detproc.check_call(
+        ["det", "trial", "logs", "--head", "10", str(trial_id)],
     )
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "trial", "logs", "--tail", "10", str(trial_id)],
+    detproc.check_call(
+        ["det", "trial", "logs", "--tail", "10", str(trial_id)],
     )
 
 
@@ -133,21 +120,13 @@ def test_labels() -> None:
     label = "__det_test_dummy_label__"
 
     # Add a label and check that it shows up.
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "e", "label", "add", str(experiment_id), label]
-    )
-    output = subprocess.check_output(
-        ["det", "-m", conf.make_master_url(), "e", "describe", str(experiment_id)]
-    ).decode()
+    detproc.check_call(["det", "e", "label", "add", str(experiment_id), label])
+    output = detproc.check_output(["det", "e", "describe", str(experiment_id)]).decode()
     assert label in output
 
     # Remove the label and check that it doesn't show up.
-    subprocess.check_call(
-        ["det", "-m", conf.make_master_url(), "e", "label", "remove", str(experiment_id), label]
-    )
-    output = subprocess.check_output(
-        ["det", "-m", conf.make_master_url(), "e", "describe", str(experiment_id)]
-    ).decode()
+    detproc.check_call(["det", "e", "label", "remove", str(experiment_id), label])
+    output = detproc.check_output(["det", "e", "describe", str(experiment_id)]).decode()
     assert label not in output
 
 
@@ -493,5 +472,6 @@ def test_core_api_pytorch_profiler_tensorboard() -> None:
 
     with cmd.interactive_command(*command) as tensorboard:
         assert tensorboard.task_id is not None
+        # XXX: how does this work?  Does tensorboard _really_ start up that fast?
         err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
         assert err is None, err

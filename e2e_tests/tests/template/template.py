@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 
-from tests import config as conf
+from tests import detproc
 
 
 def set_template(template_name: str, template_file: str) -> str:
@@ -16,14 +16,12 @@ def set_template(template_name: str, template_file: str) -> str:
 def maybe_set_template(template_name: str, template_file: str) -> subprocess.CompletedProcess:
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "template",
         "set",
         template_name,
         os.path.join(os.path.dirname(__file__), template_file),
     ]
-    return subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE)
+    return detproc.run(command, universal_newlines=True, stdout=subprocess.PIPE)
 
 
 def describe_template(template_name: str) -> str:
@@ -33,5 +31,5 @@ def describe_template(template_name: str) -> str:
 
 
 def maybe_describe_template(template_name: str) -> subprocess.CompletedProcess:
-    command = ["det", "-m", conf.make_master_url(), "template", "describe", template_name]
-    return subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE)
+    command = ["det", "template", "describe", template_name]
+    return detproc.run(command, universal_newlines=True, stdout=subprocess.PIPE)

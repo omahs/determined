@@ -1,5 +1,5 @@
 import uuid
-from typing import Callable, Optional, Sequence, TypeVar
+from typing import Callable, Optional, Sequence, Tuple, TypeVar
 
 import pytest
 
@@ -29,7 +29,7 @@ _user_session: Optional[api.Session] = None
 def user_session() -> api.Session:
     global _user_session
     if _user_session is None:
-        _user_session = make_session(authentication.Credentials("determined", ""))
+        _user_session = make_session("determined", "")
     return _user_session
 
 
@@ -39,7 +39,7 @@ _admin_session: Optional[api.Session] = None
 def admin_session() -> api.Session:
     global _admin_session
     if _admin_session is None:
-        _admin_session = make_session(authentication.Credentials("admin", ""))
+        _admin_session = make_session("admin", "")
     return _admin_session
 
 
@@ -50,12 +50,16 @@ def get_random_string() -> str:
 def create_test_user(
     add_password: bool = False,
     user: Optional[bindings.v1User] = None,
-) -> authentication.Credentials:
+) -> Tuple[api.Session, str, str]:
     session = admin_session()
-    user = user or bindings.v1User(username=get_random_string(), admin=False, active=True)
+    username = get_random_string()
+    user = user or bindings.v1User(username=username, admin=False, active=True)
     password = get_random_string() if add_password else ""
     bindings.post_PostUser(session, body=bindings.v1PostUserRequest(user=user, password=password))
-    return authentication.Credentials(user.username, password)
+    # create the output session
+    master_url = conf.make_master_url()
+    utp = authentication.login(master_url, username, password, cert())
+    return api.Session(master_url, utp, cert()), username, password
 
 
 def assign_user_role(session: api.Session, user: str, role: str, workspace: Optional[str]) -> None:

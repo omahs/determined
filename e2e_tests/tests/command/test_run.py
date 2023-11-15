@@ -11,41 +11,40 @@ import docker.errors
 import pytest
 
 from determined.common import util
+from tests import api_utils
 from tests import command as cmd
 from tests import config as conf
+from tests import detproc
 from tests.filetree import FileTree
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_cold_and_warm_start(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     for _ in range(3):
-        subprocess.check_call(
-            ["det", "-m", conf.make_master_url(), "cmd", "run", "echo", "hello", "world"]
-        )
+        detproc.check_call(sess, ["det", "cmd", "run", "echo", "hello", "world"])
 
 
 def _run_and_return_real_exit_status(args: List[str], **kwargs: Any) -> None:
     """
     Wraps subprocess.check_call and extracts exit status from output.
     """
-    # TODO(#2903): remove this once exit status are propagated through cli
     output = subprocess.check_output(args, **kwargs)
     if re.search(b"finished command \\S+ task failed with exit code", output):
         raise subprocess.CalledProcessError(1, " ".join(args), output=output)
 
 
-def _run_and_verify_exit_code_zero(args: List[str], **kwargs: Any) -> None:
+def _run_and_verify_exit_code_zero(sess, args: List[str], **kwargs: Any) -> None:
     """Wraps subprocess.check_output and verifies a successful exit code."""
-    # TODO(#2903): remove this once exit status are propagated through cli
-    output = subprocess.check_output(args, **kwargs)
-    assert re.search(b"resources exited successfully", output) is not None, "Output is: {}".format(
-        output.decode("utf-8")
-    )
+    output = detproc.check_output(sess, args, **kwargs)
+    assert re.search("resources exited successfully", output) is not None, f"Output is: {output}"
 
 
-def _run_and_verify_failure(args: List[str], message: str, **kwargs: Any) -> None:
-    output = subprocess.check_output(args, **kwargs)
+def _run_and_verify_failure(
+    sess: api.Session, args: List[str], message: str, **kwargs: Any
+) -> None:
+    output = detproc.check_output(sess, args, **kwargs)
     if re.search(message.encode(), output):
         raise subprocess.CalledProcessError(1, " ".join(args), output=output)
 
@@ -53,31 +52,32 @@ def _run_and_verify_failure(args: List[str], message: str, **kwargs: Any) -> Non
 def _run_cmd_with_config_expecting_success(
     cmd: str, config: Dict[str, Any], context_path: Optional[str] = None
 ) -> None:
+    sess = api_utils.user_session()
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
             util.yaml_safe_dump(config, f)
 
-        command = ["det", "-m", conf.make_master_url(), "cmd", "run", "--config-file", tf.name]
+        command = ["det", "cmd", "run", "--config-file", tf.name]
         if context_path:
             command += ["-c", context_path]
         command.append(cmd)
 
-        _run_and_verify_exit_code_zero(command)
+        _run_and_verify_exit_code_zero(sess, command)
 
 
 def _run_cmd_with_config_expecting_failure(
     cmd: str, expected_failure: str, config: Dict[str, Any]
 ) -> None:
+    sess = api_utils.user_session()
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
             util.yaml_safe_dump(config, f)
 
         with pytest.raises(subprocess.CalledProcessError):
             _run_and_verify_failure(
+                sess,
                 [
                     "det",
-                    "-m",
-                    conf.make_master_url(),
                     "cmd",
                     "run",
                     "--config-file",
@@ -96,8 +96,9 @@ def test_exit_code_reporting() -> None:
     Confirm that failed commands are not reported as successful, and confirm
     that our test infrastructure is valid.
     """
+    sess = api_utils.user_session()
     with pytest.raises(AssertionError):
-        _run_and_verify_exit_code_zero(["det", "-m", conf.make_master_url(), "cmd", "run", "false"])
+        _run_and_verify_exit_code_zero(sess, ["det", "cmd", "run", "false"])
 
 
 @pytest.mark.slow
@@ -105,61 +106,60 @@ def test_exit_code_reporting() -> None:
 @pytest.mark.e2e_slurm
 @pytest.mark.e2e_pbs
 def test_basic_workflows(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     with FileTree(tmp_path, {"hello.py": "print('hello world')"}) as tree:
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
-                "-m",
-                conf.make_master_url(),
                 "cmd",
                 "run",
                 "--context",
                 str(tree),
                 "python",
                 "hello.py",
-            ]
+            ],
         )
 
     with FileTree(tmp_path, {"hello.py": "print('hello world')"}) as tree:
         link = tree.joinpath("hello-link.py")
         link.symlink_to(tree.joinpath("hello.py"))
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
-                "-m",
-                conf.make_master_url(),
                 "cmd",
                 "run",
                 "--context",
                 str(tree),
                 "python",
                 "hello-link.py",
-            ]
+            ],
         )
 
     _run_and_verify_exit_code_zero(
-        ["det", "-m", conf.make_master_url(), "cmd", "run", "python", "-c", "print('hello world')"]
+        sess, ["det", "cmd", "run", "python", "-c", "print('hello world')"]
     )
 
     with pytest.raises(subprocess.CalledProcessError):
         _run_and_return_real_exit_status(
+            sess,
             [
                 "det",
-                "-m",
-                conf.make_master_url(),
                 "cmd",
                 "run",
                 "--context",
                 "non-existent-path-here",
                 "python",
                 "hello.py",
-            ]
+            ],
         )
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_large_uploads(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     with pytest.raises(subprocess.CalledProcessError):
         with FileTree(tmp_path, {"hello.py": "print('hello world')"}) as tree:
             large = tree.joinpath("large-file.bin")
@@ -170,17 +170,16 @@ def test_large_uploads(tmp_path: Path) -> None:
             f.close()
 
             _run_and_return_real_exit_status(
+                sess,
                 [
                     "det",
-                    "-m",
-                    conf.make_master_url(),
                     "cmd",
                     "run",
                     "--context",
                     str(tree),
                     "python",
                     "hello.py",
-                ]
+                ],
             )
 
     with FileTree(tmp_path, {"hello.py": "print('hello world')", ".detignore": "*.bin"}) as tree:
@@ -192,6 +191,7 @@ def test_large_uploads(tmp_path: Path) -> None:
         f.close()
 
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
                 "-m",
@@ -202,7 +202,7 @@ def test_large_uploads(tmp_path: Path) -> None:
                 str(tree),
                 "python",
                 "hello.py",
-            ]
+            ],
         )
 
 
@@ -210,6 +210,7 @@ def test_large_uploads(tmp_path: Path) -> None:
 # It takes around 15 seconds.
 @pytest.mark.e2e_k8s
 def test_context_directory_larger_than_config_map_k8s(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     with FileTree(tmp_path, {"hello.py": "print('hello world')"}) as tree:
         large = tree.joinpath("large-file.bin")
         large.touch()
@@ -219,23 +220,23 @@ def test_context_directory_larger_than_config_map_k8s(tmp_path: Path) -> None:
         f.close()
 
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
-                "-m",
-                conf.make_master_url(),
                 "cmd",
                 "run",
                 "--context",
                 str(tree),
                 "python",
                 "hello.py",
-            ]
+            ],
         )
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_configs(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     with FileTree(
         tmp_path,
         {
@@ -250,6 +251,7 @@ environment:
     ) as tree:
         config_path = tree.joinpath("config.yaml")
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
                 "-m",
@@ -267,7 +269,7 @@ if test != "TEST":
     print("{} != {}".format(test, "TEST"))
     sys.exit(1)
 """,
-            ]
+            ],
         )
 
 
@@ -276,9 +278,8 @@ if test != "TEST":
 @pytest.mark.e2e_slurm
 @pytest.mark.e2e_pbs
 def test_singleton_command() -> None:
-    _run_and_verify_exit_code_zero(
-        ["det", "-m", conf.make_master_url(), "cmd", "run", "echo hello && echo world"]
-    )
+    sess = api_utils.user_session()
+    _run_and_verify_exit_code_zero(sess, ["det", "cmd", "run", "echo hello && echo world"])
 
 
 @pytest.mark.slow
@@ -286,17 +287,17 @@ def test_singleton_command() -> None:
 @pytest.mark.e2e_slurm
 @pytest.mark.e2e_pbs
 def test_environment_variables_command() -> None:
+    sess = api_utils.user_session()
     _run_and_verify_exit_code_zero(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "cmd",
             "run",
             "--config",
             "environment.environment_variables='THISISTRUE=true','WONTCAUSEPANIC'",
             'if [ "$THISISTRUE" != "true" ]; then exit 1; fi',
-        ]
+        ],
     )
 
 
@@ -307,6 +308,7 @@ def test_environment_variables_command() -> None:
 def test_shm_size_command(
     tmp_path: Path, actual: str, expected: str, use_config_file: bool
 ) -> None:
+    sess = api_utils.user_session()
     with FileTree(
         tmp_path,
         {
@@ -317,7 +319,7 @@ resources:
         },
     ) as tree:
         config_path = tree.joinpath("config.yaml")
-        cmd = ["det", "-m", conf.make_master_url(), "cmd", "run"]
+        cmd = ["det", "cmd", "run"]
         if use_config_file:
             cmd += ["--config-file", str(config_path)]
         else:
@@ -328,24 +330,24 @@ df /dev/shm | \
 tail -1 | \
 [ "$(awk '{{print $2}}')" = '{expected}' ]"""
         ]
-        _run_and_verify_exit_code_zero(cmd)
+        _run_and_verify_exit_code_zero(sess, cmd)
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_absolute_bind_mount(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     _run_and_verify_exit_code_zero(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "cmd",
             "run",
             "--volume",
             "/bin:/foo-bar",
             "ls",
             "/foo-bar",
-        ]
+        ],
     )
 
     with FileTree(
@@ -360,10 +362,9 @@ bind_mounts:
     ) as tree:
         config_path = tree.joinpath("config.yaml")
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
-                "-m",
-                conf.make_master_url(),
                 "cmd",
                 "run",
                 "--volume",
@@ -373,25 +374,25 @@ bind_mounts:
                 "ls",
                 "/foo-bar",
                 "/foo-bar2",
-            ]
+            ],
         )
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_relative_bind_mount(tmp_path: Path) -> None:
+    sess = api_utils.user_session()
     _run_and_verify_exit_code_zero(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "cmd",
             "run",
             "--volume",
             "/bin:foo-bar",
             "ls",
             "foo-bar",
-        ]
+        ],
     )
     with FileTree(
         tmp_path,
@@ -405,6 +406,7 @@ bind_mounts:
     ) as tree:
         config_path = tree.joinpath("config.yaml")
         _run_and_verify_exit_code_zero(
+            sess,
             [
                 "det",
                 "-m",
@@ -418,7 +420,7 @@ bind_mounts:
                 "ls",
                 "foo-bar",
                 "foo-bar2",
-            ]
+            ],
         )
 
 
@@ -428,6 +430,7 @@ bind_mounts:
 @pytest.mark.e2e_pbs
 def test_cmd_kill() -> None:
     """Start a command, extract its task ID, and then kill it."""
+    sess = api_utils.user_session()
 
     with cmd.interactive_command(
         "command", "run", "echo hello world; echo hello world; sleep infinity"
@@ -449,6 +452,7 @@ def test_image_pull_after_remove() -> None:
     """
     Remove pulled image and verify that it will be pulled again with auth.
     """
+    sess = api_utils.user_session()
     client = docker.from_env()
     try:
         client.images.remove("python:3.8.16")
@@ -456,22 +460,22 @@ def test_image_pull_after_remove() -> None:
         pass
 
     _run_and_verify_exit_code_zero(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "cmd",
             "run",
             "--config",
             "environment.image=python:3.8.16",
             "sleep 3; echo hello world",
-        ]
+        ],
     )
 
 
 @pytest.mark.slow
 @pytest.mark.e2e_cpu
 def test_killed_pending_command_terminates() -> None:
+    sess = api_utils.user_session()
     # Specify an outrageous number of slots to be sure that it can't be scheduled.
     # NB: slot # higher than postgres smallint (i.e. 32k) is rejected outright.
     with cmd.interactive_command(
@@ -479,16 +483,16 @@ def test_killed_pending_command_terminates() -> None:
     ) as command:
         assert command.task_id is not None
         for _ in range(10):
-            assert cmd.get_command(command.task_id)["state"] == "STATE_QUEUED"
+            assert cmd.get_command(sess, command.task_id)["state"] == "STATE_QUEUED"
             time.sleep(1)
 
     # The command is killed when the context is exited; now it should reach TERMINATED soon.
     for _ in range(5):
-        if cmd.get_command(command.task_id)["state"] == "STATE_TERMINATED":
+        if cmd.get_command(sess, command.task_id)["state"] == "STATE_TERMINATED":
             break
         time.sleep(1)
     else:
-        state = cmd.get_command(command.task_id)["state"]
+        state = cmd.get_command(sess, command.task_id)["state"]
         raise AssertionError(f"Task was in state {state} rather than STATE_TERMINATED")
 
 
@@ -498,11 +502,14 @@ def test_k8_mount(using_k8s: bool, sidecar: bool) -> None:
     if not using_k8s:
         pytest.skip("only need to run test on kubernetes")
 
+    sess = api_utils.user_session()
+
     mount_path = "/ci/"
 
     with pytest.raises(subprocess.CalledProcessError):
         _run_and_verify_failure(
-            ["det", "-m", conf.make_master_url(), "cmd", "run", f"sleep 3; touch {mount_path}"],
+            sess,
+            ["det", "cmd", "run", f"sleep 3; touch {mount_path}"],
             "No such file or directory",
         )
 
@@ -537,13 +544,14 @@ def test_k8_mount(using_k8s: bool, sidecar: bool) -> None:
             config["environment"]["pod_spec"]["spec"]["containers"][0],  # type: ignore
         ]
 
-    _run_cmd_with_config_expecting_success(cmd=f"sleep 3; touch {mount_path}", config=config)
+    _run_cmd_with_config_expecting_success(sess, cmd=f"sleep 3; touch {mount_path}", config=config)
 
 
 @pytest.mark.e2e_gpu
 def test_k8_init_containers(using_k8s: bool) -> None:
     if not using_k8s:
         pytest.skip("only need to run test on kubernetes")
+    sess = api_utils.user_session()
 
     config = {
         "environment": {
@@ -563,17 +571,18 @@ def test_k8_init_containers(using_k8s: bool) -> None:
     }
 
     _run_cmd_with_config_expecting_failure(
-        cmd="sleep 3", expected_failure="exit code 1", config=config
+        sess, cmd="sleep 3", expected_failure="exit code 1", config=config
     )
 
     config["environment"]["pod_spec"]["spec"]["initContainers"][0]["args"] = ["-c", "exit 0"]
-    _run_cmd_with_config_expecting_success(cmd="sleep 3", config=config)
+    _run_cmd_with_config_expecting_success(sess, cmd="sleep 3", config=config)
 
 
 @pytest.mark.e2e_gpu
 def test_k8_sidecars(using_k8s: bool) -> None:
     if not using_k8s:
         pytest.skip("only need to run test on kubernetes")
+    sess = api_utils.user_session()
 
     base_config = {
         "environment": {
@@ -599,10 +608,10 @@ def test_k8_sidecars(using_k8s: bool) -> None:
     configs = [set_arg("sleep 1; exit 1"), set_arg("sleep 99999999")]
     for config in configs:
         _run_cmd_with_config_expecting_failure(
-            cmd="sleep 3; exit 1", expected_failure="exit code 1", config=config
+            sess, cmd="sleep 3; exit 1", expected_failure="exit code 1", config=config
         )
 
-        _run_cmd_with_config_expecting_success(cmd="sleep 3", config=config)
+        _run_cmd_with_config_expecting_success(sess, cmd="sleep 3", config=config)
 
 
 @pytest.mark.e2e_gpu
@@ -610,6 +619,7 @@ def test_k8_sidecars(using_k8s: bool) -> None:
 def test_k8_resource_limits(using_k8s: bool, slots: int) -> None:
     if not using_k8s:
         pytest.skip("only need to run test on kubernetes")
+    sess = api_utils.user_session()
 
     config = {
         "environment": {
@@ -638,13 +648,15 @@ def test_k8_resource_limits(using_k8s: bool, slots: int) -> None:
         },
     }
 
-    _run_cmd_with_config_expecting_success(cmd="sleep 3; echo hello", config=config)
+    _run_cmd_with_config_expecting_success(sess, cmd="sleep 3; echo hello", config=config)
 
 
 @pytest.mark.e2e_cpu
 @pytest.mark.e2e_slurm
 @pytest.mark.e2e_pbs
 def test_log_wait_timeout(tmp_path: Path, secrets: Dict[str, str]) -> None:
+    sess = api_utils.user_session()
+
     # Start a subshell that prints after 5 and 20 seconds, then exit.
     cmd = 'sh -c "sleep 5; echo after 5; sleep 15; echo after 20" & echo main shell exiting'
 
@@ -653,8 +665,8 @@ def test_log_wait_timeout(tmp_path: Path, secrets: Dict[str, str]) -> None:
         with open(tf.name, "w") as f:
             util.yaml_safe_dump(config, f)
 
-        cli = ["det", "-m", conf.make_master_url(), "cmd", "run", "--config-file", tf.name, cmd]
-        p = subprocess.run(cli, stdout=subprocess.PIPE, check=True)
+        cli = ["det", "cmd", "run", "--config-file", tf.name, cmd]
+        p = detproc.run(sess, cli, stdout=subprocess.PIPE, check=True)
         assert p.stdout is not None
         stdout = p.stdout.decode("utf8")
 
@@ -669,8 +681,9 @@ def test_log_wait_timeout(tmp_path: Path, secrets: Dict[str, str]) -> None:
 @pytest.mark.parametrize("task_type", ["notebook", "command", "shell", "tensorboard"])
 @pytest.mark.e2e_cpu
 def test_log_argument(task_type: str) -> None:
+    sess = api_utils.user_session()
     taskid = "28ad1623-dcf0-47d2-9faa-265aaa05b078"
-    cmd: List[str] = ["det", "-m", conf.make_master_url(), task_type, "logs", taskid]
-    p = subprocess.run(cmd, stderr=subprocess.PIPE, check=False)
+    cmd: List[str] = ["det", task_type, "logs", taskid]
+    p = detproc.run(cmd, stderr=subprocess.PIPE, check=False)
     assert p.stderr is not None
     assert "not found" in p.stderr.decode("utf8"), p.stderr.decode("utf8")

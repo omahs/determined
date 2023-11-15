@@ -1,5 +1,4 @@
 import re
-import subprocess
 import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Tuple
@@ -8,8 +7,7 @@ from dateutil import parser
 
 from determined.common import api
 from determined.common.api import bindings
-from tests import api_utils
-from tests import config as conf
+from tests import api_utils, detproc
 
 ADD_KEY = "adding"
 REMOVE_KEY = "removing"
@@ -81,9 +79,9 @@ log_path = "/tmp/det-master.log"
 
 
 def fetch_master_log() -> bool:
-    command = ["det", "-m", conf.make_master_url(), "master", "logs"]
+    command = ["det", "master", "logs"]
     try:
-        output = subprocess.check_output(command)
+        output = detproc.check_output(command)
     except Exception:
         traceback.print_exc()
         return False

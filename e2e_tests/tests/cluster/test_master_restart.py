@@ -1,5 +1,4 @@
 import logging
-import subprocess
 import time
 
 import docker
@@ -12,19 +11,13 @@ from determined.common.api.bindings import experimentv1State as EXP_STATE
 from tests import api_utils
 from tests import command as cmd
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
-from tests.cluster.test_users import det_spawn
+from tests.cluster import utils
 
 from .abstract_cluster import Cluster
 from .managed_cluster import ManagedCluster, get_agent_data
 from .managed_cluster_k8s import ManagedK8sCluster
-from .test_groups import det_cmd, det_cmd_json
-from .utils import (
-    assert_command_succeeded,
-    run_command,
-    wait_for_command_state,
-    wait_for_task_state,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +41,11 @@ def _test_master_restart_ok(managed_cluster: Cluster) -> None:
     try:
         for i in range(3):
             print("test_master_restart_ok stage %s start" % i)
-            cmd_ids = [run_command(1, slots) for slots in [0, 1]]
+            cmd_ids = [utils.run_command(1, slots) for slots in [0, 1]]
 
             for cmd_id in cmd_ids:
-                wait_for_command_state(cmd_id, "TERMINATED", 300)
-                assert_command_succeeded(cmd_id)
+                utils.wait_for_command_state(cmd_id, "TERMINATED", 300)
+                utils.assert_command_succeeded(cmd_id)
 
             managed_cluster.kill_master()
             managed_cluster.restart_master()
@@ -115,15 +108,19 @@ def _test_master_restart_reattach_recover_experiment(
 
 @pytest.mark.managed_devcluster
 def test_master_restart_continued_experiment(managed_cluster_restarts: ManagedCluster) -> None:
+    sess = api_utils.user_session()
     exp_id = exp.create_experiment(
+        sess,
         conf.fixtures_path("no_op/single-medium-train-step.yaml"),
         conf.fixtures_path("no_op"),
         None,
     )
-    exp.wait_for_experiment_state(exp_id, EXP_STATE.COMPLETED)
+    exp.wait_for_experiment_state(sess, exp_id, EXP_STATE.COMPLETED)
 
-    det_cmd(
+    detproc.check_output(
+        sess,
         [
+            "det",
             "e",
             "continue",
             str(exp_id),
@@ -132,21 +129,19 @@ def test_master_restart_continued_experiment(managed_cluster_restarts: ManagedCl
             "--config",
             "searcher.name=single",
         ],
-        check=True,
     )
 
     managed_cluster_restarts.kill_master()
     managed_cluster_restarts.restart_master()
-    exp.wait_for_experiment_state(exp_id, EXP_STATE.COMPLETED, max_wait_secs=60)
+    exp.wait_for_experiment_state(sess, exp_id, EXP_STATE.COMPLETED, max_wait_secs=60)
 
     # We continued the latest task, not the first one.
-    experiment_trials = exp.experiment_trials(exp_id)
+    experiment_trials = exp.experiment_trials(sess, exp_id)
     assert len(experiment_trials) == 1
     task_ids = experiment_trials[0].trial.taskIds
     assert task_ids is not None
     assert len(task_ids) == 2
 
-    sess = api_utils.user_session()
     logs = task_logs(sess, task_ids[-1])
     assert "resources exited successfully with a zero exit code" in "".join(log.log for log in logs)
 
@@ -202,7 +197,7 @@ def test_master_restart_error_missing_docker_container(
             time.sleep(1)
         assert expected_message in trial_logs
     finally:
-        subprocess.check_call(["det", "-m", conf.make_master_url(), "e", "kill", str(exp_id)])
+        detproc.check_call(["det", "e", "kill", str(exp_id)])
         exp.wait_for_experiment_state(exp_id, EXP_STATE.CANCELED, max_wait_secs=20)
 
 
@@ -232,8 +227,7 @@ def _test_master_restart_kill_works(managed_cluster_restarts: Cluster) -> None:
         time.sleep(0)
         managed_cluster_restarts.restart_master()
 
-        command = ["det", "-m", conf.make_master_url(), "e", "kill", str(exp_id)]
-        subprocess.check_call(command)
+        detproc.check_call(["det", "e", "kill", str(exp_id)])
 
         exp.wait_for_experiment_state(exp_id, EXP_STATE.CANCELED, max_wait_secs=30)
 
@@ -263,8 +257,6 @@ def test_master_restart_cmd_k8s(
 def _test_master_restart_cmd(managed_cluster: Cluster, slots: int, downtime: int) -> None:
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "command",
         "run",
         "-d",
@@ -272,7 +264,7 @@ def _test_master_restart_cmd(managed_cluster: Cluster, slots: int, downtime: int
         f"resources.slots={slots}",
         "echo weareready && sleep 30",
     ]
-    command_id = subprocess.check_output(command).decode().strip()
+    command_id = detproc.check_output(command).strip()
 
     # Don't just check ready. We want to make sure the command's sleep has started.
     logs = ""
@@ -288,8 +280,8 @@ def _test_master_restart_cmd(managed_cluster: Cluster, slots: int, downtime: int
         time.sleep(downtime)
         managed_cluster.restart_master()
 
-    wait_for_command_state(command_id, "TERMINATED", 30)
-    assert_command_succeeded(command_id)
+    utils.wait_for_command_state(command_id, "TERMINATED", 30)
+    utils.assert_command_succeeded(command_id)
 
 
 @pytest.mark.managed_devcluster
@@ -305,32 +297,24 @@ def test_master_restart_shell_k8s(k8s_managed_cluster: ManagedK8sCluster, downti
 
 
 def _test_master_restart_shell(managed_cluster: Cluster, downtime: int) -> None:
-    with cmd.interactive_command("shell", "start", "--detach") as shell:
-        task_id = shell.task_id
-
-        assert task_id is not None
+    sess = api_utils.user_session()
+    with cmd.interactive_command(sess, "shell", "start", "--detach") as shell:
         # Checking running is not correct here, running != ready for shells.
-        task_is_ready(api_utils.user_session(), task_id)
-        pre_restart_queue = det_cmd_json(["job", "list", "--json"])
+        task_is_ready(sess, shell.task_id)
+        pre_restart_queue = detproc.check_json(sess, ["det", "job", "list", "--json"])
 
         if downtime >= 0:
             managed_cluster.kill_master()
             time.sleep(downtime)
             managed_cluster.restart_master()
 
-        wait_for_task_state("shell", task_id, "RUNNING")
-        post_restart_queue = det_cmd_json(["job", "list", "--json"])
+        utils.wait_for_task_state(sess, "shell", shell.task_id, "RUNNING")
+        post_restart_queue = detproc.check_json(sess, ["det", "job", "list", "--json"])
         assert pre_restart_queue == post_restart_queue
 
-        child = det_spawn(["shell", "open", task_id])
-        child.setecho(True)
-        child.expect(r".*Permanently added.+([0-9a-f-]{36}).+known hosts\.")
-        child.sendline("det user whoami")
-        child.expect("You are logged in as user \\'(.*)\\'", timeout=10)
-        child.sendline("exit")
-        child.read()
-        child.wait()
-        assert child.exitstatus == 0
+        cmd = ["det", "shell", "open", shell.task_id, "det", "user", "whoami"]
+        output = detproc.check_output(sess, cmd)
+        assert "you are logged in as user" in output
 
 
 def _get_auth_token_for_curl() -> str:
@@ -387,7 +371,7 @@ def _test_master_restart_notebook(managed_cluster: Cluster, downtime: int) -> No
     with cmd.interactive_command("notebook", "start", "--detach") as notebook:
         task_id = notebook.task_id
         assert task_id is not None
-        wait_for_task_state("notebook", task_id, "RUNNING")
+        utils.wait_for_task_state("notebook", task_id, "RUNNING")
         notebook_url = f"{conf.make_master_url()}proxy/{task_id}/"
         _check_notebook_url(notebook_url)
 
@@ -429,7 +413,7 @@ def _test_master_restart_tensorboard(managed_cluster: Cluster, downtime: int) ->
     with cmd.interactive_command("tensorboard", "start", "--detach", str(exp_id)) as tb:
         task_id = tb.task_id
         assert task_id is not None
-        wait_for_task_state("tensorboard", task_id, "RUNNING")
+        utils.wait_for_task_state("tensorboard", task_id, "RUNNING")
 
         tb_url = f"{conf.make_master_url()}proxy/{task_id}/"
         _check_tb_url(tb_url)
@@ -467,24 +451,25 @@ def test_agent_devices_change(restartable_managed_cluster: ManagedCluster) -> No
 
 @pytest.mark.e2e_k8s
 def test_master_restart_with_queued(k8s_managed_cluster: ManagedK8sCluster) -> None:
-    agent_data = get_agent_data(conf.make_master_url())
+    sess = api_utils.user_session()
+    agent_data = get_agent_data(sess, conf.make_master_url())
     slots = sum([a["num_slots"] for a in agent_data])
 
-    running_command_id = run_command(120, slots)
-    wait_for_command_state(running_command_id, "RUNNING", 30)
+    running_command_id = utils.run_command(sess, 120, slots)
+    utils.wait_for_command_state(sess, running_command_id, "RUNNING", 30)
 
-    queued_command_id = run_command(60, slots)
-    wait_for_command_state(queued_command_id, "QUEUED", 30)
+    queued_command_id = utils.run_command(sess, 60, slots)
+    utils.wait_for_command_state(sess, queued_command_id, "QUEUED", 30)
 
-    job_list = det_cmd_json(["job", "list", "--json"])["jobs"]
+    job_list = detproc.check_json(sess, ["det", "job", "list", "--json"])["jobs"]
 
     k8s_managed_cluster.kill_master()
     k8s_managed_cluster.restart_master()
 
-    post_restart_job_list = det_cmd_json(["job", "list", "--json"])["jobs"]
+    post_restart_job_list = detproc.check_json(sess, ["det", "job", "list", "--json"])["jobs"]
 
     assert job_list == post_restart_job_list
 
     for cmd_id in [running_command_id, queued_command_id]:
-        wait_for_command_state(cmd_id, "TERMINATED", 90)
-        assert_command_succeeded(cmd_id)
+        utils.wait_for_command_state(sess, cmd_id, "TERMINATED", 90)
+        utils.assert_command_succeeded(sess, cmd_id)

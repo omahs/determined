@@ -1,4 +1,3 @@
-import subprocess
 from time import sleep
 from typing import Dict, List, Tuple
 
@@ -6,6 +5,7 @@ import pytest
 
 # from determined.experimental import Determined, ModelSortBy
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 
@@ -21,14 +21,14 @@ def test_job_queue_adjust_weight() -> None:
         assert ok
 
         ordered_ids = jobs.get_ids()
-        subprocess.run(["det", "job", "update", ordered_ids[0], "--weight", "10"])
+        detproc.check_call(["det", "job", "update", ordered_ids[0], "--weight", "10"])
 
         sleep(2)
         jobs.refresh()
         new_weight = jobs.get_job_weight(ordered_ids[0])
         assert new_weight == "10"
 
-        subprocess.run(["det", "job", "update-batch", f"{ordered_ids[1]}.weight=10"])
+        detproc.check_call(["det", "job", "update-batch", f"{ordered_ids[1]}.weight=10"])
 
         sleep(2)
         jobs.refresh()
@@ -44,7 +44,7 @@ def test_job_queue_adjust_weight() -> None:
 def get_raw_data() -> Tuple[List[Dict[str, str]], List[str]]:
     data = []
     ordered_ids = []
-    output = subprocess.check_output(["det", "job", "list"]).decode("utf-8")
+    output = detproc.check_output(["det", "job", "list"])
     lines = output.split("\n")
     keys = [line.strip() for line in lines[0].split("|")]
 

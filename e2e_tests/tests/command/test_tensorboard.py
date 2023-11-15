@@ -1,5 +1,4 @@
 import pathlib
-import subprocess
 from typing import Dict, Optional
 
 import pytest
@@ -8,6 +7,7 @@ from determined.common import api, util
 from tests import api_utils
 from tests import command as cmd
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 from tests.filetree import FileTree
 
@@ -163,15 +163,15 @@ def test_start_tensorboard_with_custom_image() -> None:
     Start a random experiment, start a TensorBoard instance pointed
     to the experiment with custom image, verify the image has been set.
     """
+    sess = api_utils.user_session()
     experiment_id = exp.run_basic_test(
+        sess,
         conf.fixtures_path("no_op/single-one-short-step.yaml"),
         conf.fixtures_path("no_op"),
         1,
     )
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "tensorboard",
         "start",
         str(experiment_id),
@@ -180,11 +180,10 @@ def test_start_tensorboard_with_custom_image() -> None:
         "--config",
         "environment.image=python:3.8.16",
     ]
-    res = subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE, check=True)
-    t_id = res.stdout.strip("\n")
-    command = ["det", "-m", conf.make_master_url(), "tensorboard", "config", t_id]
-    res = subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE, check=True)
-    config = util.yaml_safe_load(res.stdout)
+    t_id = detproc.check_output(sess, command).strip()
+    command = ["det", "tensorboard", "config", t_id]
+    res = detproc.check_output(sess, command)
+    config = util.yaml_safe_load(res)
     assert (
         config["environment"]["image"]["cpu"] == "python:3.8.16"
         and config["environment"]["image"]["cuda"] == "python:3.8.16"
@@ -198,26 +197,26 @@ def test_tensorboard_inherit_image_pull_secrets() -> None:
     Start a random experiment with image_pull_secrets, start a TensorBoard
     instance pointed to the experiment, verify the secrets are inherited.
     """
+    sess = api_utils.user_session()
     exp_secrets = [{"name": "ips"}]
     config_obj = conf.load_config(conf.fixtures_path("no_op/single-one-short-step.yaml"))
     pod = config_obj.setdefault("environment", {}).setdefault("pod_spec", {})
     pod.setdefault("spec", {})["imagePullSecrets"] = [{"name": "ips"}]
-    experiment_id = exp.run_basic_test_with_temp_config(config_obj, conf.fixtures_path("no_op"), 1)
+    experiment_id = exp.run_basic_test_with_temp_config(
+        sess, config_obj, conf.fixtures_path("no_op"), 1
+    )
 
     command = [
         "det",
-        "-m",
-        conf.make_master_url(),
         "tensorboard",
         "start",
         str(experiment_id),
         "--no-browser",
         "--detach",
     ]
-    res = subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE, check=True)
-    t_id = res.stdout.strip("\n")
-    command = ["det", "-m", conf.make_master_url(), "tensorboard", "config", t_id]
-    res = subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE, check=True)
+    t_id = detproc.check_output(sess, command).strip()
+    command = ["det", "tensorboard", "config", t_id]
+    res = detproc.check_output(sess, command)
     config = util.yaml_safe_load(res.stdout)
 
     ips = config["environment"]["pod_spec"]["spec"]["imagePullSecrets"]
@@ -231,13 +230,14 @@ def test_delete_tensorboard_for_experiment() -> None:
     Start a random experiment, start a TensorBoard instance pointed to
     the experiment, delete tensorboard and verify deletion.
     """
+    sess = api_utils.user_session()
     config_obj = conf.load_config(conf.tutorials_path("mnist_pytorch/const.yaml"))
     experiment_id = exp.run_basic_test_with_temp_config(
-        config_obj, conf.tutorials_path("mnist_pytorch"), 1
+        sess, config_obj, conf.tutorials_path("mnist_pytorch"), 1
     )
 
     command = ["det", "e", "delete-tb-files", str(experiment_id)]
-    subprocess.run(command, universal_newlines=True, stdout=subprocess.PIPE, check=True)
+    detproc.check_output(sess, command)
 
     # Check if Tensorboard files are deleted
     tb_path = sorted(pathlib.Path("/tmp/determined-cp/").glob("*/tensorboard"))[0]
@@ -247,6 +247,7 @@ def test_delete_tensorboard_for_experiment() -> None:
 
 @pytest.mark.e2e_cpu
 def test_tensorboard_directory_storage(tmp_path: pathlib.Path) -> None:
+    sess = api_utils.user_session()
     config_obj = conf.load_config(conf.fixtures_path("no_op/single-one-short-step.yaml"))
     config_obj["checkpoint_storage"] = {
         "type": "directory",
@@ -264,7 +265,9 @@ def test_tensorboard_directory_storage(tmp_path: pathlib.Path) -> None:
     with tb_config_path.open("w") as fout:
         util.yaml_safe_dump(tb_config, fout)
 
-    experiment_id = exp.run_basic_test_with_temp_config(config_obj, conf.fixtures_path("no_op"), 1)
+    experiment_id = exp.run_basic_test_with_temp_config(
+        sess, config_obj, conf.fixtures_path("no_op"), 1
+    )
 
     command = [
         "tensorboard",
@@ -275,7 +278,7 @@ def test_tensorboard_directory_storage(tmp_path: pathlib.Path) -> None:
         str(tb_config_path),
     ]
 
-    with cmd.interactive_command(*command) as tensorboard:
+    with cmd.interactive_command(sess, *command) as tensorboard:
         assert tensorboard.task_id is not None
-        err = api.task_is_ready(api_utils.user_session(), tensorboard.task_id)
+        err = api.task_is_ready(sess, tensorboard.task_id)
         assert err is None, err

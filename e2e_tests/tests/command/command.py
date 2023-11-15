@@ -73,9 +73,9 @@ def interactive_command(*args: str) -> Iterator[_InteractiveCommandProcess]:
         cmd = _InteractiveCommandProcess(p, detach="--detach" in args)
         if cmd.task_id is None:
             raise AssertionError(
-                "Task ID for '{}' could not be found. "
+                f"Task ID for '{args}' could not be found. "
                 "If it is still active, this command may persist "
-                "in the Determined test deployment...".format(args)
+                "in the Determined test deployment..."
             )
         try:
             yield cmd

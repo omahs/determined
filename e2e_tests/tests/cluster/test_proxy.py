@@ -11,6 +11,7 @@ import requests
 from determined.common.api import bindings
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 from tests import ray_utils
 
@@ -69,7 +70,9 @@ def test_experiment_proxy_ray_tunnel() -> None:
         exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.RUNNING)
         task_id = _experiment_task_id(exp_id)
 
-        proc = subprocess.Popen(
+        sess = api_utils.user_session()
+        proc = detproc.Popen(
+            sess,
             [
                 "python",
                 "-m",
@@ -90,7 +93,7 @@ def test_experiment_proxy_ray_tunnel() -> None:
             proc.terminate()
             proc.wait(10)
     finally:
-        sess = api_utils.user_session()
+        sess = api_utils.admin_session()
         bindings.post_KillExperiment(sess, id=exp_id)
 
 
@@ -109,11 +112,11 @@ def _parse_exp_id(proc: "subprocess.Popen[str]") -> int:
 
 
 def _kill_all_ray_experiments() -> None:
-    proc = subprocess.run(
+    sess = api_utils.user_session()
+    proc = detproc.run(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "experiment",
             "list",
             "--csv",
@@ -123,7 +126,6 @@ def _kill_all_ray_experiments() -> None:
         check=True,
     )
     reader = csv.DictReader(StringIO(proc.stdout))
-    sess = api_utils.user_session()
     for row in reader:
         if row["name"] == "ray_launcher":
             if row["state"] not in ["CANCELED", "COMPLETED"]:
@@ -134,12 +136,12 @@ def _kill_all_ray_experiments() -> None:
 @pytest.mark.e2e_cpu
 @pytest.mark.timeout(600)
 def test_experiment_proxy_ray_publish() -> None:
+    sess = api_utils.user_session()
     exp_path = conf.EXAMPLES_PATH / "features" / "ports"
-    proc = subprocess.Popen(
+    proc = detproc.Popen(
+        sess,
         [
             "det",
-            "-m",
-            conf.make_master_url(),
             "experiment",
             "create",
             str(exp_path / "ray_launcher.yaml"),
@@ -168,7 +170,7 @@ def test_experiment_proxy_ray_publish() -> None:
             _probe_tunnel(proc)
             _ray_job_submit(exp_path)
         finally:
-            sess = api_utils.user_session()
+            sess = api_utils.admin_session()
             bindings.post_KillExperiment(sess, id=exp_id)
     finally:
         proc.terminate()

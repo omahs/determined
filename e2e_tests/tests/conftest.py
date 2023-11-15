@@ -11,11 +11,10 @@ from _pytest.fixtures import SubRequest
 from botocore import exceptions as boto_exc
 
 from determined.experimental import client as _client
-from tests import config
+from tests import api_utils, config, detproc
 from tests.experiment import profile_test
 from tests.nightly.compute_stats import compare_stats
 
-from .cluster.test_users import logged_in_user
 from .cluster_log_manager import ClusterLogManager
 
 _INTEG_MARKERS = {
@@ -170,19 +169,13 @@ def secrets(request: SubRequest) -> Dict[str, str]:
 
 @pytest.fixture(scope="session")
 def checkpoint_storage_config(request: SubRequest) -> Dict[str, Any]:
-    command = [
-        "det",
-        "-m",
-        config.make_master_url(),
-        "master",
-        "config",
-        "--json",
-    ]
+    # XXX: show or no-show?
+    command = ["det", "master", "config", "show", "--json"]
 
-    with logged_in_user(config.ADMIN_CREDENTIALS):
-        output = subprocess.check_output(command, universal_newlines=True, stderr=subprocess.PIPE)
+    sess = api_utils.admin_session()
+    output = detproc.check_json(sess, command)
 
-    checkpoint_config = json.loads(output)["checkpoint_storage"]
+    checkpoint_config = output["checkpoint_storage"]
 
     if checkpoint_config["type"] == "s3":
         secret_conf = s3_secrets(request)
@@ -195,17 +188,10 @@ def checkpoint_storage_config(request: SubRequest) -> Dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def using_k8s(request: SubRequest) -> bool:
-    command = [
-        "det",
-        "-m",
-        config.make_master_url(),
-        "master",
-        "config",
-        "--json",
-    ]
+    command = ["det", "master", "config", "show", "--json"]
 
-    with logged_in_user(config.ADMIN_CREDENTIALS):
-        output = subprocess.check_output(command, universal_newlines=True, stderr=subprocess.PIPE)
+    sess = api_utils.admin_session()
+    output = detproc.check_json(sess, command)
 
     rp = json.loads(output)["resource_manager"]["type"]
     return bool(rp == "kubernetes")

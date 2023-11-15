@@ -2,7 +2,9 @@ import subprocess
 
 import pytest
 
+from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
 
 from .managed_cluster import ManagedCluster
@@ -50,13 +52,11 @@ def test_priortity_scheduler_noop_command(
 
 @pytest.mark.managed_devcluster
 def test_slots_list_command(managed_cluster_priority_scheduler: ManagedCluster) -> None:
+    sess = api_utils.user_session()
     managed_cluster_priority_scheduler.ensure_agent_ok()
     assert str(conf.MASTER_PORT) == "8082"
-    command = ["det", "-m", conf.make_master_url(), "slot", "list"]
-    completed_process = subprocess.run(
-        command, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    command = ["det", "slot", "list"]
+    p = detproc.run(
+        sess, command, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
-
-    assert completed_process.returncode == 0, "\nstdout:\n{} \nstderr:\n{}".format(
-        completed_process.stdout, completed_process.stderr
-    )
+    assert p.returncode == 0, f"\nstdout:\n{p.stdout} \nstderr:\n{p.stderr}"

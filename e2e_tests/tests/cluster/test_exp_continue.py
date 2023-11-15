@@ -1,6 +1,6 @@
 import subprocess
 import tempfile
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import pytest
 
@@ -8,17 +8,8 @@ from determined.common import util
 from determined.common.api import bindings
 from tests import api_utils
 from tests import config as conf
+from tests import detproc
 from tests import experiment as exp
-
-
-# TODO move this to a package helper.
-def det_cmd(cmd: List[str], **kwargs: Any) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["det", "-m", conf.make_master_url()] + cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        **kwargs,
-    )
 
 
 @pytest.mark.e2e_cpu
@@ -33,7 +24,7 @@ def test_continue_config_file_cli() -> None:
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
             util.yaml_safe_dump({"hyperparameters": {"metrics_sigma": 1.0}}, f)
-        det_cmd(["e", "continue", str(exp_id), "--config-file", tf.name], check=True)
+        detproc.check_call(["det", "e", "continue", str(exp_id), "--config-file", tf.name])
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -54,8 +45,9 @@ def test_continue_config_file_and_args_cli() -> None:
                 {"name": expected_name, "hyperparameters": {"metrics_sigma": -1.0}}, f
             )
 
-        stdout = det_cmd(
+        stdout = detproc.check_output(
             [
+                "det",
                 "e",
                 "continue",
                 str(exp_id),
@@ -65,10 +57,9 @@ def test_continue_config_file_and_args_cli() -> None:
                 "hyperparameters.metrics_sigma=1.0",
                 "-f",
             ],
-            check=True,
-        ).stdout
+        )
         # Follow works till end of trial.
-        assert "resources exited successfully with a zero exit code" in stdout.decode("utf-8")
+        assert "resources exited successfully with a zero exit code" in stdout
 
     # Name is also still applied.
     sess = api_utils.user_session()
@@ -93,8 +84,8 @@ def test_continue_fixing_broken_config() -> None:
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
 
-    det_cmd(
-        ["e", "continue", str(exp_id), "--config", "hyperparameters.metrics_sigma=1.0"], check=True
+    detproc.check_output(
+        ["det", "e", "continue", str(exp_id), "--config", "hyperparameters.metrics_sigma=1.0"]
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -130,12 +121,12 @@ def test_continue_max_restart() -> None:
     assert count_times_ran() == 3
     assert get_trial_restarts() == 2
 
-    det_cmd(["e", "continue", str(exp_id)], check=True)
+    detproc.check_output(["det", "e", "continue", str(exp_id)])
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
     assert count_times_ran() == 6
     assert get_trial_restarts() == 2
 
-    det_cmd(["e", "continue", str(exp_id), "--config", "max_restarts=1"], check=True)
+    detproc.check_output(["det", "e", "continue", str(exp_id), "--config", "max_restarts=1"])
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
     assert count_times_ran() == 8
     assert get_trial_restarts() == 1
@@ -166,7 +157,7 @@ def test_continue_trial_time() -> None:
     exp_orig_start, exp_orig_end = exp_start_end_time()
     trial_orig_start, trial_orig_end = trial_start_end_time()
 
-    det_cmd(["e", "continue", str(exp_id)], check=True)
+    detproc.check_output(["det", "e", "continue", str(exp_id)])
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
 
     exp_new_start, exp_new_end = exp_start_end_time()
@@ -230,15 +221,15 @@ def test_continue_batches() -> None:
     # Experiment has to start over since we didn't checkpoint.
     # We must invalidate all previous reported metrics.
     # This time experiment makes it a validation after the first checkpoint.
-    det_cmd(
+    detproc.check_output(
         [
+            "det",
             "e",
             "continue",
             str(exp_id),
             "--config",
             "environment.environment_variables=['FAIL_AT_BATCH=5']",
         ],
-        check=True,
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.ERROR)
     assert_exited_at(5)
@@ -255,15 +246,15 @@ def test_continue_batches() -> None:
 
     # We lose one metric since we are continuing from first checkpoint.
     # We correctly stop at total_batches.
-    det_cmd(
+    detproc.check_output(
         [
+            "det",
             "e",
             "continue",
             str(exp_id),
             "--config",
             "environment.environment_variables=['FAIL_AT_BATCH=-1']",
         ],
-        check=True,
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -289,8 +280,9 @@ def test_continue_workloads_searcher(continue_max_length: int) -> None:
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
-    det_cmd(
+    detproc.check_output(
         [
+            "det",
             "e",
             "continue",
             str(exp_id),
@@ -299,7 +291,6 @@ def test_continue_workloads_searcher(continue_max_length: int) -> None:
             "--config",
             "searcher.name=single",
         ],
-        check=True,
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -315,8 +306,9 @@ def test_continue_pytorch_completed_searcher(continue_max_length: int) -> None:
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
     # Train for less or the same time has no error.
-    det_cmd(
+    detproc.check_output(
         [
+            "det",
             "e",
             "continue",
             str(exp_id),
@@ -325,7 +317,6 @@ def test_continue_pytorch_completed_searcher(continue_max_length: int) -> None:
             "--config",
             "searcher.name=single",
         ],
-        check=True,
     )
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -350,7 +341,7 @@ def test_continue_hp_search_cli(exp_config_path: str) -> None:
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
-    det_cmd(["e", "continue", str(exp_id)], check=True)
+    detproc.check_output(["det", "e", "continue", str(exp_id)])
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -372,7 +363,7 @@ def test_continue_hp_search_single_cli() -> None:
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.CANCELED)
 
-    det_cmd(["e", "continue", str(exp_id)], check=True)
+    detproc.check_output(["det", "e", "continue", str(exp_id)])
 
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
@@ -390,7 +381,7 @@ def test_continue_hp_search_completed_cli() -> None:
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
     with pytest.raises(subprocess.CalledProcessError):
-        det_cmd(["e", "continue", str(exp_id)], check=True)
+        detproc.check_output(["det", "e", "continue", str(exp_id)])
 
 
 @pytest.mark.e2e_cpu
@@ -402,7 +393,6 @@ def test_continue_hp_search_provided_config() -> None:
     exp.wait_for_experiment_state(exp_id, bindings.experimentv1State.COMPLETED)
 
     with pytest.raises(subprocess.CalledProcessError):
-        det_cmd(
-            ["e", "continue", str(exp_id), "--config", "hyperparameters.metrics_sigma=1.0"],
-            check=True,
+        detproc.check_output(
+            ["det", "e", "continue", str(exp_id), "--config", "hyperparameters.metrics_sigma=1.0"],
         )

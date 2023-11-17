@@ -37,7 +37,7 @@ To help you learn how to develop LLMs with our Python library in an interactive 
 environment, we’ll walk through the following steps:
 
 -  Open a JupyterLab Instance
--
+-  Etc
 
 ***************
  Prerequisites

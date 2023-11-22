@@ -1,12 +1,13 @@
+import Breadcrumb from 'hew/Breadcrumb';
+import Card from 'hew/Card';
+import Icon from 'hew/Icon';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useEffect, useState } from 'react';
 
 import ExperimentIcons from 'components/ExperimentIcons';
 import JupyterLabButton from 'components/JupyterLabButton';
-import Breadcrumb from 'components/kit/Breadcrumb';
-import Card from 'components/kit/Card';
-import Empty from 'components/kit/Empty';
-import Icon from 'components/kit/Icon';
-import Spinner from 'components/kit/Spinner';
 import Link from 'components/Link';
 import Page, { BreadCrumbRoute } from 'components/Page';
 import ProjectCard from 'components/ProjectCard';
@@ -33,7 +34,6 @@ import userStore from 'stores/users';
 import workspaceStore from 'stores/workspaces';
 import { CommandTask, DetailedUser, ExperimentItem, Project } from 'types';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { dateTimeStringSorter } from 'utils/sort';
 
@@ -197,7 +197,7 @@ const Dashboard: React.FC = () => {
         <Section title="Recently Viewed Projects">
           <Card.Group size="small" wrap={false}>
             {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} showWorkspace />
+              <ProjectCard hideActionMenu key={project.id} project={project} showWorkspace />
             ))}
           </Card.Group>
         </Section>
@@ -277,6 +277,7 @@ const Dashboard: React.FC = () => {
                       </Breadcrumb>
                     );
                   }
+                  return <></>;
                 },
               },
               {
@@ -292,7 +293,7 @@ const Dashboard: React.FC = () => {
             size="middle"
           />
         ) : (
-          <Empty
+          <Message
             description={
               <>
                 Your recent experiments and tasks will show up here.{' '}

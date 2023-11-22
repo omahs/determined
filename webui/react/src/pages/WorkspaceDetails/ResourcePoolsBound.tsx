@@ -1,8 +1,9 @@
+import Card from 'hew/Card';
+import Icon from 'hew/Icon';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import Card from 'components/kit/Card';
-import Icon from 'components/kit/Icon';
 import ResourcePoolCard from 'components/ResourcePoolCard';
 import Section from 'components/Section';
 import usePermissions from 'hooks/usePermissions';
@@ -10,7 +11,6 @@ import { patchWorkspace } from 'services/api';
 import clusterStore from 'stores/cluster';
 import workspaceStore from 'stores/workspaces';
 import { ResourcePool, Workspace } from 'types';
-import { Loadable } from 'utils/loadable';
 
 interface Props {
   workspace: Workspace;

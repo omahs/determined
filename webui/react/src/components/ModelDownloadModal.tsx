@@ -1,8 +1,7 @@
-import ClipboardButton from 'components/kit/ClipboardButton';
-import { Modal } from 'components/kit/Modal';
-import { ModelVersion } from 'types';
+import CodeSample from 'hew/CodeSample';
+import { Modal } from 'hew/Modal';
 
-import css from './ModelDownloadModal.module.scss';
+import { ModelVersion } from 'types';
 
 interface Props {
   modelVersion: ModelVersion;
@@ -13,14 +12,9 @@ const ModelDownloadModal = ({ modelVersion }: Props): JSX.Element => {
 
   return (
     <Modal size="medium" title="Download Model Command">
-      <div className={css.base}>
-        <div className={css.commandContainer}>
-          <code className={css.codeSample}>{downloadCommand}</code>
-          <div>
-            <ClipboardButton getContent={() => downloadCommand} />
-          </div>
-        </div>
-        <p className={css.bottomLine}>Copy/paste command into the Determined CLI</p>
+      <div>
+        <CodeSample text={downloadCommand} />
+        <p>Copy/paste command into the Determined CLI</p>
       </div>
     </Modal>
   );

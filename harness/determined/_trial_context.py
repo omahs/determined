@@ -5,6 +5,8 @@ from typing import Any, Dict
 import determined as det
 from determined import core
 
+logger = logging.getLogger("determined")
+
 
 class TrialContext:
     """
@@ -27,13 +29,13 @@ class TrialContext:
         """
         Create a context object suitable for debugging outside of Determined.
 
-        An example for a subclass of :class:`~determined.pytorch._pytorch_trial.PyTorchTrial`:
+        An example for a subclass of :class:`~determined.pytorch.deepspeed.DeepSpeedTrial`:
 
         .. code-block:: python
 
             config = { ... }
-            context = det.pytorch.PyTorchTrialContext.from_config(config)
-            my_trial = MyPyTorchTrial(context)
+            context = det.pytorch.deepspeed.DeepSpeedTrialContext.from_config(config)
+            my_trial = MyDeepSpeedTrial(context)
 
             train_ds = my_trial.build_training_data_loader()
             for epoch_idx in range(3):
@@ -110,7 +112,7 @@ class TrialContext:
                 "configuration 'hyperparameters' section.".format(name)
             )
         if name == "global_batch_size":
-            logging.warning(
+            logger.warning(
                 "Please use `context.get_per_slot_batch_size()` and "
                 "`context.get_global_batch_size()` instead of accessing "
                 "`global_batch_size` directly."
@@ -131,7 +133,7 @@ class TrialContext:
         if not isinstance(stop_requested, bool):
             raise AssertionError("stop_requested must be a boolean")
 
-        logging.info(
+        logger.info(
             "A trial stoppage has requested. The trial will be stopped "
             "at the end of the current step."
         )

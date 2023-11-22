@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/uptrace/bun"
 
 	"github.com/determined-ai/determined/master/internal/api"
@@ -19,7 +20,7 @@ import (
 type DB interface {
 	Migrate(migrationURL string, actions []string) error
 	Close() error
-	GetOrCreateClusterID() (string, error)
+	GetOrCreateClusterID(telemetryID string) (string, error)
 	CheckExperimentExists(id int) (bool, error)
 	CheckTrialExists(id int) (bool, error)
 	TrialExperimentAndRequestID(id int) (int, model.RequestID, error)
@@ -69,8 +70,6 @@ type DB interface {
 		queryName string, args []interface{}, v interface{}, params ...interface{}) error
 	RawQuery(queryName string, params ...interface{}) ([]byte, error)
 	UpdateResourceAllocationAggregation() error
-	TemplateByName(name string) (value model.Template, err error)
-	DeleteTemplate(name string) error
 	InsertTrialProfilerMetricsBatch(
 		values []float32, batches []int32, timestamps []time.Time, labels []byte,
 	) error
@@ -86,12 +85,9 @@ type DB interface {
 		batches []int32, endTime time.Time, err error)
 	ValidationMetricBatches(experimentID int, metricName string, startTime time.Time) (
 		batches []int32, endTime time.Time, err error)
-	TrainingTrialsSnapshot(experimentID int, minBatches int, maxBatches int,
-		metricName string, startTime time.Time) (trials []*apiv1.TrialsSnapshotResponse_Trial,
-		endTime time.Time, err error)
-	ValidationTrialsSnapshot(experimentID int, minBatches int, maxBatches int,
-		metricName string, startTime time.Time) (trials []*apiv1.TrialsSnapshotResponse_Trial,
-		endTime time.Time, err error)
+	TrialsSnapshot(experimentID int, minBatches int, maxBatches int,
+		metricName string, startTime time.Time, metricGroup model.MetricGroup) (
+		trials []*apiv1.TrialsSnapshotResponse_Trial, endTime time.Time, err error)
 	TopTrialsByTrainingLength(experimentID int, maxTrials int, metric string,
 		smallerIsBetter bool) (trials []int32, err error)
 	StartAllocationSession(allocationID model.AllocationID, owner *model.User) (string, error)
@@ -124,6 +120,7 @@ type DB interface {
 	EndAllTaskStats() error
 	RecordTaskEndStats(stats *model.TaskStats) error
 	RecordTaskStats(stats *model.TaskStats) error
+	UpdateJobPosition(jobID model.JobID, position decimal.Decimal) error
 }
 
 var (

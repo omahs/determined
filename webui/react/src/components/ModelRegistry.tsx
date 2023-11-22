@@ -5,21 +5,22 @@ import {
   SorterResult,
   TablePaginationConfig,
 } from 'antd/lib/table/interface';
+import Avatar from 'hew/Avatar';
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import Message from 'hew/Message';
+import { useModal } from 'hew/Modal';
+import Tags, { tagsActionHelper } from 'hew/Tags';
+import Toggle from 'hew/Toggle';
+import Tooltip from 'hew/Tooltip';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import DeleteModelModal from 'components/DeleteModelModal';
-import DynamicIcon from 'components/DynamicIcon';
 import FilterCounter from 'components/FilterCounter';
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Empty from 'components/kit/Empty';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import { useModal } from 'components/kit/Modal';
-import Tags, { tagsActionHelper } from 'components/kit/Tags';
-import Toggle from 'components/kit/Toggle';
-import Tooltip from 'components/kit/Tooltip';
 import Link from 'components/Link';
 import { ModelActionMenuKey as MenuKey, ModelActionDropdown } from 'components/ModelActionDropdown';
 import ModelCreateModal from 'components/ModelCreateModal';
@@ -49,7 +50,6 @@ import userStore from 'stores/users';
 import workspaceStore from 'stores/workspaces';
 import { ModelItem, Workspace } from 'types';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { validateDetApiEnum } from 'utils/service';
 import { alphaNumericSorter } from 'utils/sort';
@@ -338,7 +338,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
       if (!workspace) {
         return (
           <Link disabled>
-            <DynamicIcon name="-" size={24} />
+            <Avatar palette="muted" square text="-" />
           </Link>
         );
       }
@@ -352,7 +352,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
                   ? paths.projectDetails(workspaceId)
                   : paths.workspaceDetails(workspaceId)
               }>
-              <DynamicIcon name={workspace?.name} size={24} />
+              <Avatar palette="muted" square text={workspace?.name} />
             </Link>
           </div>
         </Tooltip>
@@ -416,7 +416,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
   );
 
   const columns = useMemo(() => {
-    const tagsRenderer = (value: string, record: ModelItem) => (
+    const tagsRenderer = (_CHART_HEIGHTvalue: string, record: ModelItem) => (
       <div className={css.tagsRenderer}>
         <Typography.Text
           ellipsis={{
@@ -521,7 +521,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
         })),
         isFiltered: (settings: Settings) => !!settings.workspace,
         key: V1GetModelsRequestSortBy.WORKSPACE,
-        render: (v: string, record: ModelItem) => workspaceRenderer(record),
+        render: (_v: string, record: ModelItem) => workspaceRenderer(record),
         sorter: true,
         title: 'Workspace',
       },
@@ -606,7 +606,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
   const handleTableChange = useCallback(
     (
       tablePagination: TablePaginationConfig,
-      tableFilters: Record<string, FilterValue | null>,
+      _tableFilters: Record<string, FilterValue | null>,
       tableSorter: SorterResult<ModelItem> | SorterResult<ModelItem>[],
     ) => {
       if (Array.isArray(tableSorter)) return;
@@ -692,7 +692,7 @@ const ModelRegistry: React.FC<Props> = ({ workspace }: Props) => {
         </Space>
       </div>
       {models.length === 0 && !isLoading && filterCount === 0 ? (
-        <Empty
+        <Message
           description={
             <>
               Track important checkpoints and versions from your experiments.{' '}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/determined-ai/determined/master/internal/experiment"
 	"github.com/determined-ai/determined/master/internal/workspace"
 
 	"github.com/pkg/errors"
@@ -15,7 +16,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/telemetry"
 	"github.com/determined-ai/determined/master/internal/user"
 	"github.com/determined-ai/determined/master/internal/webhooks"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
 	"github.com/determined-ai/determined/master/pkg/schemas"
@@ -91,7 +91,6 @@ func (m *Master) restoreExperiment(expModel *model.Experiment) error {
 	}
 	workspaceID := resolveWorkspaceID(workspaceModel)
 	poolName, err := m.rm.ResolveResourcePool(
-		m.system,
 		activeConfig.Resources().ResourcePool(),
 		workspaceID,
 		activeConfig.Resources().SlotsPerTrial(),
@@ -100,14 +99,12 @@ func (m *Master) restoreExperiment(expModel *model.Experiment) error {
 		return fmt.Errorf("invalid resource configuration: %w", err)
 	}
 	if err = m.rm.ValidateResources(
-		m.system,
 		poolName,
 		activeConfig.Resources().SlotsPerTrial(),
 		false); err != nil {
 		return fmt.Errorf("validating resources: %v", err)
 	}
 	taskContainerDefaults, err := m.rm.TaskContainerDefaults(
-		m.system,
 		poolName,
 		m.config.TaskContainerDefaults,
 	)
@@ -127,28 +124,28 @@ func (m *Master) restoreExperiment(expModel *model.Experiment) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to restore experiment %d", expModel.ID)
 	}
-	e, _, err := newExperiment(m, expModel, activeConfig, &taskSpec, m.system)
+	e, _, err := newExperiment(m, expModel, activeConfig, &taskSpec)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create experiment %d from model", expModel.ID)
 	}
 	if snapshot != nil {
-		if err := e.Restore(snapshot); err != nil {
+		if err := e.restore(snapshot); err != nil {
 			return errors.Wrap(err, "failed to restore experiment")
 		}
 		e.restored = true
 	}
 
-	experimentActor, _ := m.system.ActorOf(actor.Addr("experiments", e.ID), e)
-	// Wait for experiment to run PreStart, which waits for trial PreStarts,
-	// which in turn waits for allocations to be initialized.
-	m.system.Ask(experimentActor, actor.Ping{}).Get()
+	if err := e.Start(); err != nil {
+		return errors.Wrapf(err, "failed to start experiment %d", expModel.ID)
+	}
+
 	return nil
 }
 
 // restoreTrial takes the a searcher.Create and attempts to restore the trial that would be
 // associated with it. On failure, the trial is just reset to the start and errors are logged.
-func (e *experiment) restoreTrial(
-	ckpt *model.Checkpoint, searcher trialSearcherState,
+func (e *internalExperiment) restoreTrial(
+	ckpt *model.Checkpoint, searcher experiment.TrialSearcherState,
 ) {
 	l := e.syslog.WithField("request-id", searcher.Create.RequestID)
 	l.Debug("restoring trial")
@@ -177,6 +174,21 @@ func (e *experiment) restoreTrial(
 		}
 	}
 
+	taskID := trialTaskID(e.ID, searcher.Create.RequestID)
+	if !terminal && trialID != nil {
+		trialTaskIDs, err := db.TrialTaskIDsByTrialID(context.TODO(), *trialID)
+		switch {
+		case err != nil:
+			l.WithError(err).Error("failed to retrieve trial's tasks, stopping restore")
+			terminal = true
+		case len(trialTaskIDs) == 0:
+			l.Errorf("trial %d in restoring has no task IDs, stopping restore", *trialID)
+			terminal = true
+		default:
+			taskID = trialTaskIDs[len(trialTaskIDs)-1].TaskID
+		}
+	}
+
 	// In the event a trial is terminal and is not recorded in the searcher, replay the close.
 	if terminal {
 		if !e.searcher.TrialIsClosed(searcher.Create.RequestID) {
@@ -192,9 +204,9 @@ func (e *experiment) restoreTrial(
 
 	config := schemas.Copy(e.activeConfig)
 	t, err := newTrial(
-		e.logCtx, trialTaskID(e.ID, searcher.Create.RequestID), e.JobID, e.StartTime, e.ID, e.State,
+		e.logCtx, taskID, e.JobID, e.StartTime, e.ID, e.State,
 		searcher, e.rm, e.db, config, ckpt, e.taskSpec, e.generatedKeys, true, trialID,
-		e.system, e.self, e.TrialClosed,
+		nil, e.TrialClosed,
 	)
 	if err != nil {
 		l.WithError(err).Error("failed restoring trial, aborting restore")
@@ -224,8 +236,8 @@ func (m *Master) retrieveExperimentSnapshot(expModel *model.Experiment) ([]byte,
 	}
 }
 
-func (e *experiment) snapshotAndSave() {
-	es, err := e.Snapshot()
+func (e *internalExperiment) snapshotAndSave() {
+	es, err := e.snapshot()
 	if err != nil {
 		e.faultToleranceEnabled = false
 		e.syslog.WithError(err).Errorf("failed to snapshot experiment, fault tolerance is lost")

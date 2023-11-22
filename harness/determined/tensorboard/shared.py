@@ -7,7 +7,7 @@ from typing import Any, List
 from determined import util
 from determined.tensorboard import base
 
-logger = logging.getLogger("determined.tensorboard")
+logger = logging.getLogger("determined.tensorboard.shared")
 
 
 class SharedFSTensorboardManager(base.TensorboardManager):
@@ -38,7 +38,7 @@ class SharedFSTensorboardManager(base.TensorboardManager):
             mangled_relative_path = path_info.mangled_relative_path
             mangled_path = self.shared_fs_base.joinpath(mangled_relative_path)
             pathlib.Path.mkdir(mangled_path.parent, parents=True, exist_ok=True)
-            logger.debug(f"SharedFSTensorboardManager saving {path} to {mangled_path}")
+            logger.debug(f"{self.__class__.__name__} saving {path} to {mangled_path}")
 
             shutil.copy(path, mangled_path)
 

@@ -1,7 +1,7 @@
 import { render, RenderResult } from '@testing-library/react';
+import UIProvider, { DefaultTheme } from 'hew/Theme';
 import React from 'react';
 
-import { UIProvider } from 'components/kit/Theme';
 import usePermissions from 'hooks/usePermissions';
 import { ActionWorkspaceParams } from 'services/types';
 
@@ -20,7 +20,7 @@ vi.mock('services/api', () => ({
 }));
 
 vi.mock('stores/users', async (importOriginal) => {
-  const loadable = await import('utils/loadable');
+  const loadable = await import('hew/utils/loadable');
   const observable = await import('utils/observable');
   const store = {
     currentUser: observable.observable(
@@ -62,7 +62,7 @@ const PermissionRenderer: React.FC<Props> = () => {
 
 export const setup = async (): Promise<RenderResult> => {
   return await render(
-    <UIProvider>
+    <UIProvider theme={DefaultTheme.Light}>
       <PermissionRenderer workspaceId={1} />
     </UIProvider>,
   );

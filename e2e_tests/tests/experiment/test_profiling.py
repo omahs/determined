@@ -1,24 +1,23 @@
 import json
-import os
 import tempfile
 from typing import Any, Dict, Optional, Sequence
 from urllib.parse import urlencode
 
 import pytest
 
-from determined.common import api, yaml
+from determined.common import api, util
 from determined.common.api import authentication, bindings, certs
 from tests import config as conf
 from tests import experiment as exp
 
 
 @pytest.mark.e2e_gpu
+@pytest.mark.e2e_slurm_gpu
 @pytest.mark.timeout(30 * 60)
 @pytest.mark.parametrize(
     "model_def,timings_enabled",
     [
-        (conf.tutorials_path("mnist_pytorch"), True),
-        (conf.tutorials_path("fashion_mnist_tf_keras"), False),
+        (conf.fixtures_path("mnist_pytorch"), True),
     ],
 )
 def test_streaming_observability_metrics_apis(model_def: str, timings_enabled: bool) -> None:
@@ -26,13 +25,12 @@ def test_streaming_observability_metrics_apis(model_def: str, timings_enabled: b
     certs.cli_cert = certs.default_load(conf.make_master_url())
     authentication.cli_auth = authentication.Authentication(conf.make_master_url())
 
-    config_path = os.path.join(model_def, "const.yaml")
+    config_path = conf.fixtures_path("mnist_pytorch/const-profiling.yaml")
 
     config_obj = conf.load_config(config_path)
-    config_obj = conf.set_profiling_enabled(config_obj)
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
-            yaml.dump(config_obj, f)
+            util.yaml_safe_dump(config_obj, f)
         experiment_id = exp.create_experiment(tf.name, model_def)
 
     exp.wait_for_experiment_state(experiment_id, bindings.experimentv1State.COMPLETED)

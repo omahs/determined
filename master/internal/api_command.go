@@ -26,8 +26,9 @@ import (
 	"github.com/determined-ai/determined/master/internal/db"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
 	"github.com/determined-ai/determined/master/internal/rbac/audit"
+	"github.com/determined-ai/determined/master/internal/sproto"
+	"github.com/determined-ai/determined/master/internal/templates"
 	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/archive"
 	"github.com/determined-ai/determined/master/pkg/check"
 	pkgCommand "github.com/determined-ai/determined/master/pkg/command"
@@ -38,15 +39,12 @@ import (
 	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
 	"github.com/determined-ai/determined/master/pkg/tasks"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
-	"github.com/determined-ai/determined/proto/pkg/commandv1"
 	"github.com/determined-ai/determined/proto/pkg/utilv1"
 )
 
 const (
 	commandEntrypoint = "/run/determined/command-entrypoint.sh"
 )
-
-var commandsAddr = actor.Addr("commands")
 
 func getRandomPort(min, max int) int {
 	//nolint:gosec // Weak RNG doesn't matter here.
@@ -63,7 +61,7 @@ type protoCommandParams struct {
 
 func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoCommandParams,
 	aUser *model.User) (
-	*tasks.GenericCommandSpec, []pkgCommand.LaunchWarning, error,
+	*command.CreateGeneric, []pkgCommand.LaunchWarning, error,
 ) {
 	var err error
 	cmdSpec := tasks.GenericCommandSpec{}
@@ -81,7 +79,8 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 			status.Errorf(codes.Unauthenticated, "failed to get the user: %s", err)
 	}
 
-	agentUserGroup, err := user.GetAgentUserGroup(userModel.ID, int(cmdSpec.Metadata.WorkspaceID))
+	// TODO(ilia): When commands are workspaced, also use workspace AgentUserGroup here.
+	agentUserGroup, err := user.GetAgentUserGroup(ctx, userModel.ID, int(cmdSpec.Metadata.WorkspaceID))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -101,18 +100,19 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 		resources.Slots = 0
 	}
 	poolName, err := a.m.rm.ResolveResourcePool(
-		a.m.system, resources.ResourcePool, int(req.WorkspaceID), resources.Slots)
+		resources.ResourcePool, int(cmdSpec.Metadata.WorkspaceID), resources.Slots)
 	if err != nil {
 		return nil, nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
-	if err = a.m.rm.ValidateResources(a.m.system, poolName, resources.Slots, true); err != nil {
+	if err = a.m.rm.ValidateResources(poolName, resources.Slots, true); err != nil {
 		return nil, nil, fmt.Errorf("validating resources: %v", err)
 	}
 
 	launchWarnings, err := a.m.rm.ValidateResourcePoolAvailability(
-		a.m.system,
-		poolName,
-		resources.Slots,
+		&sproto.ValidateResourcePoolAvailabilityRequest{
+			Name:  poolName,
+			Slots: resources.Slots,
+		},
 	)
 	if err != nil {
 		return nil, launchWarnings, fmt.Errorf("checking resource availability: %v", err.Error())
@@ -124,7 +124,6 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 	}
 	// Get the base TaskSpec.
 	taskContainerDefaults, err := a.m.rm.TaskContainerDefaults(
-		a.m.system,
 		poolName,
 		a.m.config.TaskContainerDefaults,
 	)
@@ -139,7 +138,7 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 	// Get the full configuration.
 	config := model.DefaultConfig(&taskSpec.TaskContainerDefaults)
 	if req.TemplateName != "" {
-		err := a.m.unmarshalTemplateConfig(ctx, req.TemplateName, aUser, &config, false)
+		err := templates.UnmarshalTemplateConfig(ctx, req.TemplateName, aUser, &config, false)
 		if err != nil {
 			return nil, launchWarnings, err
 		}
@@ -172,9 +171,9 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 		(*expconf.PodSpec)(taskContainerPodSpec),
 	))
 
-	var userFiles archive.Archive
+	var contextDirectory []byte
 	if len(req.Files) > 0 {
-		userFiles = filesToArchive(req.Files)
+		userFiles := filesToArchive(req.Files)
 
 		workdirSetInReq := config.WorkDir != nil &&
 			(workDirInDefaults == nil || *workDirInDefaults != *config.WorkDir)
@@ -183,11 +182,17 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 				"cannot set work_dir and context directory at the same time")
 		}
 		config.WorkDir = nil
+
+		contextDirectory, err = archive.ToTarGz(userFiles)
+		if err != nil {
+			return nil, launchWarnings, status.Errorf(codes.InvalidArgument,
+				fmt.Errorf("compressing files context files: %w", err).Error())
+		}
 	}
 
 	extConfig := mconfig.GetMasterConfig().InternalConfig.ExternalSessions
 	var token string
-	if extConfig.JwtKey != "" {
+	if extConfig.Enabled() {
 		token, err = grpcutil.GetUserExternalToken(ctx)
 		if err != nil {
 			return nil, launchWarnings, status.Errorf(codes.Internal,
@@ -207,8 +212,11 @@ func (a *apiServer) getCommandLaunchParams(ctx context.Context, req *protoComman
 
 	cmdSpec.Base = taskSpec
 	cmdSpec.Config = config
-	cmdSpec.UserFiles = userFiles
-	return &cmdSpec, launchWarnings, nil
+
+	return &command.CreateGeneric{
+		Spec:             &cmdSpec,
+		ContextDirectory: contextDirectory,
+	}, launchWarnings, nil
 }
 
 func (a *apiServer) GetCommands(
@@ -235,7 +243,8 @@ func (a *apiServer) GetCommands(
 			return nil, err
 		}
 	}
-	if err = a.ask(commandsAddr, req, &resp); err != nil {
+	resp, err = command.DefaultCmdService.GetCommands(req)
+	if err != nil {
 		return nil, err
 	}
 
@@ -249,31 +258,31 @@ func (a *apiServer) GetCommands(
 		return nil, workspaceNotFoundErr
 	}
 
-	a.filter(&resp.Commands, func(i int) bool {
+	api.Where(&resp.Commands, func(i int) bool {
 		return limitedScopes[model.AccessScopeID(resp.Commands[i].WorkspaceId)]
 	})
 
-	a.sort(resp.Commands, req.OrderBy, req.SortBy, apiv1.GetCommandsRequest_SORT_BY_ID)
-	return resp, a.paginate(&resp.Pagination, &resp.Commands, req.Offset, req.Limit)
+	api.Sort(resp.Commands, req.OrderBy, req.SortBy, apiv1.GetCommandsRequest_SORT_BY_ID)
+	return resp, api.Paginate(&resp.Pagination, &resp.Commands, req.Offset, req.Limit)
 }
 
 func (a *apiServer) GetCommand(
 	ctx context.Context, req *apiv1.GetCommandRequest,
-) (resp *apiv1.GetCommandResponse, err error) {
+) (*apiv1.GetCommandResponse, error) {
 	curUser, _, err := grpcutil.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	addr := commandsAddr.Child(req.CommandId)
-	if err := a.ask(addr, req, &resp); err != nil {
+	resp, err := command.DefaultCmdService.GetCommand(req)
+	if err != nil {
 		return nil, err
 	}
 
 	ctx = audit.SupplyEntityID(ctx, req.CommandId)
 	if err := command.AuthZProvider.Get().CanGetNSC(
 		ctx, *curUser, model.AccessScopeID(resp.Command.WorkspaceId)); err != nil {
-		return nil, authz.SubIfUnauthorized(err, api.NotFoundErrs("actor", fmt.Sprint(addr), true))
+		return nil, authz.SubIfUnauthorized(err, api.NotFoundErrs("command", req.CommandId, true))
 	}
 	return resp, nil
 }
@@ -303,7 +312,12 @@ func (a *apiServer) KillCommand(
 		return nil, err
 	}
 
-	return resp, a.ask(commandsAddr.Child(req.CommandId), req, &resp)
+	cmd, err := command.DefaultCmdService.KillNTSC(req.CommandId, model.TaskTypeCommand)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.KillCommandResponse{Command: cmd.ToV1Command()}, nil
 }
 
 func (a *apiServer) SetCommandPriority(
@@ -330,7 +344,12 @@ func (a *apiServer) SetCommandPriority(
 		return nil, err
 	}
 
-	return resp, a.ask(commandsAddr.Child(req.CommandId), req, &resp)
+	cmd, err := command.DefaultCmdService.SetNTSCPriority(req.CommandId, int(req.Priority), model.TaskTypeCommand)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.SetCommandPriorityResponse{Command: cmd.ToV1Command()}, nil
 }
 
 func (a *apiServer) LaunchCommand(
@@ -341,7 +360,7 @@ func (a *apiServer) LaunchCommand(
 		return nil, status.Errorf(codes.Internal, "failed to get the user: %s", err)
 	}
 
-	spec, launchWarnings, err := a.getCommandLaunchParams(ctx, &protoCommandParams{
+	launchReq, launchWarnings, err := a.getCommandLaunchParams(ctx, &protoCommandParams{
 		TemplateName: req.TemplateName,
 		WorkspaceID:  req.WorkspaceId,
 		Config:       req.Config,
@@ -352,21 +371,23 @@ func (a *apiServer) LaunchCommand(
 			"failed to prepare launch params")
 	}
 
-	if err = a.isNTSCPermittedToLaunch(ctx, spec, user); err != nil {
+	if err = a.isNTSCPermittedToLaunch(ctx, launchReq.Spec, user); err != nil {
 		return nil, err
 	}
 
-	// Postprocess the spec.
-	if spec.Config.Description == "" {
-		spec.Config.Description = fmt.Sprintf(
+	// Postprocess the launchReq.Spec.
+	if launchReq.Spec.Config.Description == "" {
+		launchReq.Spec.Config.Description = fmt.Sprintf(
 			"Command (%s)",
 			petname.Generate(expconf.TaskNameGeneratorWords, expconf.TaskNameGeneratorSep),
 		)
 	}
 
-	spec.Config.Entrypoint = append([]string{commandEntrypoint}, spec.Config.Entrypoint...)
-	spec.AdditionalFiles = archive.Archive{
-		spec.Base.AgentUserGroup.OwnedArchiveItem(
+	launchReq.Spec.Config.Entrypoint = append(
+		[]string{commandEntrypoint}, launchReq.Spec.Config.Entrypoint...,
+	)
+	launchReq.Spec.AdditionalFiles = archive.Archive{
+		launchReq.Spec.Base.AgentUserGroup.OwnedArchiveItem(
 			commandEntrypoint,
 			etc.MustStaticFile(etc.CommandEntrypointResource),
 			0o700,
@@ -374,29 +395,29 @@ func (a *apiServer) LaunchCommand(
 		),
 	}
 
-	if err = check.Validate(spec.Config); err != nil {
+	if err = check.Validate(launchReq.Spec.Config); err != nil {
 		return nil, status.Errorf(
 			codes.InvalidArgument,
 			"invalid command config: %s",
 			err.Error(),
 		)
 	}
-	spec.Base.ExtraEnvVars = map[string]string{"DET_TASK_TYPE": string(model.TaskTypeCommand)}
-
-	// Launch a command actor.
-	var cmdID model.TaskID
-	if err = a.ask(commandsAddr, *spec, &cmdID); err != nil {
-		return nil, err
+	launchReq.Spec.Base.ExtraEnvVars = map[string]string{
+		"DET_TASK_TYPE": string(model.TaskTypeCommand),
 	}
 
-	var cmd *commandv1.Command
-	if err = a.ask(commandsAddr.Child(cmdID), &commandv1.Command{}, &cmd); err != nil {
+	// Launch a command.
+	cmd, err := command.DefaultCmdService.LaunchGenericCommand(
+		model.TaskTypeCommand,
+		model.JobTypeCommand,
+		launchReq)
+	if err != nil {
 		return nil, err
 	}
 
 	return &apiv1.LaunchCommandResponse{
-		Command:  cmd,
-		Config:   protoutils.ToStruct(spec.Config),
+		Command:  cmd.ToV1Command(),
+		Config:   protoutils.ToStruct(launchReq.Spec.Config),
 		Warnings: pkgCommand.LaunchWarningToProto(launchWarnings),
 	}, nil
 }

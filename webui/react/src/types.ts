@@ -1,3 +1,4 @@
+import * as t from 'io-ts';
 import { RouteProps } from 'react-router-dom';
 
 import * as Api from 'services/api-ts-sdk';
@@ -10,16 +11,31 @@ export type NullOrUndefined<T = undefined> = T | null | undefined;
 export type Point = { x: number; y: number };
 export type Range<T = Primitive> = [T, T];
 export type Eventually<T> = T | Promise<T>;
+type Without<T, U> = { [P in Exclude<keyof T, keyof U>]?: never };
+// XOR is taken from: https://stackoverflow.com/a/53229857
+export type XOR<T, U> = T | U extends object ? (Without<T, U> & U) | (Without<U, T> & T) : T | U;
 
 // DEPRECATED
 /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
 export type RawJson = Record<string, any>;
 
-export type JsonArray = Array<Json>;
-export interface JsonObject {
-  [key: string]: Json;
-}
+// these codecs have types defined because recursive types like these can't be inferred
+export type JsonArray = Json[];
+export const JsonArray: t.RecursiveType<t.Type<JsonArray>> = t.recursion('JsonArray', () =>
+  t.array(Json),
+);
+
+export type JsonObject = {
+  [key in string]: Json;
+};
+export const JsonObject: t.RecursiveType<t.Type<JsonObject>> = t.recursion('JsonObject', () =>
+  t.record(t.string, Json),
+);
+
 export type Json = string | number | boolean | null | JsonArray | JsonObject;
+export const Json = t.recursion<Json>('Json', () =>
+  t.union([t.string, t.number, t.boolean, t.null, JsonArray, JsonObject]),
+);
 
 export interface Pagination {
   limit: number;
@@ -117,6 +133,7 @@ export interface User {
   id: number;
   modifiedAt?: number;
   username: string;
+  lastAuthAt?: number;
 }
 
 export interface DetailedUser extends User {
@@ -124,6 +141,7 @@ export interface DetailedUser extends User {
   id: number;
   isActive: boolean;
   isAdmin: boolean;
+  remote?: boolean;
 }
 
 export interface DetailedUserList extends WithPagination {
@@ -282,6 +300,7 @@ export interface Command {
 export const CheckpointStorageType = {
   AWS: 'aws',
   AZURE: 'azure',
+  DIRECTORY: 'directory',
   GCS: 'gcs',
   S3: 's3',
   SharedFS: 'shared_fs',
@@ -382,7 +401,7 @@ export interface ExperimentConfig {
 export const ExperimentAction = {
   Activate: 'Resume',
   Archive: 'Archive',
-  Cancel: 'Cancel',
+  Cancel: 'Stop',
   CompareTrials: 'Compare Trials',
   ContinueTrial: 'Continue Trial',
   Delete: 'Delete',
@@ -747,7 +766,7 @@ export interface ModelPagination extends WithPagination {
   models: ModelItem[];
 }
 
-export interface ModelVersions extends WithPagination {
+export interface ModelWithVersions extends WithPagination {
   model: ModelItem;
   modelVersions: ModelVersion[];
 }
@@ -1033,7 +1052,7 @@ export interface WorkspacePermissionsArgs {
 export interface WorkspaceMembersResponse {
   assignments: Api.V1RoleWithAssignments[];
   groups: Api.V1Group[];
-  usersAssignedDirectly: User[];
+  usersAssignedDirectly: DetailedUser[];
 }
 
 export interface Webhook {
@@ -1066,3 +1085,26 @@ export interface HpTrialData {
   metricValues: number[];
   trialIds: number[];
 }
+
+/**
+ * @typedef Serie
+ * Represents a single Series to display on the chart.
+ * @param {string} [color] - A CSS-compatible color to directly set the line and tooltip color for the Serie. Defaults to glasbeyColor.
+ * @param {Partial<Record<XAxisDomain, [x: number, y: number][]>>} data - An array of ordered [x, y] points for each axis.
+ * @param {string} [name] - Name to display in legend and toolip instead of Series number.
+ */
+
+export interface Serie {
+  color?: string;
+  data: Partial<Record<XAxisDomain, [x: number, y: number][]>>;
+  key?: number;
+  name?: string;
+}
+
+export const XAxisDomain = {
+  Batches: 'Batches',
+  Epochs: 'Epoch',
+  Time: 'Time',
+} as const;
+
+export type XAxisDomain = ValueOf<typeof XAxisDomain>;

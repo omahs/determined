@@ -21,7 +21,7 @@ from determined import cli
 from determined.cli import checkpoint, render
 from determined.cli.command import CONFIG_DESC, parse_config_overrides
 from determined.cli.errors import CliError
-from determined.common import api, context, set_logger, util, yaml
+from determined.common import api, context, set_logger, util
 from determined.common.api import authentication, bindings, logs
 from determined.common.declarative_argparse import Arg, Cmd, Group
 from determined.experimental import client
@@ -105,7 +105,7 @@ def read_git_metadata(model_def_path: pathlib.Path) -> Tuple[str, str, str, str]
         remote_url = repo.git.config(f"remote.{remote_name}.url", get=True)
         print(f"Using remote URL '{remote_url}' from upstream branch '{upstream_branch}'")
     except Exception as e:
-        raise CliError("Failed to find the upstream branch: ", e)
+        raise CliError(f"Failed to find the upstream branch: {e}")
 
     return (remote_url, commit_hash, committer, commit_date)
 
@@ -243,7 +243,7 @@ def submit_experiment(args: Namespace) -> None:
         # The user provided tweaks as cli args, so we have to reserialize the submitted experiment
         # config.  This will unfortunately remove comments they had in the yaml, so we only do it
         # when we have to.
-        yaml_dump = yaml.dump(experiment_config)
+        yaml_dump = util.yaml_safe_dump(experiment_config)
         assert yaml_dump is not None
         config_text = yaml_dump
 
@@ -272,7 +272,7 @@ def submit_experiment(args: Namespace) -> None:
         print(termcolor.colored("Creating test experiment...", "yellow"), end="\r")
         req.validateOnly = False
         test_config = det._make_test_experiment_config(experiment_config)
-        req.config = yaml.dump(test_config)
+        req.config = util.yaml_safe_dump(test_config)
         resp = bindings.post_CreateExperiment(sess, body=req)
         print(termcolor.colored(f"Created test experiment {resp.experiment.id}", "green"))
 
@@ -295,6 +295,31 @@ def submit_experiment(args: Namespace) -> None:
                     _follow_experiment_logs(sess, resp.experiment.id)
             else:
                 _follow_experiment_logs(sess, resp.experiment.id)
+
+
+@authentication.required
+def continue_experiment(args: Namespace) -> None:
+    if args.config_file:
+        config_text = args.config_file.read()
+        args.config_file.close()
+        experiment_config = _parse_config_text_or_exit(
+            config_text, args.config_file.name, args.config
+        )
+    else:
+        experiment_config = parse_config_overrides({}, args.config)
+
+    config_text = util.yaml_safe_dump(experiment_config)
+
+    sess = cli.setup_session(args)
+    req = bindings.v1ContinueExperimentRequest(
+        id=args.experiment_id,
+        overrideConfig=config_text,
+    )
+    bindings.post_ContinueExperiment(sess, body=req)
+    print(f"Continued experiment {args.experiment_id}")
+
+    if args.follow_first_trial:
+        _follow_experiment_logs(sess, args.experiment_id)
 
 
 def local_experiment(args: Namespace) -> None:
@@ -591,7 +616,7 @@ def experiment_logs(args: Namespace) -> None:
     sess = cli.setup_session(args)
     trials = bindings.get_GetExperimentTrials(sess, experimentId=args.experiment_id).trials
     if len(trials) == 0:
-        raise cli.not_found_errs("experiment", args.experiment_id, sess)
+        raise api.not_found_errs("experiment", args.experiment_id, sess)
     first_trial_id = sorted(t_id.id for t_id in trials)[0]
     try:
         logs = api.trial_logs(
@@ -629,7 +654,7 @@ def config(args: Namespace) -> None:
     result = bindings.get_GetExperiment(
         cli.setup_session(args), experimentId=args.experiment_id
     ).experiment.config
-    yaml.safe_dump(result, stream=sys.stdout, default_flow_style=False)
+    util.yaml_safe_dump(result, stream=sys.stdout, default_flow_style=False)
 
 
 @authentication.required
@@ -642,9 +667,20 @@ def download_model_def(args: Namespace) -> None:
 
 @authentication.required
 def download(args: Namespace) -> None:
-    exp = client.ExperimentReference(args.experiment_id, cli.setup_session(args))
-    checkpoints = exp.top_n_checkpoints(
-        args.top_n, sort_by=args.sort_by, smaller_is_better=args.smaller_is_better
+    sess = cli.setup_session(args)
+    exp = client.Experiment(args.experiment_id, sess)
+
+    ckpt_order_by = None
+
+    if args.smaller_is_better is True:
+        ckpt_order_by = client.OrderBy.ASC
+    if args.smaller_is_better is False:
+        ckpt_order_by = client.OrderBy.DESC
+
+    checkpoints = exp.list_checkpoints(
+        sort_by=args.sort_by,
+        order_by=ckpt_order_by,
+        max_results=args.top_n,
     )
 
     top_level = pathlib.Path(args.output_dir)
@@ -666,7 +702,8 @@ def kill_experiment(args: Namespace) -> None:
 
 @authentication.required
 def wait(args: Namespace) -> None:
-    exp = client.ExperimentReference(args.experiment_id, cli.setup_session(args))
+    sess = cli.setup_session(args)
+    exp = client.Experiment(args.experiment_id, sess)
     state = exp.wait(interval=args.polling_interval)
     if state != client.ExperimentState.COMPLETED:
         sys.exit(1)
@@ -964,6 +1001,12 @@ def move_experiment(args: Namespace) -> None:
     print(f'Moved experiment {args.experiment_id} to project "{args.project_name}"')
 
 
+@cli.login_sdk_client
+def delete_tensorboard_files(args: Namespace) -> None:
+    exp = client.get_experiment(args.experiment_id)
+    exp.delete_tensorboard_files()
+
+
 def none_or_int(string: str) -> Optional[int]:
     if string.lower().strip() in ("null", "none"):
         return None
@@ -1091,7 +1134,8 @@ main_cmd = Cmd(
                     "--local",
                     action="store_true",
                     help="Create the experiment in local mode instead of submitting it to the "
-                    "cluster. For more information, see documentation on det.experimental.create()",
+                    "cluster. Requires --test. For more information, visit How to Debug Models "
+                    "(https://docs.determined.ai/latest/model-dev-guide/debug-models.html).",
                 ),
                 Arg(
                     "--template",
@@ -1127,6 +1171,23 @@ main_cmd = Cmd(
                     default=[],
                     type=str,
                     help="publish task ports to the host",
+                ),
+            ],
+        ),
+        # Continue experiment command.
+        Cmd(
+            "continue",
+            continue_experiment,
+            "resume or recover training for a single-searcher experiment",
+            [
+                experiment_id_arg("experiment ID to continue"),
+                Arg("--config-file", type=FileType("r"), help="experiment config file (.yaml)"),
+                Arg("--config", action="append", default=[], help=CONFIG_DESC),
+                Arg(
+                    "-f",
+                    "--follow-first-trial",
+                    action="store_true",
+                    help="follow logs of the trial that is being continued",
                 ),
             ],
         ),
@@ -1343,6 +1404,14 @@ main_cmd = Cmd(
                         Arg("priority", type=int, help="priority"),
                     ],
                 ),
+            ],
+        ),
+        Cmd(
+            "delete-tb-files",
+            delete_tensorboard_files,
+            "delete TensorBoard files associated with the provided experiment ID",
+            [
+                Arg("experiment_id", type=int, help="Experiment ID"),
             ],
         ),
     ],

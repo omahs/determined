@@ -251,7 +251,7 @@ export interface CreateExperimentParams {
   activate?: boolean;
   experimentConfig: string;
   parentId: number;
-  projectId: number;
+  projectId?: number;
 }
 
 export interface PatchExperimentParams extends ExperimentIdParams {
@@ -333,14 +333,11 @@ export interface GetJobQStatsParams extends FetchOptions {
 }
 
 export interface GetUsersParams extends PaginationParams {
+  active?: boolean;
+  admin?: boolean;
   name?: string;
-  sortBy?:
-    | 'SORT_BY_UNSPECIFIED'
-    | 'SORT_BY_USER_NAME'
-    | 'SORT_BY_DISPLAY_NAME'
-    | 'SORT_BY_ADMIN'
-    | 'SORT_BY_ACTIVE'
-    | 'SORT_BY_MODIFIED_TIME';
+  roleIdAssignedDirectlyToUser?: number[];
+  sortBy?: Api.V1GetUsersRequestSortBy;
 }
 export interface GetUserParams {
   userId: number;
@@ -359,6 +356,17 @@ export interface SetUserPasswordParams {
 export interface PatchUserParams {
   userId: number;
   userParams: Api.V1PatchUser;
+}
+
+export interface PatchUsersParams {
+  activate: boolean;
+  userIds: number[];
+}
+
+export interface AssignMultipleGroupsParams {
+  userIds: number[];
+  addGroups: number[];
+  removeGroups: number[];
 }
 
 export interface CreateGroupsParams {

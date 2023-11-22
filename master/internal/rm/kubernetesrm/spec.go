@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/pkg/archive"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/device"
@@ -99,7 +100,6 @@ func (p *pod) configureEnvVars(
 	envVarsMap["DET_MASTER_HOST"] = p.masterIP
 	envVarsMap["DET_MASTER_ADDR"] = p.masterIP
 	envVarsMap["DET_MASTER_PORT"] = fmt.Sprintf("%d", p.masterPort)
-	envVarsMap["DET_AGENT_ID"] = "k8agent"
 	envVarsMap["DET_SLOT_IDS"] = fmt.Sprintf("[%s]", strings.Join(slotIds, ","))
 	if p.masterTLSConfig.CertificateName != "" {
 		envVarsMap["DET_MASTER_CERT_NAME"] = p.masterTLSConfig.CertificateName
@@ -115,7 +115,10 @@ func (p *pod) configureEnvVars(
 	for envVarKey, envVarValue := range envVarsMap {
 		envVars = append(envVars, k8sV1.EnvVar{Name: envVarKey, Value: envVarValue})
 	}
-
+	envVars = append(envVars, k8sV1.EnvVar{
+		Name:      "DET_AGENT_ID",
+		ValueFrom: &k8sV1.EnvVarSource{FieldRef: &k8sV1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
+	})
 	return envVars, nil
 }
 
@@ -216,6 +219,39 @@ func (p *pod) modifyPodSpec(newPod *k8sV1.Pod, scheduler string) {
 }
 
 func addNodeDisabledAffinityToPodSpec(pod *k8sV1.Pod, clusterID string) {
+	addNodeSelectorRequirement(pod, k8sV1.NodeSelectorRequirement{
+		Key:      clusterID,
+		Operator: k8sV1.NodeSelectorOpDoesNotExist,
+	}, addOnLabel)
+
+	// TODO once k8s supports
+	// RequiredDuringSchedulingRequiredDuringExecution
+	// we can add two node affininties for noExecuteNodeLabel and noScheduleNodeLabel
+	// so we can skip the step in k8s disable where we kill everything in non drain.
+}
+
+func addDisallowedNodesToPodSpec(req *sproto.AllocateRequest, pod *k8sV1.Pod) {
+	// Can't just replace []string{nodeName} with
+	// logpattern.DisallowedNodes(taskID).ToSlice() and not loop
+	// because of the k8s error given "Required value:
+	// must be only one value when `operator` is 'In' or 'NotIn' for node field selector".
+	for _, nodeName := range req.BlockedNodes {
+		addNodeSelectorRequirement(pod, k8sV1.NodeSelectorRequirement{
+			Key:      "metadata.name",
+			Operator: k8sV1.NodeSelectorOpNotIn,
+			Values:   []string{nodeName},
+		}, addOnField)
+	}
+}
+
+const (
+	addOnLabel = true
+	addOnField = false
+)
+
+func addNodeSelectorRequirement(
+	pod *k8sV1.Pod, req k8sV1.NodeSelectorRequirement, onLabel bool,
+) {
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &k8sV1.Affinity{}
 	}
@@ -229,28 +265,30 @@ func addNodeDisabledAffinityToPodSpec(pod *k8sV1.Pod, clusterID string) {
 	}
 	nodeSelector := nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 
-	term := k8sV1.NodeSelectorTerm{
-		MatchExpressions: []k8sV1.NodeSelectorRequirement{
-			{
-				Key:      clusterID,
-				Operator: k8sV1.NodeSelectorOpDoesNotExist,
-			},
-		},
+	if len(nodeSelector.NodeSelectorTerms) == 0 {
+		nodeSelector.NodeSelectorTerms = append(nodeSelector.NodeSelectorTerms,
+			k8sV1.NodeSelectorTerm{})
+	}
+
+	reqs := nodeSelector.NodeSelectorTerms[0].MatchFields
+	if onLabel {
+		reqs = nodeSelector.NodeSelectorTerms[0].MatchExpressions
 	}
 
 	// Make function idempotent.
-	for _, n := range nodeSelector.NodeSelectorTerms {
-		if reflect.DeepEqual(n, term) {
+	for _, r := range reqs {
+		if reflect.DeepEqual(r, req) {
 			return
 		}
 	}
 
-	nodeSelector.NodeSelectorTerms = append(nodeSelector.NodeSelectorTerms, term)
-
-	// TODO once k8s supports
-	// RequiredDuringSchedulingRequiredDuringExecution
-	// we can add two node affininties for noExecuteNodeLabel and noScheduleNodeLabel
-	// so we can skip the step in k8s disable where we kill everything in non drain.
+	if onLabel {
+		nodeSelector.NodeSelectorTerms[0].MatchExpressions = append(
+			nodeSelector.NodeSelectorTerms[0].MatchExpressions, req)
+	} else {
+		nodeSelector.NodeSelectorTerms[0].MatchFields = append(
+			nodeSelector.NodeSelectorTerms[0].MatchFields, req)
+	}
 }
 
 func (p *pod) configureCoscheduler(newPod *k8sV1.Pod, scheduler string) {
@@ -328,6 +366,7 @@ func (p *pod) configurePodSpec(
 	p.modifyPodSpec(podSpec, scheduler)
 
 	addNodeDisabledAffinityToPodSpec(podSpec, clusterIDNodeLabel())
+	addDisallowedNodesToPodSpec(p.req, podSpec)
 
 	nonDeterminedContainers := make([]k8sV1.Container, 0)
 	for idx, container := range podSpec.Spec.Containers {
@@ -411,11 +450,9 @@ func (p *pod) createPodSpec(scheduler string) error {
 
 	var sidecars []k8sV1.Container
 
-	envVars = append(envVars, k8sV1.EnvVar{Name: "DET_K8S_LOG_TO_FILE", Value: "true"})
-
 	container := k8sV1.Container{
 		Name:            model.DeterminedK8ContainerName,
-		Command:         spec.Entrypoint,
+		Command:         spec.LogShipperWrappedEntrypoint(),
 		Env:             envVars,
 		Image:           env.Image().For(deviceType),
 		ImagePullPolicy: configureImagePullPolicy(env),

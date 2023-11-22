@@ -198,6 +198,17 @@ service Determined {
       tags: "Users"
     };
   }
+  // Assign multiple users to multiple groups.
+  rpc AssignMultipleGroups(AssignMultipleGroupsRequest)
+      returns (AssignMultipleGroupsResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/users/assignments",
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Internal"
+    };
+  }
   // Patch a user's fields.
   rpc PatchUser(PatchUserRequest) returns (PatchUserResponse) {
     option (google.api.http) = {
@@ -206,6 +217,16 @@ service Determined {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "Users"
+    };
+  }
+  // Patch multiple users' activation status.
+  rpc PatchUsers(PatchUsersRequest) returns (PatchUsersResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/users",
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Internal"
     };
   }
   // Get telemetry information.
@@ -354,6 +375,18 @@ service Determined {
       tags: "Internal"
     };
   }
+  // Continues an experiment either to make the existing experiment train longer
+  // or to retry it.
+  rpc ContinueExperiment(ContinueExperimentRequest)
+      returns (ContinueExperimentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/experiments/continue"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Internal"
+    };
+  }
   // Get the requested experiment.
   rpc GetExperiment(GetExperimentRequest) returns (GetExperimentResponse) {
     option (google.api.http) = {
@@ -379,6 +412,17 @@ service Determined {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "Experiments"
+    };
+    option deprecated = true;  // Use GetTaskModelDef instead.
+  }
+  // Get the model definition of a task.
+  rpc GetTaskContextDirectory(GetTaskContextDirectoryRequest)
+      returns (GetTaskContextDirectoryResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/tasks/{task_id}/context_directory"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Tasks"
     };
   }
   // Get the model definition file tree of an experiment.
@@ -601,6 +645,28 @@ service Determined {
     };
   }
 
+  // Put a new label on the experiment.
+  rpc PutExperimentLabel(PutExperimentLabelRequest)
+      returns (PutExperimentLabelResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/experiments/{experiment_id}/labels/{label}"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Experiments"
+    };
+  }
+
+  // Delete a label from the experiment.
+  rpc DeleteExperimentLabel(DeleteExperimentLabelRequest)
+      returns (DeleteExperimentLabelResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/experiments/{experiment_id}/labels/{label}"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Experiments"
+    };
+  }
+
   // Preview hyperparameter search.
   rpc PreviewHPSearch(PreviewHPSearchRequest)
       returns (PreviewHPSearchResponse) {
@@ -763,6 +829,18 @@ service Determined {
       tags: "Internal"
     };
   }
+
+  // Persist the given task logs.
+  rpc PostTaskLogs(PostTaskLogsRequest) returns (PostTaskLogsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/task/logs"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Internal"
+    };
+  }
+
   // Stream task logs.
   rpc TaskLogs(TaskLogsRequest) returns (stream TaskLogsResponse) {
     option (google.api.http) = {
@@ -1418,6 +1496,16 @@ service Determined {
     };
     option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
       tags: "Tensorboards"
+    };
+  }
+  // Delete tensorboard files.
+  rpc DeleteTensorboardFiles(DeleteTensorboardFilesRequest)
+      returns (DeleteTensorboardFilesResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/experiments/{experiment_id}/tensorboard-files"
+    };
+    option (grpc.gateway.protoc_gen_swagger.options.openapiv2_operation) = {
+      tags: "Experiments"
     };
   }
 

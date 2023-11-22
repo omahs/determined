@@ -1,12 +1,12 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
    name: determined-master-config-{{ .Release.Name }}
    namespace: {{ .Release.Namespace }}
    labels:
      app: determined-master-{{ .Release.Name }}
      release: {{ .Release.Name }}
-data:
+stringData:
   master.yaml: |
     log:
       level: {{ .Values.logLevel  | quote | default "info" }}
@@ -16,6 +16,8 @@ data:
       type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.checkpointStorage.type | quote}}
       {{- if eq .Values.checkpointStorage.type "shared_fs" }}
       host_path: {{ required "A valid Values.checkpointStorage.hostPath entry is required!" .Values.checkpointStorage.hostPath | quote }}
+      {{- else if eq .Values.checkpointStorage.type "directory" }}
+      container_path: {{ required "A valid Values.checkpointStorage.containerPath entry is required!" .Values.checkpointStorage.containerPath | quote }}
       {{- else if eq .Values.checkpointStorage.type "gcs" }}
       bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.checkpointStorage.bucket }}
       prefix: {{ .Values.checkpointStorage.prefix | quote }}
@@ -148,6 +150,10 @@ data:
       {{- end }}
       {{- if .Values.taskContainerDefaults.gpuPodSpec }}
       gpu_pod_spec: {{ .Values.taskContainerDefaults.gpuPodSpec | toJson }}
+      {{- end }}
+      {{- if .Values.taskContainerDefaults.logPolicies }}
+      log_policies:
+        {{- toYaml .Values.taskContainerDefaults.logPolicies | nindent 8}}
       {{- end }}
       {{- if and .Values.taskContainerDefaults.cpuImage .Values.taskContainerDefaults.gpuImage }}
       image:

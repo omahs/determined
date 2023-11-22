@@ -1,14 +1,14 @@
 import { Space } from 'antd';
 import { FilterValue, SorterResult, TablePaginationConfig } from 'antd/lib/table/interface';
+import Button from 'hew/Button';
+import Dropdown from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Message from 'hew/Message';
+import { useModal } from 'hew/Modal';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
-import Button from 'components/kit/Button';
-import Dropdown from 'components/kit/Dropdown';
-import Empty from 'components/kit/Empty';
-import Icon from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
 import Page from 'components/Page';
 import InteractiveTable, { ColumnDef } from 'components/Table/InteractiveTable';
 import SkeletonTable from 'components/Table/SkeletonTable';
@@ -123,6 +123,7 @@ const WebhooksView: React.FC = () => {
             </li>
           );
         }
+        return <></>;
       });
 
     return [
@@ -165,7 +166,7 @@ const WebhooksView: React.FC = () => {
   const handleTableChange = useCallback(
     (
       tablePagination: TablePaginationConfig,
-      tableFilters: Record<string, FilterValue | null>,
+      _tableFilters: Record<string, FilterValue | null>,
       tableSorter: SorterResult<Webhook> | SorterResult<Webhook>[],
     ) => {
       if (Array.isArray(tableSorter)) return;
@@ -205,7 +206,7 @@ const WebhooksView: React.FC = () => {
       }
       title="Webhooks">
       {webhooks.length === 0 && !isLoading ? (
-        <Empty
+        <Message
           description="Call external services when experiments complete or throw errors."
           icon="webhooks"
           title="No Webhooks Registered"

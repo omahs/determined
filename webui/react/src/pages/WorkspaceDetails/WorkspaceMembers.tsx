@@ -1,12 +1,12 @@
 import { Space } from 'antd';
 import { FilterDropdownProps } from 'antd/lib/table/interface';
+import Button from 'hew/Button';
+import Dropdown from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import { useModal } from 'hew/Modal';
+import Nameplate from 'hew/Nameplate';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
-import Button from 'components/kit/Button';
-import Dropdown from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
-import Nameplate from 'components/kit/Nameplate';
 import InteractiveTable, { ColumnDef } from 'components/Table/InteractiveTable';
 import SkeletonTable from 'components/Table/SkeletonTable';
 import { getFullPaginationConfig } from 'components/Table/Table';
@@ -161,7 +161,7 @@ const WorkspaceMembers: React.FC<Props> = ({
   }, []);
 
   const columns = useMemo(() => {
-    const nameRenderer = (value: string, record: Readonly<UserOrGroupWithRoleInfo>) => {
+    const nameRenderer = (_value: string, record: Readonly<UserOrGroupWithRoleInfo>) => {
       if (isUserWithRoleInfo(record)) {
         const member: User = {
           displayName: record.displayName,
@@ -173,7 +173,7 @@ const WorkspaceMembers: React.FC<Props> = ({
       return <Nameplate icon={<Icon name="group" title="Group" />} name={record.groupName ?? ''} />;
     };
 
-    const roleRenderer = (value: string, record: Readonly<UserOrGroupWithRoleInfo>) => (
+    const roleRenderer = (_value: string, record: Readonly<UserOrGroupWithRoleInfo>) => (
       <RoleRenderer
         fetchMembers={fetchMembers}
         rolesAssignableToScope={rolesAssignableToScope}
@@ -183,7 +183,7 @@ const WorkspaceMembers: React.FC<Props> = ({
       />
     );
 
-    const actionRenderer = (value: string, record: Readonly<UserOrGroupWithRoleInfo>) => {
+    const actionRenderer = (_value: string, record: Readonly<UserOrGroupWithRoleInfo>) => {
       return userCanAssignRoles ? (
         <GroupOrMemberActionDropdown
           fetchMembers={fetchMembers}
@@ -245,7 +245,7 @@ const WorkspaceMembers: React.FC<Props> = ({
             canAssignRoles({ workspace }) &&
             !workspace.immutable &&
             !workspace.archived && (
-              <Button onClick={WorkspaceMemberAddModal.open}> Add Member</Button>
+              <Button onClick={WorkspaceMemberAddModal.open}> Add Members</Button>
             )}
           {settings.name && <Button onClick={handleNameSearchReset}>{'Clear Filter'}</Button>}
         </Space>
@@ -273,7 +273,7 @@ const WorkspaceMembers: React.FC<Props> = ({
           addableUsersAndGroups,
           onClose: fetchMembers,
           rolesAssignableToScope,
-          workspaceId: workspace.id,
+          workspace: workspace,
         }}
       />
     </>

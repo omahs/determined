@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-//nolint:exhaustivestruct
+//nolint:exhaustruct
 package internal
 
 import (
@@ -16,11 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/master/internal/experiment"
 	"github.com/determined-ai/determined/master/internal/mocks/allocationmocks"
-	"github.com/determined-ai/determined/master/internal/rm/actorrm"
 	"github.com/determined-ai/determined/master/internal/task"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/actor/actors"
 	"github.com/determined-ai/determined/master/pkg/etc"
 	detLogger "github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/model"
@@ -33,12 +31,12 @@ import (
 )
 
 func TestTrial(t *testing.T) {
-	_, _, rID, tr, alloc, done := setup(t)
+	_, rID, tr, alloc, done := setup(t)
 
 	// Pre-scheduled stage.
 	require.NoError(t, tr.PatchState(
 		model.StateWithReason{State: model.ActiveState}))
-	require.NoError(t, tr.PatchSearcherState(trialSearcherState{
+	require.NoError(t, tr.PatchSearcherState(experiment.TrialSearcherState{
 		Create: searcher.Create{RequestID: rID},
 		Op: searcher.ValidateAfter{
 			RequestID: rID,
@@ -51,7 +49,7 @@ func TestTrial(t *testing.T) {
 	require.NotNil(t, tr.allocationID)
 
 	// Running stage.
-	require.NoError(t, tr.PatchSearcherState(trialSearcherState{
+	require.NoError(t, tr.PatchSearcherState(experiment.TrialSearcherState{
 		Create: searcher.Create{RequestID: rID},
 		Op: searcher.ValidateAfter{
 			RequestID: rID,
@@ -80,11 +78,11 @@ func TestTrial(t *testing.T) {
 }
 
 func TestTrialRestarts(t *testing.T) {
-	_, pgDB, rID, tr, _, done := setup(t)
+	pgDB, rID, tr, _, done := setup(t)
 	// Pre-scheduled stage.
 	require.NoError(t, tr.PatchState(
 		model.StateWithReason{State: model.ActiveState}))
-	require.NoError(t, tr.PatchSearcherState(trialSearcherState{
+	require.NoError(t, tr.PatchSearcherState(experiment.TrialSearcherState{
 		Create: searcher.Create{RequestID: rID},
 		Op: searcher.ValidateAfter{
 			RequestID: rID,
@@ -120,7 +118,6 @@ func TestTrialRestarts(t *testing.T) {
 }
 
 func setup(t *testing.T) (
-	*actor.System,
 	*db.PgDB,
 	model.RequestID,
 	*trial,
@@ -128,14 +125,9 @@ func setup(t *testing.T) (
 	chan bool,
 ) {
 	require.NoError(t, etc.SetRootPath("../static/srv"))
-	system := actor.NewSystem("system")
 
 	// mock resource manager.
-	rmActor := actors.MockActor{Responses: map[string]*actors.MockResponse{}}
-	rmImpl := actorrm.Wrap(system.MustActorOf(actor.Addr("rm"), &rmActor))
-
-	expActor := actors.MockActor{Responses: map[string]*actors.MockResponse{}}
-	expRef := system.MustActorOf(actor.Addr("experiment"), &expActor)
+	rmImpl := MockRM()
 
 	// mock allocation service
 	var as allocationmocks.AllocationService
@@ -160,7 +152,7 @@ func setup(t *testing.T) (
 		time.Now(),
 		1,
 		model.PausedState,
-		trialSearcherState{Create: searcher.Create{RequestID: rID}, Complete: true},
+		experiment.TrialSearcherState{Create: searcher.Create{RequestID: rID}, Complete: true},
 		rmImpl,
 		a.m.db,
 		schemas.WithDefaults(expconf.ExperimentConfig{
@@ -178,12 +170,12 @@ func setup(t *testing.T) (
 		},
 		ssh.PrivateAndPublicKeys{},
 		false,
-		nil, system, expRef, func(ri model.RequestID, reason *model.ExitedReason) {
+		nil, nil, func(ri model.RequestID, reason *model.ExitedReason) {
 			require.Equal(t, rID, ri)
 			done <- true
 			close(done)
 		},
 	)
 	require.NoError(t, err)
-	return system, a.m.db, rID, tr, &as, done
+	return a.m.db, rID, tr, &as, done
 }

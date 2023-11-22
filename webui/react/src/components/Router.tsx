@@ -1,8 +1,9 @@
+import Message from 'hew/Message';
 import { useObservable } from 'micro-observables';
 import React, { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
-import useUI from 'components/kit/Theme';
+import useUI from 'components/ThemeProvider';
 import { paths } from 'routes/utils';
 import authStore from 'stores/auth';
 import { RouteConfig } from 'types';
@@ -33,6 +34,7 @@ const Router: React.FC<Props> = (props: Props) => {
             <Route
               {...route}
               element={<Navigate state={filterOutLoginLocation(location)} to={paths.login()} />}
+              ErrorBoundary={ErrorHandler}
               key={route.id}
             />
           );
@@ -43,17 +45,48 @@ const Router: React.FC<Props> = (props: Props) => {
            * redirect will occur when encountered in the `Switch` traversal.
            */
           if (route.path === '*') {
-            return <Route element={<Navigate to={'/'} />} key={route.id} path={route.path} />;
+            return (
+              <Route
+                element={<Navigate to={'/'} />}
+                ErrorBoundary={ErrorHandler}
+                key={route.id}
+                path={route.path}
+              />
+            );
           } else {
             return (
-              <Route element={<Navigate to={route.redirect} />} key={route.id} path={route.path} />
+              <Route
+                element={<Navigate to={route.redirect} />}
+                ErrorBoundary={ErrorHandler}
+                key={route.id}
+                path={route.path}
+              />
             );
           }
         }
 
-        return <Route {...route} element={element} key={route.id} path={route.path} />;
+        return (
+          <Route
+            {...route}
+            element={element}
+            ErrorBoundary={ErrorHandler}
+            key={route.id}
+            path={route.path}
+          />
+        );
       })}
     </Routes>
+  );
+};
+
+const ErrorHandler = () => {
+  // const error = useRouteError();
+  return (
+    <Message
+      description="Encountered an error, please refresh."
+      icon="warning"
+      title="Unexpected Error"
+    />
   );
 };
 

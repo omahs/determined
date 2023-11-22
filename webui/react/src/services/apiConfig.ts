@@ -114,8 +114,18 @@ export const getUsers: DetApi<
     pagination: decoder.mapV1Pagination(response.pagination),
     users: decoder.mapV1UserList(response),
   }),
-  request: (params) =>
-    detApi.Users.getUsers(params.sortBy, params.orderBy, params.offset, params.limit, params.name),
+  request: (params, options) =>
+    detApi.Users.getUsers(
+      params.sortBy,
+      params.orderBy,
+      params.offset,
+      params.limit,
+      params.name,
+      params.active,
+      params.admin,
+      params.roleIdAssignedDirectlyToUser,
+      options,
+    ),
 };
 
 export const getUser: DetApi<Service.GetUserParams, Api.V1GetUserResponse, Type.DetailedUser> = {
@@ -162,6 +172,26 @@ export const patchUser: DetApi<
   name: 'patchUser',
   postProcess: (response) => decoder.mapV1User(response.user),
   request: (params) => detApi.Users.patchUser(params.userId, params.userParams),
+};
+
+export const patchUsers: DetApi<
+  Service.PatchUsersParams,
+  Api.V1PatchUsersResponse,
+  Api.V1PatchUsersResponse
+> = {
+  name: 'patchUsers',
+  postProcess: (response) => response,
+  request: (params) => detApi.Internal.patchUsers(params),
+};
+
+export const assignMultipleGroups: DetApi<
+  Service.AssignMultipleGroupsParams,
+  Api.V1AssignRolesResponse,
+  Api.V1AssignRolesResponse
+> = {
+  name: 'assignMultipleGroups',
+  postProcess: (response) => response,
+  request: (params) => detApi.Internal.assignMultipleGroups(params),
 };
 
 export const getUserSetting: DetApi<
@@ -338,7 +368,7 @@ export const listRoles: DetApi<Service.ListRolesParams, Api.V1ListRolesResponse,
   };
 
 export const assignRolesToGroup: DetApi<
-  Service.AssignRolesToGroupParams,
+  Service.AssignRolesToGroupParams[],
   Api.V1AssignRolesResponse,
   Api.V1AssignRolesResponse
 > = {
@@ -346,13 +376,15 @@ export const assignRolesToGroup: DetApi<
   postProcess: (response) => response,
   request: (params) =>
     detApi.RBAC.assignRoles({
-      groupRoleAssignments: params.roleIds.map((roleId) => ({
-        groupId: params.groupId,
-        roleAssignment: {
-          role: { roleId },
-          scopeWorkspaceId: params.scopeWorkspaceId || undefined,
-        },
-      })),
+      groupRoleAssignments: params.flatMap((param) =>
+        param.roleIds.map((roleId) => ({
+          groupId: param.groupId,
+          roleAssignment: {
+            role: { roleId },
+            scopeWorkspaceId: param.scopeWorkspaceId || undefined,
+          },
+        })),
+      ),
     }),
 };
 
@@ -376,7 +408,7 @@ export const removeRolesFromGroup: DetApi<
 };
 
 export const assignRolesToUser: DetApi<
-  Service.AssignRolesToUserParams,
+  Service.AssignRolesToUserParams[],
   Api.V1AssignRolesResponse,
   Api.V1AssignRolesResponse
 > = {
@@ -384,13 +416,15 @@ export const assignRolesToUser: DetApi<
   postProcess: (response) => response,
   request: (params) =>
     detApi.RBAC.assignRoles({
-      userRoleAssignments: params.roleIds.map((roleId) => ({
-        roleAssignment: {
-          role: { roleId },
-          scopeWorkspaceId: params.scopeWorkspaceId || undefined,
-        },
-        userId: params.userId,
-      })),
+      userRoleAssignments: params.flatMap((param) =>
+        param.roleIds.map((roleId) => ({
+          roleAssignment: {
+            role: { roleId },
+            scopeWorkspaceId: param.scopeWorkspaceId || undefined,
+          },
+          userId: param.userId,
+        })),
+      ),
     }),
 };
 
@@ -838,6 +872,7 @@ export const getExperimentCheckpoints: DetApi<
     detApi.Experiments.getExperimentCheckpoints(
       params.id,
       params.sortBy,
+      undefined,
       params.orderBy,
       params.offset,
       params.limit,
@@ -1130,7 +1165,7 @@ export const getModel: DetApi<
 export const getModelDetails: DetApi<
   Service.GetModelDetailsParams,
   Api.V1GetModelVersionsResponse,
-  Type.ModelVersions | undefined
+  Type.ModelWithVersions | undefined
 > = {
   name: 'getModelDetails',
   postProcess: (response) => {
@@ -1707,6 +1742,43 @@ export const killTensorBoard: DetApi<Service.CommandIdParams, Api.V1KillTensorbo
     request: (params: Service.CommandIdParams) =>
       detApi.TensorBoards.killTensorboard(params.commandId),
   };
+
+export const getJupyterLab: DetApi<
+  Service.CommandIdParams,
+  Api.V1GetNotebookResponse,
+  Type.CommandTask
+> = {
+  name: 'getJupyterLab',
+  postProcess: (response) => decoder.mapV1Notebook(response.notebook),
+  request: (params: Service.CommandIdParams) => detApi.Notebooks.getNotebook(params.commandId),
+};
+
+export const getShell: DetApi<Service.CommandIdParams, Api.V1GetShellResponse, Type.CommandTask> = {
+  name: 'getShell',
+  postProcess: (response) => decoder.mapV1Shell(response.shell),
+  request: (params: Service.CommandIdParams) => detApi.Shells.getShell(params.commandId),
+};
+
+export const getTensorBoard: DetApi<
+  Service.CommandIdParams,
+  Api.V1GetTensorboardResponse,
+  Type.CommandTask
+> = {
+  name: 'getTensorBoard',
+  postProcess: (response) => decoder.mapV1TensorBoard(response.tensorboard),
+  request: (params: Service.CommandIdParams) =>
+    detApi.TensorBoards.getTensorboard(params.commandId),
+};
+
+export const getCommand: DetApi<
+  Service.CommandIdParams,
+  Api.V1GetCommandResponse,
+  Type.CommandTask
+> = {
+  name: 'getCommand',
+  postProcess: (response) => decoder.mapV1Command(response.command),
+  request: (params: Service.CommandIdParams) => detApi.Commands.getCommand(params.commandId),
+};
 
 export const getTemplates: DetApi<
   Service.GetTemplatesParams,

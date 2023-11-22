@@ -1,12 +1,12 @@
 import dayjs from 'dayjs';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-
 import LogViewerEntry, {
   DATETIME_FORMAT,
   LogEntry,
   MAX_DATETIME_LENGTH,
-} from 'components/kit/LogViewer/LogViewerEntry';
-import Tooltip from 'components/kit/Tooltip';
+} from 'hew/LogViewer/LogViewerEntry';
+import Tooltip from 'hew/Tooltip';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
 import useGetCharMeasureInContainer from 'hooks/useGetCharMeasureInContainer';
 import { detApi } from 'services/apiConfig';
 import { mapV1LogsResponse } from 'services/decoder';
@@ -69,7 +69,7 @@ const TrialLogPreview: React.FC<Props> = ({
   }, []);
 
   const fetchLatestTrialLog = useCallback(
-    (trialId: number, trialState: RunState, canceler: AbortController) => {
+    (trialId: number, _trialState: RunState, canceler: AbortController) => {
       readStream(
         detApi.StreamingExperiments.trialLogs(
           trialId,
@@ -125,12 +125,7 @@ const TrialLogPreview: React.FC<Props> = ({
         <div className={css.preview} onClick={handleClick}>
           <div className={css.container} ref={containerRef}>
             {logEntry && (
-              <LogViewerEntry
-                noWrap
-                style={{ position: 'relative' }}
-                timeStyle={{ width: dateTimeWidth }}
-                {...logEntry}
-              />
+              <LogViewerEntry noWrap timeStyle={{ width: dateTimeWidth }} {...logEntry} />
             )}
           </div>
         </div>

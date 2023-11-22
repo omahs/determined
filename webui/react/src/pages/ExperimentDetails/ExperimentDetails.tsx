@@ -1,9 +1,10 @@
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import Spinner from 'components/kit/Spinner';
-import Message, { MessageType } from 'components/Message';
 import Page, { BreadCrumbRoute } from 'components/Page';
 import { terminalRunStates } from 'constants/states';
 import usePolling from 'hooks/usePolling';
@@ -16,7 +17,6 @@ import { getExperimentDetails } from 'services/api';
 import workspaceStore from 'stores/workspaces';
 import { ExperimentBase, TrialItem, Workspace } from 'types';
 import { isSingleTrialExperiment } from 'utils/experiment';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { isAborted, isNotFound } from 'utils/service';
 
@@ -81,7 +81,7 @@ const ExperimentDetails: React.FC = () => {
     return <Message title={`${INVALID_ID_MESSAGE} ${experimentId}`} />;
   } else if (pageError && !isNotFound(pageError)) {
     const message = `${ERROR_MESSAGE} ${experimentId}`;
-    return <Message title={message} type={MessageType.Warning} />;
+    return <Message icon="warning" title={message} />;
   } else if (!pageError && (!experiment || isSingleTrial === undefined)) {
     return <Spinner spinning tip={`Loading experiment ${experimentId} details...`} />;
   }

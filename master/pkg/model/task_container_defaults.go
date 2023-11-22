@@ -29,12 +29,13 @@ type TaskContainerDefaultsConfig struct {
 	GLOOPortRange          string                `json:"gloo_port_range,omitempty"`
 	ShmSizeBytes           int64                 `json:"shm_size_bytes,omitempty"`
 	NetworkMode            container.NetworkMode `json:"network_mode,omitempty"`
-	CPUPodSpec             *k8sV1.Pod            `json:"cpu_pod_spec"`
-	GPUPodSpec             *k8sV1.Pod            `json:"gpu_pod_spec"`
-	Image                  *RuntimeItem          `json:"image,omitempty"`
-	RegistryAuth           *types.AuthConfig     `json:"registry_auth,omitempty"`
-	ForcePullImage         bool                  `json:"force_pull_image,omitempty"`
-	EnvironmentVariables   *RuntimeItems         `json:"environment_variables,omitempty"`
+	// TODO(DET-9855) we should move these over to KubernetesTaskContainerDefaults.
+	CPUPodSpec           *k8sV1.Pod        `json:"cpu_pod_spec"`
+	GPUPodSpec           *k8sV1.Pod        `json:"gpu_pod_spec"`
+	Image                *RuntimeItem      `json:"image,omitempty"`
+	RegistryAuth         *types.AuthConfig `json:"registry_auth,omitempty"`
+	ForcePullImage       bool              `json:"force_pull_image,omitempty"`
+	EnvironmentVariables *RuntimeItems     `json:"environment_variables,omitempty"`
 
 	AddCapabilities  []string      `json:"add_capabilities"`
 	DropCapabilities []string      `json:"drop_capabilities"`
@@ -44,6 +45,12 @@ type TaskContainerDefaultsConfig struct {
 	WorkDir    *string               `json:"work_dir"`
 	Slurm      expconf.SlurmConfigV0 `json:"slurm"`
 	Pbs        expconf.PbsConfigV0   `json:"pbs"`
+
+	LogPolicies expconf.LogPoliciesConfig `json:"log_policies"`
+
+	// TODO(DET-9856) we should probably eventually move this to expconf and allow setting
+	// on a per task level.
+	Kubernetes *KubernetesTaskContainerDefaults `json:"kubernetes"`
 }
 
 // DefaultTaskContainerDefaults returns the default for TaskContainerDefaultsConfig.
@@ -87,6 +94,11 @@ func (c *TaskContainerDefaultsConfig) Validate() []error {
 	return errs
 }
 
+// KubernetesTaskContainerDefaults is task container defaults specific to Kubernetes.
+type KubernetesTaskContainerDefaults struct {
+	MaxSlotsPerPod *int `json:"max_slots_per_pod"`
+}
+
 // MergeIntoExpConfig sets any unset ExperimentConfig values from TaskContainerDefaults.
 func (c *TaskContainerDefaultsConfig) MergeIntoExpConfig(config *expconf.ExperimentConfig) {
 	if c == nil {
@@ -94,7 +106,7 @@ func (c *TaskContainerDefaultsConfig) MergeIntoExpConfig(config *expconf.Experim
 	}
 
 	// Merge Resources-related settings into the config.
-	//nolint:exhaustivestruct // Devices are the only thing relevant from TaskContainerDefaults.
+	//nolint:exhaustruct // Devices are the only thing relevant from TaskContainerDefaults.
 	resources := expconf.ResourcesConfig{
 		RawDevices: c.Devices.ToExpconf(),
 	}
@@ -119,7 +131,7 @@ func (c *TaskContainerDefaultsConfig) MergeIntoExpConfig(config *expconf.Experim
 		podSpec = c.GPUPodSpec
 	}
 
-	//nolint:exhaustivestruct // RawPorts is not in TaskContainerDefaults.
+	//nolint:exhaustruct // RawPorts is not in TaskContainerDefaults.
 	env := expconf.EnvironmentConfig{
 		RawAddCapabilities:      c.AddCapabilities,
 		RawDropCapabilities:     c.DropCapabilities,
@@ -140,6 +152,8 @@ func (c *TaskContainerDefaultsConfig) MergeIntoExpConfig(config *expconf.Experim
 		config.RawSlurmConfig.RawSbatchArgs = append(
 			c.Slurm.SbatchArgs(), configRawSlurmConfig.SbatchArgs()...)
 	}
+
+	config.RawLogPolicies = schemas.Merge(config.RawLogPolicies, c.LogPolicies)
 
 	configRawPbsConfig := config.RawPbsConfig
 	config.RawPbsConfig = schemas.Merge(config.RawPbsConfig, &c.Pbs)

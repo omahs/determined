@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import Button from 'hew/Button';
+import { useModal } from 'hew/Modal';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 import React from 'react';
 
-import Button from 'components/kit/Button';
-import { useModal } from 'components/kit/Modal';
-import { UIProvider } from 'components/kit/Theme';
 import { deleteGroup as mockDeleteGroup } from 'services/api';
 import { V1GroupSearchResult } from 'services/api-ts-sdk';
 
@@ -43,7 +43,7 @@ const setup = async () => {
     numMembers: 0,
   };
   const view = render(
-    <UIProvider>
+    <UIProvider theme={DefaultTheme.Light}>
       <Container group={group} />
     </UIProvider>,
   );

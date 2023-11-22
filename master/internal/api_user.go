@@ -11,6 +11,9 @@ import (
 	"gopkg.in/guregu/null.v3"
 
 	bun "github.com/uptrace/bun"
+
+	"github.com/determined-ai/determined/master/internal/config"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -30,7 +33,7 @@ const determinedName = "determined"
 
 var (
 	errExternalSessions = status.Error(codes.PermissionDenied, "not enabled with external sessions")
-	latinText           = regexp.MustCompile("[^[:graph:]\\s]")
+	latinText           = regexp.MustCompile(`[^[:graph:]\s]`)
 )
 
 func clearUsername(targetUser model.User, name string, minLength int) (*string, error) {
@@ -74,6 +77,12 @@ func toProtoUserFromFullUser(user model.FullUser) *userv1.User {
 		}
 	}
 	displayNameString := user.DisplayName.ValueOrZero()
+
+	var lastAuthAt *timestamppb.Timestamp
+	if user.LastAuthAt != nil {
+		lastAuthAt = timestamppb.New(*user.LastAuthAt)
+	}
+
 	return &userv1.User{
 		Id:             int32(user.ID),
 		Username:       user.Username,
@@ -83,6 +92,7 @@ func toProtoUserFromFullUser(user model.FullUser) *userv1.User {
 		AgentUserGroup: agentUserGroup,
 		DisplayName:    displayNameString,
 		ModifiedAt:     timestamppb.New(user.ModifiedAt),
+		LastAuthAt:     lastAuthAt,
 	}
 }
 
@@ -125,13 +135,15 @@ func (a *apiServer) GetUsers(
 	ctx context.Context, req *apiv1.GetUsersRequest,
 ) (*apiv1.GetUsersResponse, error) {
 	sortColMap := map[apiv1.GetUsersRequest_SortBy]string{
-		apiv1.GetUsersRequest_SORT_BY_UNSPECIFIED:   "id",
-		apiv1.GetUsersRequest_SORT_BY_DISPLAY_NAME:  "display_name",
-		apiv1.GetUsersRequest_SORT_BY_USER_NAME:     "username",
-		apiv1.GetUsersRequest_SORT_BY_ADMIN:         "admin",
-		apiv1.GetUsersRequest_SORT_BY_ACTIVE:        "active",
-		apiv1.GetUsersRequest_SORT_BY_MODIFIED_TIME: "modified_at",
-		apiv1.GetUsersRequest_SORT_BY_NAME:          "name",
+		apiv1.GetUsersRequest_SORT_BY_UNSPECIFIED:    "id",
+		apiv1.GetUsersRequest_SORT_BY_DISPLAY_NAME:   "display_name",
+		apiv1.GetUsersRequest_SORT_BY_USER_NAME:      "username",
+		apiv1.GetUsersRequest_SORT_BY_ADMIN:          "admin",
+		apiv1.GetUsersRequest_SORT_BY_ACTIVE:         "active",
+		apiv1.GetUsersRequest_SORT_BY_MODIFIED_TIME:  "modified_at",
+		apiv1.GetUsersRequest_SORT_BY_NAME:           "name",
+		apiv1.GetUsersRequest_SORT_BY_LAST_AUTH_TIME: "last_auth_at",
+		apiv1.GetUsersRequest_SORT_BY_REMOTE:         "remote",
 	}
 	orderByMap := map[apiv1.OrderBy]string{
 		apiv1.OrderBy_ORDER_BY_UNSPECIFIED: "ASC",
@@ -139,32 +151,61 @@ func (a *apiServer) GetUsers(
 		apiv1.OrderBy_ORDER_BY_DESC:        "DESC",
 	}
 
-	orderExpr := ""
-	switch _, ok := sortColMap[req.SortBy]; {
-	case !ok:
-		return nil, fmt.Errorf("unsupported sort by %s", req.SortBy)
-	case sortColMap[req.SortBy] != "id":
-		orderExpr = fmt.Sprintf(
-			"%s %s, id %s",
-			sortColMap[req.SortBy], orderByMap[req.OrderBy], orderByMap[req.OrderBy],
-		)
-	default:
-		orderExpr = fmt.Sprintf("id %s", orderByMap[req.OrderBy])
-	}
 	users := []model.FullUser{}
-	nameFilterExpr := "%" + req.Name + "%"
-	selectExpr := `
-		SELECT
-			u.id, u.display_name, u.username, u.admin, u.active, u.modified_at, u.remote,
-			h.uid AS agent_uid, h.gid AS agent_gid, h.user_ AS agent_user, h.group_ AS agent_group, 
-			COALESCE(u.display_name, u.username) AS name
-		FROM users u
-			LEFT OUTER JOIN agent_user_groups h ON (u.id = h.user_id)
-		WHERE ((? = '') OR u.display_name ILIKE ? OR u.username ILIKE ?)
-	`
-	query := selectExpr + fmt.Sprintf(" ORDER BY %s", orderExpr)
-	err := db.Bun().NewRaw(query,
-		req.Name, nameFilterExpr, nameFilterExpr).Scan(context.Background(), &users)
+
+	query := db.Bun().NewSelect().Model(&users).
+		ModelTableExpr("users as u").
+		Join("LEFT OUTER JOIN agent_user_groups h ON (u.id = h.user_id)").
+		Column("u.id").
+		Column("u.display_name").
+		Column("u.username").
+		Column("u.admin").
+		Column("u.active").
+		Column("u.modified_at").
+		Column("u.remote").
+		Column("u.last_auth_at").
+		ColumnExpr("h.uid AS agent_uid").
+		ColumnExpr("h.gid AS agent_gid").
+		ColumnExpr("h.user_ AS agent_user").
+		ColumnExpr("h.group_ AS agent_group").
+		ColumnExpr("COALESCE(u.display_name, u.username) AS name")
+
+	if req.Name != "" {
+		nameFilterExpr := "%" + req.Name + "%"
+		query.Where("u.display_name ILIKE ? OR u.username ILIKE ?", nameFilterExpr, nameFilterExpr)
+	}
+	if req.Admin != nil {
+		query.Where("u.admin = ?", *req.Admin)
+	}
+	if req.Active != nil {
+		query.Where("u.active = ?", *req.Active)
+	}
+	if len(req.RoleIdAssignedDirectlyToUser) != 0 {
+		if !config.GetAuthZConfig().IsRBACEnabled() {
+			return nil, status.Error(codes.InvalidArgument,
+				"cannot filter by role id. RBAC must be enabled.")
+		}
+		query.Join("LEFT JOIN groups g ON (u.id = g.user_id)").
+			Join("LEFT JOIN role_assignments a ON (g.id = a.group_id)").
+			Join("LEFT JOIN role_assignment_scopes s ON (s.id = a.scope_id)").
+			Where("s.scope_workspace_id IS NULL").
+			Where("a.role_id IN (?)", bun.In(req.RoleIdAssignedDirectlyToUser))
+	}
+
+	orderBy, ok := orderByMap[req.OrderBy]
+	if !ok {
+		return nil, fmt.Errorf("unsupported order by %s", req.OrderBy)
+	}
+	sortColumn, ok := sortColMap[req.SortBy]
+	if !ok {
+		return nil, fmt.Errorf("unsupported sort by %s", req.SortBy)
+	}
+	query.OrderExpr("? ?", bun.Ident(sortColumn), bun.Safe(orderBy))
+	if sortColumn != "id" {
+		query.OrderExpr("id asc")
+	}
+
+	err := query.Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +223,7 @@ func (a *apiServer) GetUsers(
 		resp.Users = append(resp.Users, toProtoUserFromFullUser(user))
 	}
 
-	return resp, a.paginate(&resp.Pagination, &resp.Users, req.Offset, req.Limit)
+	return resp, api.Paginate(&resp.Pagination, &resp.Users, req.Offset, req.Limit)
 }
 
 func (a *apiServer) GetUser(
@@ -383,6 +424,7 @@ func (a *apiServer) PatchUser(
 	}
 
 	updatedUser := &model.User{ID: targetUser.ID}
+	willBeRemote := targetUser.Remote
 	var insertColumns []string
 	if req.User.Admin != nil {
 		if err = user.AuthZProvider.Get().
@@ -401,7 +443,19 @@ func (a *apiServer) PatchUser(
 		}
 
 		updatedUser.Remote = *req.User.Remote
+		willBeRemote = updatedUser.Remote
 		insertColumns = append(insertColumns, "remote")
+
+		// We changed remote status. Need to clear passwords.
+		if targetUser.Remote != willBeRemote {
+			if willBeRemote {
+				updatedUser.PasswordHash = model.NoPasswordLogin
+				insertColumns = append(insertColumns, "password_hash")
+			} else if !willBeRemote && req.User.Password == nil {
+				updatedUser.PasswordHash = model.EmptyPassword
+				insertColumns = append(insertColumns, "password_hash")
+			}
+		}
 	}
 
 	if req.User.Active != nil {
@@ -419,7 +473,7 @@ func (a *apiServer) PatchUser(
 			return nil, status.Error(codes.PermissionDenied, err.Error())
 		}
 
-		if targetUser.Remote {
+		if willBeRemote {
 			return nil, status.Error(codes.InvalidArgument, "Cannot set username for remote users")
 		}
 
@@ -467,7 +521,7 @@ func (a *apiServer) PatchUser(
 			return nil, status.Error(codes.PermissionDenied, err.Error())
 		}
 
-		if targetUser.Remote {
+		if willBeRemote {
 			return nil, status.Error(codes.InvalidArgument, "Cannot set password for remote users")
 		}
 
@@ -502,6 +556,47 @@ func (a *apiServer) PatchUser(
 
 	fullUser, err := getUser(ctx, a.m.db, model.UserID(req.UserId))
 	return &apiv1.PatchUserResponse{User: fullUser}, err
+}
+
+func (a *apiServer) PatchUsers(
+	ctx context.Context, req *apiv1.PatchUsersRequest,
+) (*apiv1.PatchUsersResponse, error) {
+	curUser, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiResults []*apiv1.UserActionResult
+	var editableUserIDs []model.UserID
+
+	for _, userID := range req.UserIds {
+		targetUser := model.User{ID: model.UserID(userID)}
+
+		if err = user.AuthZProvider.Get().CanGetUser(ctx, *curUser, targetUser); err != nil {
+			apiResults = append(apiResults, &apiv1.UserActionResult{
+				Error: authz.SubIfUnauthorized(err, api.NotFoundErrs("user", "", true)).Error(),
+				Id:    userID,
+			})
+		} else if err = user.AuthZProvider.Get().
+			CanSetUsersActive(ctx, *curUser, targetUser, req.Activate); err != nil {
+			apiResults = append(apiResults, &apiv1.UserActionResult{
+				Error: err.Error(),
+				Id:    userID,
+			})
+		} else {
+			apiResults = append(apiResults, &apiv1.UserActionResult{
+				Error: "",
+				Id:    userID,
+			})
+			editableUserIDs = append(editableUserIDs, model.UserID(userID))
+		}
+	}
+
+	if err = user.SetActive(ctx, editableUserIDs, req.Activate); err != nil {
+		return nil, err
+	}
+
+	return &apiv1.PatchUsersResponse{Results: apiResults}, err
 }
 
 func (a *apiServer) GetUserSetting(

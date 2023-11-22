@@ -7,6 +7,7 @@ import {
   SorterResult,
   TablePaginationConfig,
 } from 'antd/es/table/interface';
+import Spinner from 'hew/Spinner';
 import _ from 'lodash';
 import React, {
   createContext,
@@ -27,7 +28,6 @@ import {
   DraggableEventHandler,
 } from 'react-draggable';
 
-import Spinner from 'components/kit/Spinner';
 import SkeletonTable from 'components/Table/SkeletonTable';
 import useResize from 'hooks/useResize';
 import { UpdateSettings } from 'hooks/useSettings';
@@ -474,7 +474,7 @@ const InteractiveTable = <
 
   const handleResize = useCallback(
     (resizeIndex: number) => {
-      return (e: Event, { x }: DraggableData) => {
+      return (_e: Event, { x }: DraggableData) => {
         if (!settingsColumns) return;
 
         if (timeout.current) clearTimeout(timeout.current);
@@ -522,7 +522,7 @@ const InteractiveTable = <
 
   const handleResizeStart = useCallback(
     (index: number) =>
-      (e: Event, { x }: DraggableData) => {
+      (_e: Event, { x }: DraggableData) => {
         if (!settingsColumns) return;
 
         setIsResizing(true);

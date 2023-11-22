@@ -4,10 +4,16 @@
 *
 
 # team-specific repo segments
-/.github  @determined-ai/infrastructure
-/master   @determined-ai/backend
-/agent    @determined-ai/backend
-/proto    @determined-ai/backend
+/.github        @determined-ai/infrastructure
+/master         @determined-ai/backend
+/agent          @determined-ai/backend
+/proto          @determined-ai/backend
+/performance    @determined-ai/web
+
+# CI is a mix
+/.circleci            @determined-ai/infrastructure
+/.circleci/devcluster @determined-ai/backend
+/.circleci/packaging  @determined-ai/backend
 
 # anyone can approve docs, except for specific files
 /docs
@@ -24,9 +30,13 @@
 /bindings/generate_bindings_py.py @determined-ai/ml-sys
 /e2e_tests/tests/*.py             @determined-ai/ml-sys
 /e2e_tests/tests/requirements.txt @determined-ai/ml-sys
-/e2e_tests/tests/command          @determined-ai/ml-sys
 /e2e_tests/tests/experiment       @determined-ai/ml-sys
 /e2e_tests/tests/nightly          @determined-ai/ml-sys
+
+# Backend owns some e2e tests.
+/e2e_tests/tests/cluster  @determined-ai/backend
+/e2e_tests/tests/command  @determined-ai/backend
+/e2e_tests/tests/template @determined-ai/backend
 
 # Owned by @determined-ai/web except for generated files
 /webui    @determined-ai/web

@@ -42,6 +42,7 @@ type User struct {
 	Active        bool        `db:"active" json:"active"`
 	ModifiedAt    time.Time   `db:"modified_at" json:"modified_at"`
 	Remote        bool        `db:"remote" json:"remote"`
+	LastAuthAt    *time.Time  `db:"last_auth_at" json:"last_auth_at"`
 }
 
 // UserSession corresponds to a row in the "user_sessions" DB table.
@@ -62,6 +63,7 @@ type FullUser struct {
 	Active      bool        `db:"active" json:"active"`
 	ModifiedAt  time.Time   `db:"modified_at" json:"modified_at"`
 	Remote      bool        `db:"remote" json:"remote"`
+	LastAuthAt  *time.Time  `db:"last_auth_at" json:"last_auth_at"`
 
 	AgentUID   null.Int    `db:"agent_uid" json:"agent_uid"`
 	AgentGID   null.Int    `db:"agent_gid" json:"agent_gid"`
@@ -80,6 +82,7 @@ func (u FullUser) ToUser() User {
 		Active:       u.Active,
 		ModifiedAt:   u.ModifiedAt,
 		Remote:       u.Remote,
+		LastAuthAt:   u.LastAuthAt,
 	}
 }
 
@@ -125,7 +128,7 @@ func (user *User) UpdatePasswordHash(password string) error {
 
 // Proto converts a user to its protobuf representation.
 func (user *User) Proto() *userv1.User {
-	return &userv1.User{
+	u := &userv1.User{
 		Id:          int32(user.ID),
 		Username:    user.Username,
 		DisplayName: user.DisplayName.ValueOrZero(),
@@ -134,6 +137,10 @@ func (user *User) Proto() *userv1.User {
 		ModifiedAt:  timestamppb.New(user.ModifiedAt),
 		Remote:      user.Remote,
 	}
+	if user.LastAuthAt != nil {
+		u.LastAuthAt = timestamppb.New(*user.LastAuthAt)
+	}
+	return u
 }
 
 // Users is a slice of User objects—primarily useful for its methods.

@@ -1,9 +1,11 @@
+import Form from 'hew/Form';
+import { Modal } from 'hew/Modal';
+import Select from 'hew/Select';
+import { useToast } from 'hew/Toast';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useId } from 'react';
 
-import Form from 'components/kit/Form';
-import { Modal } from 'components/kit/Modal';
-import Select from 'components/kit/Select';
 import Link from 'components/Link';
 import usePermissions from 'hooks/usePermissions';
 import { WorkspaceDetailsTab } from 'pages/WorkspaceDetails';
@@ -11,9 +13,7 @@ import { paths } from 'routes/utils';
 import { moveModel } from 'services/api';
 import workspaceStore from 'stores/workspaces';
 import { ModelItem } from 'types';
-import { notification } from 'utils/dialogApi';
 import handleError from 'utils/error';
-import { Loadable } from 'utils/loadable';
 
 const FORM_ID = 'move-model-form';
 
@@ -29,6 +29,7 @@ const ModelMoveModal = ({ model }: Props): JSX.Element => {
   const idPrefix = useId();
   const [form] = Form.useForm<FormInputs>();
   const { canMoveModel } = usePermissions();
+  const { openToast } = useToast();
   const workspaces = Loadable.getOrElse([], useObservable(workspaceStore.workspaces));
 
   const handleOk = async () => {
@@ -40,17 +41,11 @@ const ModelMoveModal = ({ model }: Props): JSX.Element => {
         values.workspaceId === 1
           ? paths.modelList()
           : paths.workspaceDetails(values.workspaceId, WorkspaceDetailsTab.ModelRegistry);
-      notification.success({
-        description: (
-          <div>
-            <p>
-              {model.name} moved to workspace {workspaceName}
-            </p>
-            <Link path={path}>View Workspace</Link>
-          </div>
-        ),
-        key: 'move-model-notification',
-        message: 'Successfully Moved',
+      openToast({
+        description: `${model.name} moved to workspace ${workspaceName}`,
+        link: <Link path={path}>View Workspace</Link>,
+        severity: 'Confirm',
+        title: 'Successfully Moved',
       });
     } catch (e) {
       handleError(e, { publicSubject: `Unable to move model ${model.id}.`, silent: false });

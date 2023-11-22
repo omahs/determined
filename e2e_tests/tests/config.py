@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-from determined.common import util
+from determined.common import api, util
+from determined.common.api import authentication
 
 MASTER_SCHEME = "http"
 MASTER_IP = "localhost"
@@ -14,13 +15,13 @@ MAX_TRIAL_BUILD_SECS = 90
 
 
 DEFAULT_TF1_CPU_IMAGE = "determinedai/environments:py-3.7-pytorch-1.7-tf-1.15-cpu-6eceaca"
-DEFAULT_TF2_CPU_IMAGE = "determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-2b7e2a1"
+DEFAULT_TF2_CPU_IMAGE = "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-622d512"
 DEFAULT_TF1_GPU_IMAGE = "determinedai/environments:cuda-10.2-pytorch-1.7-tf-1.15-gpu-6eceaca"
-DEFAULT_TF2_GPU_IMAGE = "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-2b7e2a1"
-DEFAULT_PT_CPU_IMAGE = "determinedai/environments:py-3.8-pytorch-1.12-cpu-2b7e2a1"
-DEFAULT_PT_GPU_IMAGE = "determinedai/environments:cuda-11.3-pytorch-1.12-gpu-2b7e2a1"
-DEFAULT_PT2_CPU_IMAGE = "determinedai/environments:py-3.10-pytorch-2.0-cpu-2b7e2a1"
-DEFAULT_PT2_GPU_IMAGE = "determinedai/environments:cuda-11.8-pytorch-2.0-gpu-2b7e2a1"
+DEFAULT_TF2_GPU_IMAGE = "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-622d512"
+DEFAULT_PT_CPU_IMAGE = "determinedai/environments:py-3.9-pytorch-1.12-cpu-622d512"
+DEFAULT_PT_GPU_IMAGE = "determinedai/environments:cuda-11.3-pytorch-1.12-gpu-622d512"
+DEFAULT_PT2_CPU_IMAGE = "determinedai/environments:py-3.10-pytorch-2.0-cpu-622d512"
+DEFAULT_PT2_GPU_IMAGE = "determinedai/environments:cuda-11.8-pytorch-2.0-gpu-622d512"
 
 TF1_CPU_IMAGE = os.environ.get("TF1_CPU_IMAGE") or DEFAULT_TF1_CPU_IMAGE
 TF2_CPU_IMAGE = os.environ.get("TF2_CPU_IMAGE") or DEFAULT_TF2_CPU_IMAGE
@@ -35,6 +36,14 @@ GPU_ENABLED = os.environ.get("DET_TEST_GPU_ENABLED", "1") not in ("0", "false")
 PROJECT_ROOT_PATH = Path(__file__).resolve().parents[2]
 EXAMPLES_PATH = PROJECT_ROOT_PATH / "examples"
 
+ADMIN_CREDENTIALS = authentication.Credentials("admin", "")
+
+SCIM_USERNAME = "determined"
+SCIM_PASSWORD = "password"
+
+ALL_NTSC = set(api.NTSC_Kind.__members__.values())
+PROXIED_NTSC = {api.NTSC_Kind.notebook, api.NTSC_Kind.tensorboard}
+
 
 def fixtures_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "fixtures", path)
@@ -48,40 +57,12 @@ def cv_examples_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "../../examples/computer_vision", path)
 
 
-def nlp_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/nlp", path)
-
-
-def nas_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/nas", path)
-
-
-def meta_learning_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/meta_learning", path)
-
-
 def diffusion_examples_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "../../examples/diffusion", path)
 
 
-def gan_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/gan", path)
-
-
-def decision_trees_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/decision_trees", path)
-
-
 def features_examples_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "../../examples/features", path)
-
-
-def model_hub_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../model_hub/examples", path)
-
-
-def graphs_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/graphs", path)
 
 
 def deepspeed_examples_path(path: str) -> str:
@@ -90,10 +71,6 @@ def deepspeed_examples_path(path: str) -> str:
 
 def deepspeed_autotune_examples_path(path: str) -> str:
     return os.path.join(os.path.dirname(__file__), "../../examples/deepspeed_autotune", path)
-
-
-def custom_search_method_examples_path(path: str) -> str:
-    return os.path.join(os.path.dirname(__file__), "../../examples/custom_search_method", path)
 
 
 def hf_trainer_examples_path(path: str) -> str:

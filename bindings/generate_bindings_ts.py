@@ -539,6 +539,8 @@ export class BaseAPI {{
         if (configuration) {{
             this.configuration = configuration;
             this.basePath = configuration.basePath || this.basePath;
+        }} else {{
+            this.configuration = new Configuration()
         }}
     }}
 }};
@@ -550,9 +552,10 @@ export class BaseAPI {{
  * @extends {{Error}}
  */
 export class RequiredError extends Error {{
-    name: "RequiredError"
+    override name: "RequiredError"
     constructor(public field: string, msg?: string) {{
         super(msg);
+        this.name = "RequiredError"
     }}
 }}
 
@@ -594,10 +597,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--input", "-i", action="store", default=SWAGGER, help="input swagger file")
     parser.add_argument("--output", "-o", action="store", required=True, help="output folder")
     args = parser.parse_args()
 
-    swagger = swagger_parser.parse(SWAGGER)
+    swagger = swagger_parser.parse(args.input)
     bindings = tsbindings(swagger)
 
     if os.path.isdir(args.output):

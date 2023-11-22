@@ -66,7 +66,8 @@ class RemoteSearchRunner(searcher.SearchRunner):
             logger.info(f"Created experiment {exp.id}")
 
         # make sure client is initialized
-        client._require_singleton(lambda: None)()
+        # TODO: remove typing suppression when mypy #14473 is resolved
+        client._require_singleton(lambda: None)()  # type: ignore
         assert client._determined is not None
         session = client._determined._session
         self.run_experiment(experiment_id, session, operations)
@@ -89,9 +90,9 @@ class RemoteSearchRunner(searcher.SearchRunner):
                 pickle.dump(operations, ops_file)
 
     def _show_experiment_paused_msg(self) -> None:
-        logging.warning(
+        logger.warning(
             f"Experiment {self.state.experiment_id} "
-            f"has been paused. If you leave searcher experiment running, "
-            f"your search method will automatically resume when the experiment "
-            f"becomes active again."
+            "has been paused. If you leave searcher experiment running, "
+            "your search method will automatically resume when the experiment "
+            "becomes active again."
         )

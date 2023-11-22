@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import pytest
 
-from determined.common import api, yaml
+from determined.common import api, util
 from determined.common.api import authentication, bindings, certs
 from determined.common.api.bindings import experimentv1State, trialv1State
 from tests import api_utils
@@ -58,6 +58,7 @@ def maybe_run_autotuning_experiment(
     model_def_file: str,
     create_args: Optional[List[str]] = None,
     search_method_name: str = "_test",
+    max_trials: int = 4,
 ) -> subprocess.CompletedProcess:
     command = [
         "python3",
@@ -66,6 +67,8 @@ def maybe_run_autotuning_experiment(
         search_method_name,
         config_file,
         model_def_file,
+        "--max-trials",
+        str(max_trials),
     ]
 
     if create_args is not None:
@@ -85,9 +88,10 @@ def run_autotuning_experiment(
     model_def_file: str,
     create_args: Optional[List[str]] = None,
     search_method_name: str = "_test",
+    max_trials: int = 4,
 ) -> int:
     completed_process = maybe_run_autotuning_experiment(
-        config_file, model_def_file, create_args, search_method_name
+        config_file, model_def_file, create_args, search_method_name, max_trials
     )
     assert completed_process.returncode == 0, "\nstdout:\n{} \nstderr:\n{}".format(
         completed_process.stdout, completed_process.stderr
@@ -619,6 +623,24 @@ def assert_performed_final_checkpoint(exp_id: int) -> None:
     last_workload_matches_last_checkpoint(trials[0].workloads)
 
 
+def run_cmd_and_print_on_error(cmd: List[str]) -> None:
+    """
+    We run some commands to make sure they work, but we don't need their output polluting the logs.
+    """
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
+    ret = p.wait()
+    if ret != 0:
+        print(f"cmd failed: {cmd} exited {ret}", file=sys.stderr)
+        print("====== stdout from failed command ======", file=sys.stderr)
+        print(out.decode("utf8"), file=sys.stderr)
+        print("====== end of stdout ======", file=sys.stderr)
+        print("====== stderr from failed command ======", file=sys.stderr)
+        print(err.decode("utf8"), file=sys.stderr)
+        print("====== end of stderr ======", file=sys.stderr)
+        raise ValueError(f"cmd failed: {cmd} exited {ret}")
+
+
 def run_describe_cli_tests(experiment_id: int) -> None:
     """
     Runs `det experiment describe` CLI command on a finished
@@ -627,7 +649,7 @@ def run_describe_cli_tests(experiment_id: int) -> None:
     """
     # "det experiment describe" without metrics.
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.check_call(
+        run_cmd_and_print_on_error(
             [
                 "det",
                 "-m",
@@ -646,7 +668,7 @@ def run_describe_cli_tests(experiment_id: int) -> None:
 
     # "det experiment describe" with metrics.
     with tempfile.TemporaryDirectory() as tmpdir:
-        subprocess.check_call(
+        run_cmd_and_print_on_error(
             [
                 "det",
                 "-m",
@@ -671,14 +693,13 @@ def run_list_cli_tests(experiment_id: int) -> None:
     exception if the CLI command encounters a traceback failure.
     """
 
-    subprocess.check_call(
+    run_cmd_and_print_on_error(
         ["det", "-m", conf.make_master_url(), "experiment", "list-trials", str(experiment_id)]
     )
-
-    subprocess.check_call(
+    run_cmd_and_print_on_error(
         ["det", "-m", conf.make_master_url(), "experiment", "list-checkpoints", str(experiment_id)]
     )
-    subprocess.check_call(
+    run_cmd_and_print_on_error(
         [
             "det",
             "-m",
@@ -765,10 +786,11 @@ def run_basic_autotuning_test(
     priority: int = -1,
     expect_client_failed: bool = False,
     search_method_name: str = "_test",
+    max_trials: int = 4,
 ) -> int:
     assert os.path.isdir(model_def_file)
     orchestrator_exp_id = run_autotuning_experiment(
-        config_file, model_def_file, create_args, search_method_name
+        config_file, model_def_file, create_args, search_method_name, max_trials
     )
     if priority != -1:
         set_priority(experiment_id=orchestrator_exp_id, priority=priority)
@@ -889,16 +911,18 @@ def verify_completed_experiment_metadata(
         for t in trials:
             last_workload_matches_last_checkpoint(t.workloads)
 
-    # When the experiment completes, all slots should now be free. This
-    # requires terminating the experiment's last container, which might
-    # take some time.
-    max_secs_to_free_slots = 30
-    for _ in range(max_secs_to_free_slots):
-        if cluster_utils.num_free_slots() == cluster_utils.num_slots():
-            break
-        time.sleep(1)
-    else:
-        raise AssertionError("Slots failed to free after experiment {}".format(experiment_id))
+    shared = os.environ.get("SHARED_CLUSTER", False)
+    if not shared:
+        # When the experiment completes, all slots should now be free. This requires terminating the
+        # experiment's last container, which might take some time (especially on Slurm where our
+        # polling is longer).
+        max_secs_to_free_slots = 300 if api_utils.is_hpc() else 30
+        for _ in range(max_secs_to_free_slots):
+            if cluster_utils.num_free_slots() == cluster_utils.num_slots():
+                break
+            time.sleep(1)
+        else:
+            raise AssertionError("Slots failed to free after experiment {}".format(experiment_id))
 
     # Run a series of CLI tests on the finished experiment, to sanity check
     # that basic CLI commands don't raise errors.
@@ -954,7 +978,7 @@ def run_basic_test_with_temp_config(
 ) -> int:
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
-            yaml.dump(config, f)
+            util.yaml_safe_dump(config, f)
         experiment_id = run_basic_test(
             tf.name,
             model_def_path,
@@ -972,7 +996,7 @@ def run_failure_test_with_temp_config(
 ) -> int:
     with tempfile.NamedTemporaryFile() as tf:
         with open(tf.name, "w") as f:
-            yaml.dump(config, f)
+            util.yaml_safe_dump(config, f)
         return run_failure_test(tf.name, model_def_path, error_str=error_str)
 
 

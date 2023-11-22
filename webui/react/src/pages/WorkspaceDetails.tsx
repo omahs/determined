@@ -1,11 +1,12 @@
 import type { TabsProps } from 'antd';
+import Message from 'hew/Message';
+import Pivot from 'hew/Pivot';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import Pivot from 'components/kit/Pivot';
-import Spinner from 'components/kit/Spinner';
-import Message from 'components/Message';
 import ModelRegistry from 'components/ModelRegistry';
 import Page from 'components/Page';
 import PageNotFound from 'components/PageNotFound';
@@ -21,7 +22,6 @@ import userStore from 'stores/users';
 import workspaceStore from 'stores/workspaces';
 import { User, ValueOf } from 'types';
 import handleError from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
 import ResourcePoolsBound from './WorkspaceDetails/ResourcePoolsBound';
@@ -48,7 +48,7 @@ const WorkspaceDetails: React.FC = () => {
   const { rbacEnabled } = useObservable(determinedStore.info);
   const rpBindingFlagOn = useFeature().isOn('rp_binding');
   const loadableUsers = useObservable(userStore.getUsers());
-  const users = Loadable.getOrElse([], loadableUsers);
+  const users = loadableUsers.getOrElse([]);
   const { tab, workspaceId: workspaceID } = useParams<Params>();
   const [groups, setGroups] = useState<V1GroupSearchResult[]>();
   const [usersAssignedDirectly, setUsersAssignedDirectly] = useState<User[]>([]);
@@ -76,13 +76,15 @@ const WorkspaceDetails: React.FC = () => {
   const loadableWorkspace = useObservable(workspaceStore.getWorkspace(id));
   const workspace = Loadable.getOrElse(undefined, loadableWorkspace);
 
+  useEffect(() => userStore.startPolling(), []);
+
   const fetchGroups = useCallback(async (): Promise<void> => {
     try {
-      const response = await getGroups({ limit: 100 }, { signal: canceler.signal });
+      const response = await getGroups({ limit: 500 }, { signal: canceler.signal });
 
       setGroups((prev) => {
         if (_.isEqual(prev, response.groups)) return prev;
-        return response.groups || [];
+        return response.groups ?? [];
       });
     } catch (e) {
       handleError(e);
@@ -93,9 +95,10 @@ const WorkspaceDetails: React.FC = () => {
     if (!rbacEnabled) return;
 
     const response = await getWorkspaceMembers({ nameFilter, workspaceId: id });
+    const activeUsers = response.usersAssignedDirectly.filter((u) => u.isActive);
     const newGroupIds = new Set<number>();
-    setUsersAssignedDirectly(response.usersAssignedDirectly);
-    setUsersAssignedDirectlyIds(new Set(response.usersAssignedDirectly.map((user) => user.id)));
+    setUsersAssignedDirectly(activeUsers);
+    setUsersAssignedDirectlyIds(new Set(activeUsers.map((user) => user.id)));
     setGroupsAssignedDirectly(response.groups);
     response.groups.forEach((group) => {
       if (group.groupId) {
@@ -138,7 +141,7 @@ const WorkspaceDetails: React.FC = () => {
   );
 
   const addableUsers = useMemo(
-    () => users.filter((user) => !usersAssignedDirectlyIds.has(user.id)),
+    () => users.filter((user) => !usersAssignedDirectlyIds.has(user.id) && user.isActive),
     [users, usersAssignedDirectlyIds],
   );
   const addableUsersAndGroups = useMemo(
@@ -254,7 +257,7 @@ const WorkspaceDetails: React.FC = () => {
     tab && setTabKey(tab as WorkspaceDetailsTab);
   }, [workspaceId, navigate, tab]);
 
-  if (Loadable.isLoading(loadableWorkspace) || Loadable.isLoading(loadableUsers)) {
+  if (Loadable.isNotLoaded(loadableWorkspace) || Loadable.isNotLoaded(loadableUsers)) {
     return <Spinner spinning tip={`Loading workspace ${workspaceId} details...`} />;
   } else if (isNaN(id)) {
     return <Message title={`Invalid Workspace ID ${workspaceId}`} />;

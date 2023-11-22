@@ -15,9 +15,6 @@ SPHINXWRAPPER = ./sphinx-wrapper.py
 ../examples/build/stamp:
 	$(MAKE) -C ../examples build/stamp
 
-../model_hub/build-examples/stamp:
-	$(MAKE) -C ../model_hub build-examples/stamp
-
 ../proto/build/swagger/determined/api/v1/api.swagger.json:
 	$(MAKE) -C ../proto build
 
@@ -28,11 +25,10 @@ build/helm.stamp: ../helm/build/stamp
 	mkdir -p build
 	touch $@
 
-build/examples.stamp: ../examples/build/stamp ../model_hub/build-examples/stamp
+build/examples.stamp: ../examples/build/stamp
 	rm -rf site/downloads/examples
 	mkdir -p site/downloads/examples
 	cp ../examples/build/*.tgz site/downloads/examples
-	cp ../model_hub/build-examples/*.tgz site/downloads/examples
 	mkdir -p build
 	touch $@
 
@@ -40,7 +36,7 @@ attributions.rst: $(shell find ../tools/scripts/licenses -type f)
 	../tools/scripts/gen-attributions.py sphinx $@
 
 build/sp-%.stamp: $(SPHINXWRAPPER) conf.py attributions.rst $(shell find . -name site -prune -o -type f \( -name '*.rst' -o -name '*.html' -o -name '*.css' \) -print) $(shell find assets -type f) $(shell find _templates -type f) build/examples.stamp build/helm.stamp build/swagger.stamp
-	@$(SPHINXWRAPPER) $(SPHINXBUILD) -M $* . site $(SPHINXOPTS)
+	$(SPHINXWRAPPER) $(SPHINXBUILD) -M $* . site $(SPHINXOPTS)
 	mkdir -p build
 	touch $@
 

@@ -1,17 +1,16 @@
 import { Alert } from 'antd';
+import CodeEditor from 'hew/CodeEditor';
+import { Modal } from 'hew/Modal';
+import { Loadable, Loaded } from 'hew/utils/loadable';
 import { Map } from 'immutable';
 import { useMemoizedObservable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Modal } from 'components/kit/Modal';
-import useUI, { Mode } from 'components/kit/Theme';
+import useUI, { Mode } from 'components/ThemeProvider';
 import userSettings from 'stores/userSettings';
 import { Json } from 'types';
 import { isJsonObject, isObject } from 'utils/data';
 import handleError from 'utils/error';
-import { Loadable, Loaded } from 'utils/loadable';
-
-import CodeEditor from './kit/CodeEditor';
 
 interface Props {
   onSave?: () => void;
@@ -35,6 +34,7 @@ const UserSettingsModalComponent: React.FC<Props> = ({ onSave }: Props) => {
   const editedSettings: Map<string, Json> | undefined = useMemo(
     () =>
       Loadable.match(editedSettingsString, {
+        _: () => undefined,
         Loaded: (settingsString) => {
           try {
             const obj = JSON.parse(settingsString);
@@ -45,7 +45,6 @@ const UserSettingsModalComponent: React.FC<Props> = ({ onSave }: Props) => {
             return;
           }
         },
-        NotLoaded: () => undefined,
       }),
     [editedSettingsString],
   );

@@ -7,17 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/o1egl/paseto"
+	"github.com/pkg/errors"
 	"github.com/uptrace/bun"
 
 	"github.com/determined-ai/determined/master/internal/api"
-	"github.com/determined-ai/determined/proto/pkg/apiv1"
-
-	"github.com/jmoiron/sqlx"
-
-	"github.com/o1egl/paseto"
-	"github.com/pkg/errors"
-
 	"github.com/determined-ai/determined/master/pkg/model"
+	"github.com/determined-ai/determined/proto/pkg/apiv1"
 )
 
 // initAllocationSessions purges sessions of all closed allocations.
@@ -28,14 +25,6 @@ DELETE FROM allocation_sessions WHERE allocation_id in (
 	WHERE start_time IS NOT NULL AND end_time IS NOT NULL
 )`)
 	return err
-}
-
-// queryHandler is an interface for a query handler to use tx/db for same queries.
-type queryHandler interface {
-	sqlx.Queryer
-	sqlx.Execer
-	// Unfortunately database/sql doesn't expose an interface for this like sqlx.
-	NamedExec(query string, arg interface{}) (sql.Result, error)
 }
 
 // CheckTaskExists checks if the task exists.
@@ -78,16 +67,32 @@ func AddTaskTx(ctx context.Context, idb bun.IDB, t *model.Task) error {
 }
 
 // TaskByID returns a task by its ID.
-func (db *PgDB) TaskByID(tID model.TaskID) (*model.Task, error) {
+func TaskByID(ctx context.Context, tID model.TaskID) (*model.Task, error) {
 	var t model.Task
-	if err := db.query(`
-SELECT *
-FROM tasks
-WHERE task_id = $1
-`, &t, tID); err != nil {
-		return nil, errors.Wrap(err, "querying task")
+	if err := Bun().NewSelect().Model(&t).Where("task_id = ?", tID).Scan(ctx, &t); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			err = ErrNotFound
+		}
+		return nil, fmt.Errorf("querying task ID %s: %w", tID, err)
 	}
+
 	return &t, nil
+}
+
+// NonExperimentTasksContextDirectory returns a non experiment's context directory.
+func NonExperimentTasksContextDirectory(ctx context.Context, tID model.TaskID) ([]byte, error) {
+	res := &model.TaskContextDirectory{}
+	if err := Bun().NewSelect().Model(res).Where("task_id = ?", tID).Scan(ctx, res); err != nil {
+		return nil, fmt.Errorf("querying task ID %s context directory files: %w", tID, err)
+	}
+
+	return res.ContextDirectory, nil
+}
+
+// TaskCompleted checks if the end time exists for a task, if so, the task has completed.
+func TaskCompleted(ctx context.Context, tID model.TaskID) (bool, error) {
+	return Bun().NewSelect().Table("tasks").
+		Where("task_id = ?", tID).Where("end_time IS NOT NULL").Exists(ctx)
 }
 
 // CompleteTask persists the completion of a task.
@@ -134,6 +139,19 @@ DO UPDATE SET
 	task_id=EXCLUDED.task_id, slots=EXCLUDED.slots, resource_pool=EXCLUDED.resource_pool,
 	start_time=EXCLUDED.start_time, state=EXCLUDED.state, ports=EXCLUDED.ports
 `, a)
+}
+
+// AddAllocationExitStatus adds the allocation exit status to the allocations table.
+func AddAllocationExitStatus(ctx context.Context, a *model.Allocation) error {
+	_, err := Bun().NewUpdate().
+		Model(a).
+		Column("exit_reason", "exit_error", "status_code").
+		Where("allocation_id = ?", a.AllocationID).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("adding allocation exit status to db: %w", err)
+	}
+	return nil
 }
 
 // CompleteAllocation persists the end of an allocation lifetime.
@@ -421,10 +439,25 @@ func (db *PgDB) RecordTaskEndStats(stats *model.TaskStats) error {
 
 // RecordTaskEndStatsBun record end stats for tasks with bun.
 func RecordTaskEndStatsBun(stats *model.TaskStats) error {
-	_, err := Bun().NewUpdate().Model(stats).Column("end_time").Where(
-		"allocation_id = ? AND event_type = ? AND end_time IS NULL", stats.AllocationID, stats.EventType,
-	).Exec(context.TODO())
-	return err
+	query := Bun().NewUpdate().Model(stats).Column("end_time").
+		Where("allocation_id = ?", stats.AllocationID).
+		Where("event_type = ?", stats.EventType).
+		Where("end_time IS NULL")
+	if stats.ContainerID == nil {
+		// Just doing Where("container_id = ?", stats.ContainerID) in the null case
+		// generates WHERE container_id = NULL which doesn't seem to match on null rows.
+		// We don't use this case anywhere currently but this feels like an easy bug to write
+		// without this.
+		query = query.Where("container_id IS NULL")
+	} else {
+		query = query.Where("container_id = ?", stats.ContainerID)
+	}
+
+	if _, err := query.Exec(context.TODO()); err != nil {
+		return fmt.Errorf("recording task end stats %+v: %w", stats, err)
+	}
+
+	return nil
 }
 
 // EndAllTaskStats called at master starts, in case master previously crashed.
@@ -435,7 +468,11 @@ FROM cluster_id, allocations
 WHERE allocations.allocation_id = task_stats.allocation_id
 AND allocations.end_time IS NOT NULL
 AND task_stats.end_time IS NULL`)
-	return err
+	if err != nil {
+		return fmt.Errorf("ending all task stats: %w", err)
+	}
+
+	return nil
 }
 
 // TaskLogsFields returns the unique fields that can be filtered on for the given task.

@@ -1,5 +1,15 @@
 import { Space, Typography } from 'antd';
 import { FilterDropdownProps } from 'antd/lib/table/interface';
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import { useModal } from 'hew/Modal';
+import Progress from 'hew/Progress';
+import Tags from 'hew/Tags';
+import { useTheme } from 'hew/Theme';
+import Toggle from 'hew/Toggle';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
@@ -10,13 +20,6 @@ import ExperimentActionDropdown from 'components/ExperimentActionDropdown';
 import ExperimentMoveModalComponent from 'components/ExperimentMoveModal';
 import FilterCounter from 'components/FilterCounter';
 import HumanReadableNumber from 'components/HumanReadableNumber';
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import { useModal } from 'components/kit/Modal';
-import Tags from 'components/kit/Tags';
-import Toggle from 'components/kit/Toggle';
 import Link from 'components/Link';
 import InteractiveTable, {
   ColumnDef,
@@ -27,7 +30,6 @@ import {
   defaultRowClassName,
   experimentDurationRenderer,
   experimentNameRenderer,
-  experimentProgressRenderer,
   ExperimentRenderer,
   expStateRenderer,
   getFullPaginationConfig,
@@ -70,13 +72,13 @@ import {
   RecordKey,
   RunState,
 } from 'types';
+import { getStateColorThemeVar } from 'utils/color';
 import handleError, { ErrorLevel } from 'utils/error';
 import {
   canActionExperiment,
   getActionsForExperimentsUnion,
   getProjectExperimentForExperimentItem,
 } from 'utils/experiment';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { validateDetApiEnum, validateDetApiEnumList } from 'utils/service';
 import { alphaNumericSorter } from 'utils/sort';
@@ -126,7 +128,7 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
   const [batchAction, setBatchAction] = useState<Action>();
   const canceler = useRef(new AbortController());
   const pageRef = useRef<HTMLElement>(null);
-
+  const { getThemeVar } = useTheme();
   const users = Loadable.getOrElse([], useObservable(userStore.getUsers()));
   const permissions = usePermissions();
 
@@ -350,21 +352,24 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
     [handleUserFilterApply, handleUserFilterReset, settings.user],
   );
 
-  const saveExperimentDescription = useCallback(async (editedDescription: string, id: number) => {
-    try {
-      await patchExperiment({
-        body: { description: editedDescription },
-        experimentId: id,
-      });
-    } catch (e) {
-      handleError(e, {
-        isUserTriggered: true,
-        publicMessage: 'Unable to save experiment description.',
-        silent: false,
-      });
-      return e as Error;
-    }
-  }, []);
+  const saveExperimentDescription = useCallback(
+    async (editedDescription: string, id: number): Promise<Error | void> => {
+      try {
+        await patchExperiment({
+          body: { description: editedDescription },
+          experimentId: id,
+        });
+      } catch (e) {
+        handleError(e, {
+          isUserTriggered: true,
+          publicMessage: 'Unable to save experiment description.',
+          silent: false,
+        });
+        return e as Error;
+      }
+    },
+    [],
+  );
 
   const canEditExperiment =
     !!project &&
@@ -396,7 +401,7 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
   );
 
   const columns = useMemo(() => {
-    const tagsRenderer = (value: string, record: ExperimentItem) => (
+    const tagsRenderer = (_value: string, record: ExperimentItem) => (
       <div className={css.tagsRenderer}>
         <Typography.Text
           ellipsis={{
@@ -441,6 +446,20 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
       value ? <Link path={paths.experimentDetails(value)}>{value}</Link> : null;
 
     const checkpointSizeRenderer = (value: number) => (value ? humanReadableBytes(value) : '');
+
+    const experimentProgressRenderer: ExperimentRenderer = (_, record) => {
+      const color = getThemeVar(getStateColorThemeVar(record.state));
+      return typeof record.progress !== 'undefined' ? (
+        <Progress
+          parts={[
+            {
+              color,
+              percent: record.progress,
+            },
+          ]}
+        />
+      ) : null;
+    };
 
     return [
       {
@@ -631,6 +650,7 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
   }, [
     ContextMenu,
     experimentTags,
+    getThemeVar,
     labelFilterDropdown,
     labels,
     nameFilterSearch,
@@ -894,9 +914,7 @@ const ExperimentList: React.FC<Props> = ({ project }) => {
         </Space>
         <div className={css.actionOverflow} title="Open actions menu">
           <Dropdown menu={menuItems} onClick={handleDropdown}>
-            <div>
-              <Icon name="overflow-vertical" title="Action menu" />
-            </div>
+            <Button icon={<Icon name="overflow-vertical" title="Action menu" />} type="text" />
           </Dropdown>
         </div>
       </div>

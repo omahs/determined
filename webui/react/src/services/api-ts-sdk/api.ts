@@ -88,6 +88,8 @@ export class BaseAPI {
         if (configuration) {
             this.configuration = configuration;
             this.basePath = configuration.basePath || this.basePath;
+        } else {
+            this.configuration = new Configuration()
         }
     }
 };
@@ -99,13 +101,29 @@ export class BaseAPI {
  * @extends {Error}
  */
 export class RequiredError extends Error {
-    name: "RequiredError"
+    override name: "RequiredError"
     constructor(public field: string, msg?: string) {
         super(msg);
+        this.name = "RequiredError"
     }
 }
 
 
+/**
+ * Sorts options for checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+ * @export
+ * @enum {string}
+ */
+export const Checkpointv1SortBy = {
+    UNSPECIFIED: 'SORT_BY_UNSPECIFIED',
+    UUID: 'SORT_BY_UUID',
+    TRIALID: 'SORT_BY_TRIAL_ID',
+    BATCHNUMBER: 'SORT_BY_BATCH_NUMBER',
+    ENDTIME: 'SORT_BY_END_TIME',
+    STATE: 'SORT_BY_STATE',
+    SEARCHERMETRIC: 'SORT_BY_SEARCHER_METRIC',
+} as const
+export type Checkpointv1SortBy = ValueOf<typeof Checkpointv1SortBy>
 /**
  * The current state of the checkpoint.   - STATE_UNSPECIFIED: The state of the checkpoint is unknown.  - STATE_ACTIVE: The checkpoint is in an active state.  - STATE_COMPLETED: The checkpoint is persisted to checkpoint storage.  - STATE_ERROR: The checkpoint errored.  - STATE_DELETED: The checkpoint has been deleted.  - STATE_PARTIALLY_DELETED: The checkpoint has been partially deleted.
  * @export
@@ -172,7 +190,7 @@ export const Experimentv1State = {
 } as const
 export type Experimentv1State = ValueOf<typeof Experimentv1State>
 /**
- * - PRODUCT_UNSPECIFIED: Not a Cloud Community offering  - PRODUCT_COMMUNITY: Determined Cloud, Community Edition
+ * Different kinds of Determined Cloud offerings - PRODUCT_UNSPECIFIED: Not a Cloud Community offering  - PRODUCT_COMMUNITY: Determined Cloud, Community Edition
  * @export
  * @enum {string}
  */
@@ -304,7 +322,7 @@ export interface ProtobufAny {
     value?: string;
 }
 /**
- * paths: "f.a"     paths: "f.b.d"  Here `f` represents a field in some root message, `a` and `b` fields in the message found in `f`, and `d` a field found in the message in `f.b`.  Field masks are used to specify a subset of fields that should be returned by a get operation or modified by an update operation. Field masks also have a custom JSON encoding (see below).  # Field Masks in Projections  When used in the context of a projection, a response message or sub-message is filtered by the API to only contain those fields as specified in the mask. For example, if the mask in the previous example is applied to a response message as follows:      f {       a : 22       b {         d : 1         x : 2       }       y : 13     }     z: 8  The result will not contain specific values for fields x,y and z (their value will be set to the default, and omitted in proto text output):       f {       a : 22       b {         d : 1       }     }  A repeated field is not allowed except at the last position of a paths string.  If a FieldMask object is not present in a get operation, the operation applies to all fields (as if a FieldMask of all fields had been specified).  Note that a field mask does not necessarily apply to the top-level response message. In case of a REST get operation, the field mask applies directly to the response, but in case of a REST list operation, the mask instead applies to each individual message in the returned resource list. In case of a REST custom method, other definitions may be used. Where the mask applies will be clearly documented together with its declaration in the API.  In any case, the effect on the returned resource/resources is required behavior for APIs.  # Field Masks in Update Operations  A field mask in update operations specifies which fields of the targeted resource are going to be updated. The API is required to only change the values of the fields as specified in the mask and leave the others untouched. If a resource is passed in to describe the updated values, the API ignores the values of all fields not covered by the mask.  If a repeated field is specified for an update operation, new values will be appended to the existing repeated field in the target resource. Note that a repeated field is only allowed in the last position of a `paths` string.  If a sub-message is specified in the last position of the field mask for an update operation, then new value will be merged into the existing sub-message in the target resource.  For example, given the target message:      f {       b {         d: 1         x: 2       }       c: [1]     }  And an update message:      f {       b {         d: 10       }       c: [2]     }  then if the field mask is:   paths: ["f.b", "f.c"]  then the result will be:      f {       b {         d: 10         x: 2       }       c: [1, 2]     }  An implementation may provide options to override this default behavior for repeated and message fields.  In order to reset a field's value to the default, the field must be in the mask and set to the default value in the provided resource. Hence, in order to reset all fields of a resource, provide a default instance of the resource and set all fields in the mask, or do not provide a mask as described below.  If a field mask is not present on update, the operation applies to all fields (as if a field mask of all fields has been specified). Note that in the presence of schema evolution, this may mean that fields the client does not know and has therefore not filled into the request will be reset to their default. If this is unwanted behavior, a specific service may require a client to always specify a field mask, producing an error if not.  As with get operations, the location of the resource which describes the updated values in the request message depends on the operation kind. In any case, the effect of the field mask is required to be honored by the API.  ## Considerations for HTTP REST  The HTTP kind of an update operation which uses a field mask must be set to PATCH instead of PUT in order to satisfy HTTP semantics (PUT must only be used for full updates).  # JSON Encoding of Field Masks  In JSON, a field mask is encoded as a single string where paths are separated by a comma. Fields name in each path are converted to/from lower-camel naming conventions.  As an example, consider the following message declarations:      message Profile {       User user = 1;       Photo photo = 2;     }     message User {       string display_name = 1;       string address = 2;     }  In proto a field mask for `Profile` may look as such:      mask {       paths: "user.display_name"       paths: "photo"     }  In JSON, the same mask is represented as below:      {       mask: "user.displayName,photo"     }  # Field Masks and Oneof Fields  Field masks treat fields in oneofs just as regular fields. Consider the following message:      message SampleMessage {       oneof test_oneof {         string name = 4;         SubMessage sub_message = 9;       }     }  The field mask can be:      mask {       paths: "name"     }  Or:      mask {       paths: "sub_message"     }  Note that oneof type names ("test_oneof" in this case) cannot be used in paths.  ## Field Mask Verification  The implementation of any API method which has a FieldMask type field in the request should verify the included field paths, and return an `INVALID_ARGUMENT` error if any path is unmappable.
+ * https://protobuf.dev/reference/java/api-docs/com/google/protobuf/FieldMask
  * @export
  * @interface ProtobufFieldMask
  */
@@ -701,7 +719,7 @@ export const TrialProfilerMetricLabelsProfilerMetricType = {
 } as const
 export type TrialProfilerMetricLabelsProfilerMetricType = ValueOf<typeof TrialProfilerMetricLabelsProfilerMetricType>
 /**
- * - STATE_UNSPECIFIED: The trial is in an unspecified state.  - STATE_ACTIVE: The trial is in an active state.  - STATE_PAUSED: The trial is in a paused state  - STATE_STOPPING_CANCELED: The trial is canceled and is shutting down.  - STATE_STOPPING_KILLED: The trial is killed and is shutting down.  - STATE_STOPPING_COMPLETED: The trial is completed and is shutting down.  - STATE_STOPPING_ERROR: The trial is errored and is shutting down.  - STATE_CANCELED: The trial is canceled and is shut down.  - STATE_COMPLETED: The trial is completed and is shut down.  - STATE_ERROR: The trial is errored and is shut down.  - STATE_QUEUED: The trial is queued (waiting to be run, or job state is still queued). Queued is a substate of the Active state.  - STATE_PULLING: The trial is pulling the image. Pulling is a substate of the Active state.  - STATE_STARTING: The trial is preparing the environment after finishing pulling the image. Starting is a substate of the Active state.  - STATE_RUNNING: The trial's allocation is actively running. Running is a substate of the Active state.
+ * The current state of the trial. see \dT+ trial_state in db - STATE_UNSPECIFIED: The trial is in an unspecified state.  - STATE_ACTIVE: The trial is in an active state.  - STATE_PAUSED: The trial is in a paused state  - STATE_STOPPING_CANCELED: The trial is canceled and is shutting down.  - STATE_STOPPING_KILLED: The trial is killed and is shutting down.  - STATE_STOPPING_COMPLETED: The trial is completed and is shutting down.  - STATE_STOPPING_ERROR: The trial is errored and is shutting down.  - STATE_CANCELED: The trial is canceled and is shut down.  - STATE_COMPLETED: The trial is completed and is shut down.  - STATE_ERROR: The trial is errored and is shut down.  - STATE_QUEUED: The trial is queued (waiting to be run, or job state is still queued). Queued is a substate of the Active state.  - STATE_PULLING: The trial is pulling the image. Pulling is a substate of the Active state.  - STATE_STARTING: The trial is preparing the environment after finishing pulling the image. Starting is a substate of the Active state.  - STATE_RUNNING: The trial's allocation is actively running. Running is a substate of the Active state.
  * @export
  * @enum {string}
  */
@@ -886,11 +904,11 @@ export interface V1AcceleratorData {
      */
     acceleratorType?: string;
     /**
-     * An array of IDs of the accelerators associated with the allocation.
+     * An array of UUIDs of the accelerators associated with the allocation.
      * @type {Array<string>}
      * @memberof V1AcceleratorData
      */
-    accelerators?: Array<string>;
+    acceleratorUuids?: Array<string>;
 }
 /**
  * Acknowledge the receipt of some stop signal.
@@ -952,7 +970,7 @@ export interface V1ActivateExperimentsResponse {
     results: Array<V1ExperimentActionResult>;
 }
 /**
- * - ACTIVITY_TYPE_UNSPECIFIED: Default activity type.  - ACTIVITY_TYPE_GET: Represents a get request.
+ * ActivityType represents a user activity - ACTIVITY_TYPE_UNSPECIFIED: Default activity type.  - ACTIVITY_TYPE_GET: Represents a get request.
  * @export
  * @enum {string}
  */
@@ -1145,7 +1163,7 @@ export interface V1Allocation {
      * @type {boolean}
      * @memberof V1Allocation
      */
-    isReady: boolean;
+    isReady?: boolean;
     /**
      * Start timestamp.
      * @type {string}
@@ -1164,6 +1182,24 @@ export interface V1Allocation {
      * @memberof V1Allocation
      */
     allocationId: string;
+    /**
+     * The number of slots associated with the allocation.
+     * @type {number}
+     * @memberof V1Allocation
+     */
+    slots: number;
+    /**
+     * The exit reason for the allocation.
+     * @type {string}
+     * @memberof V1Allocation
+     */
+    exitReason?: string;
+    /**
+     * The status code the allocation exits with.
+     * @type {number}
+     * @memberof V1Allocation
+     */
+    statusCode?: number;
 }
 /**
  * Arguments to an all gather.
@@ -1421,6 +1457,38 @@ export interface V1ArchiveProjectResponse {
  * @interface V1ArchiveWorkspaceResponse
  */
 export interface V1ArchiveWorkspaceResponse {
+}
+/**
+ * Add and remove multiple users from multiple groups.
+ * @export
+ * @interface V1AssignMultipleGroupsRequest
+ */
+export interface V1AssignMultipleGroupsRequest {
+    /**
+     * The user ids of users to edit group associations.
+     * @type {Array<number>}
+     * @memberof V1AssignMultipleGroupsRequest
+     */
+    userIds: Array<number>;
+    /**
+     * The ids of groups to associate with users.
+     * @type {Array<number>}
+     * @memberof V1AssignMultipleGroupsRequest
+     */
+    addGroups: Array<number>;
+    /**
+     * The ids of groups to disassociate from users.
+     * @type {Array<number>}
+     * @memberof V1AssignMultipleGroupsRequest
+     */
+    removeGroups: Array<number>;
+}
+/**
+ * Response to AssignMultipleGroupsRequest.
+ * @export
+ * @interface V1AssignMultipleGroupsResponse
+ */
+export interface V1AssignMultipleGroupsResponse {
 }
 /**
  * AssignRolesRequest is the body of the request for the call to grant a user or group a role. It requires group_id, role_id, and either scope_workspace_id or scope_project_id.
@@ -1780,7 +1848,7 @@ export interface V1CloseTrialOperation {
     requestId?: string;
 }
 /**
- * - COLUMN_TYPE_UNSPECIFIED: data type is unknown/mixed  - COLUMN_TYPE_TEXT: data type is textual  - COLUMN_TYPE_NUMBER: data type is numeric  - COLUMN_TYPE_DATE: data type is a date
+ * ColumnType indicates the type of data under the column - COLUMN_TYPE_UNSPECIFIED: data type is unknown/mixed  - COLUMN_TYPE_TEXT: data type is textual  - COLUMN_TYPE_NUMBER: data type is numeric  - COLUMN_TYPE_DATE: data type is a date
  * @export
  * @enum {string}
  */
@@ -1971,6 +2039,50 @@ export interface V1Container {
      * @memberof V1Container
      */
     devices?: Array<V1Device>;
+    /**
+     * User has insufficient permissions to view this container's details. If true, we obfuscate: (1) parent (2) id (4) devices
+     * @type {boolean}
+     * @memberof V1Container
+     */
+    permissionDenied?: boolean;
+}
+/**
+ * Request to continue an experiment.
+ * @export
+ * @interface V1ContinueExperimentRequest
+ */
+export interface V1ContinueExperimentRequest {
+    /**
+     * Experiment ID to continue.
+     * @type {number}
+     * @memberof V1ContinueExperimentRequest
+     */
+    id: number;
+    /**
+     * Experiment config (YAML) to merge with the experiment's config.
+     * @type {string}
+     * @memberof V1ContinueExperimentRequest
+     */
+    overrideConfig?: string;
+}
+/**
+ * Request to continue an experiment.
+ * @export
+ * @interface V1ContinueExperimentResponse
+ */
+export interface V1ContinueExperimentResponse {
+    /**
+     * The created experiment.
+     * @type {V1Experiment}
+     * @memberof V1ContinueExperimentResponse
+     */
+    experiment: V1Experiment;
+    /**
+     * List of any related warnings.
+     * @type {Array<V1LaunchWarning>}
+     * @memberof V1ContinueExperimentResponse
+     */
+    warnings?: Array<V1LaunchWarning>;
 }
 /**
  * Request to create a new experiment.
@@ -2230,6 +2342,19 @@ export interface V1DeleteCheckpointsRequest {
 export interface V1DeleteCheckpointsResponse {
 }
 /**
+ * Response to DeleteExperimentLabelRequest.
+ * @export
+ * @interface V1DeleteExperimentLabelResponse
+ */
+export interface V1DeleteExperimentLabelResponse {
+    /**
+     * The complete list of labels associated with the experiment.
+     * @type {Array<string>}
+     * @memberof V1DeleteExperimentLabelResponse
+     */
+    labels: Array<string>;
+}
+/**
  * Response to DeleteExperimentRequest.
  * @export
  * @interface V1DeleteExperimentResponse
@@ -2308,6 +2433,13 @@ export interface V1DeleteProjectResponse {
  * @interface V1DeleteTemplateResponse
  */
 export interface V1DeleteTemplateResponse {
+}
+/**
+ * Response to DeleteTensorboardRequest.
+ * @export
+ * @interface V1DeleteTensorboardFilesResponse
+ */
+export interface V1DeleteTensorboardFilesResponse {
 }
 /**
  * Response to DeleteWebhookRequest.
@@ -2513,7 +2645,7 @@ export interface V1EnableSlotResponse {
     slot?: V1Slot;
 }
 /**
- * - ENTITY_TYPE_UNSPECIFIED: Default entity type.  - ENTITY_TYPE_PROJECT: Represents a project.
+ * EntityType represents an entity - ENTITY_TYPE_UNSPECIFIED: Default entity type.  - ENTITY_TYPE_PROJECT: Represents a project.
  * @export
  * @enum {string}
  */
@@ -3051,34 +3183,10 @@ export interface V1GetAgentsResponse {
 export interface V1GetAllocationResponse {
     /**
      * The id of the allocation.
-     * @type {string}
+     * @type {V1Allocation}
      * @memberof V1GetAllocationResponse
      */
-    allocationId: string;
-    /**
-     * The state of the allocation.
-     * @type {Taskv1State}
-     * @memberof V1GetAllocationResponse
-     */
-    state: Taskv1State;
-    /**
-     * The number of slots associated with the allocation.
-     * @type {number}
-     * @memberof V1GetAllocationResponse
-     */
-    slots: number;
-    /**
-     * The exit reason for the allocation.
-     * @type {string}
-     * @memberof V1GetAllocationResponse
-     */
-    exitReason?: string;
-    /**
-     * The status code the allocation exits with.
-     * @type {number}
-     * @memberof V1GetAllocationResponse
-     */
-    statusCode?: number;
+    allocation: V1Allocation;
 }
 /**
  * Response to GetBestSearcherValidationMetricRequest.
@@ -3176,21 +3284,6 @@ export interface V1GetCurrentTrialSearcherOperationResponse {
      */
     completed?: boolean;
 }
-/**
- * Sorts checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
- * @export
- * @enum {string}
- */
-export const V1GetExperimentCheckpointsRequestSortBy = {
-    UNSPECIFIED: 'SORT_BY_UNSPECIFIED',
-    UUID: 'SORT_BY_UUID',
-    TRIALID: 'SORT_BY_TRIAL_ID',
-    BATCHNUMBER: 'SORT_BY_BATCH_NUMBER',
-    ENDTIME: 'SORT_BY_END_TIME',
-    STATE: 'SORT_BY_STATE',
-    SEARCHERMETRIC: 'SORT_BY_SEARCHER_METRIC',
-} as const
-export type V1GetExperimentCheckpointsRequestSortBy = ValueOf<typeof V1GetExperimentCheckpointsRequestSortBy>
 /**
  * Response to GetExperimentCheckpointsRequest.
  * @export
@@ -4075,6 +4168,19 @@ export interface V1GetTaskAcceleratorDataResponse {
     acceleratorData: Array<V1AcceleratorData>;
 }
 /**
+ * Response to GetTaskContextDirectoryRequest.
+ * @export
+ * @interface V1GetTaskContextDirectoryResponse
+ */
+export interface V1GetTaskContextDirectoryResponse {
+    /**
+     * The base64-encoded, gzipped, tarball.
+     * @type {string}
+     * @memberof V1GetTaskContextDirectoryResponse
+     */
+    b64Tgz: string;
+}
+/**
  * Response to GetTaskRequest.
  * @export
  * @interface V1GetTaskResponse
@@ -4226,19 +4332,6 @@ export interface V1GetTrainingMetricsResponse {
     metrics: Array<V1MetricsReport>;
 }
 /**
- * Sorts checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.
- * @export
- * @enum {string}
- */
-export const V1GetTrialCheckpointsRequestSortBy = {
-    UNSPECIFIED: 'SORT_BY_UNSPECIFIED',
-    UUID: 'SORT_BY_UUID',
-    BATCHNUMBER: 'SORT_BY_BATCH_NUMBER',
-    ENDTIME: 'SORT_BY_END_TIME',
-    STATE: 'SORT_BY_STATE',
-} as const
-export type V1GetTrialCheckpointsRequestSortBy = ValueOf<typeof V1GetTrialCheckpointsRequestSortBy>
-/**
  * Response to GetTrialCheckpointsRequest.
  * @export
  * @interface V1GetTrialCheckpointsResponse
@@ -4381,7 +4474,7 @@ export interface V1GetUserSettingResponse {
     settings: Array<V1UserWebSetting>;
 }
 /**
- * Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.
+ * Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.  - SORT_BY_LAST_AUTH_TIME: Returns users sorted by last authenticated time.  - SORT_BY_REMOTE: Returns users sorted by local or remote auth.
  * @export
  * @enum {string}
  */
@@ -4393,6 +4486,8 @@ export const V1GetUsersRequestSortBy = {
     ACTIVE: 'SORT_BY_ACTIVE',
     MODIFIEDTIME: 'SORT_BY_MODIFIED_TIME',
     NAME: 'SORT_BY_NAME',
+    LASTAUTHTIME: 'SORT_BY_LAST_AUTH_TIME',
+    REMOTE: 'SORT_BY_REMOTE',
 } as const
 export type V1GetUsersRequestSortBy = ValueOf<typeof V1GetUsersRequestSortBy>
 /**
@@ -5339,7 +5434,7 @@ export interface V1ListWorkspacesBoundToRPResponse {
     pagination?: V1Pagination;
 }
 /**
- * - LOCATION_TYPE_UNSPECIFIED: Location unknown  - LOCATION_TYPE_EXPERIMENT: Column is located on the experiment  - LOCATION_TYPE_HYPERPARAMETERS: Column is located in the hyperparameter config of the experiment  - LOCATION_TYPE_VALIDATIONS: Column is located on the experiment's validation metrics  - LOCATION_TYPE_TRAINING: Column is located on the experiment's training steps  - LOCATION_TYPE_CUSTOM_METRIC: Column is located on the experiment's custom metric
+ * LocationType indicates where a column comes from - LOCATION_TYPE_UNSPECIFIED: Location unknown  - LOCATION_TYPE_EXPERIMENT: Column is located on the experiment  - LOCATION_TYPE_HYPERPARAMETERS: Column is located in the hyperparameter config of the experiment  - LOCATION_TYPE_VALIDATIONS: Column is located on the experiment's validation metrics  - LOCATION_TYPE_TRAINING: Column is located on the experiment's training steps  - LOCATION_TYPE_CUSTOM_METRIC: Column is located on the experiment's custom metric
  * @export
  * @enum {string}
  */
@@ -5360,10 +5455,10 @@ export type V1LocationType = ValueOf<typeof V1LocationType>
 export interface V1LogConfig {
     /**
      * The log level for Master Config.
-     * @type {string}
+     * @type {V1LogLevel}
      * @memberof V1LogConfig
      */
-    level?: string;
+    level?: V1LogLevel;
     /**
      * The color setting for log in Master Config.
      * @type {boolean}
@@ -6603,6 +6698,44 @@ export interface V1PatchUserResponse {
     user: V1User;
 }
 /**
+ * Update activation status for multiple users.
+ * @export
+ * @interface V1PatchUsersRequest
+ */
+export interface V1PatchUsersRequest {
+    /**
+     * A list of user IDs to update.
+     * @type {Array<number>}
+     * @memberof V1PatchUsersRequest
+     */
+    userIds: Array<number>;
+    /**
+     * Intended status (true to activate, false to deactivate).
+     * @type {boolean}
+     * @memberof V1PatchUsersRequest
+     */
+    activate: boolean;
+    /**
+     * Option to filter to users with these properties.
+     * @type {V1UserFilters}
+     * @memberof V1PatchUsersRequest
+     */
+    filters?: V1UserFilters;
+}
+/**
+ * Response to PatchUsersRequest.
+ * @export
+ * @interface V1PatchUsersResponse
+ */
+export interface V1PatchUsersResponse {
+    /**
+     * Details on success or error for each user.
+     * @type {Array<V1UserActionResult>}
+     * @memberof V1PatchUsersResponse
+     */
+    results: Array<V1UserActionResult>;
+}
+/**
  * PatchWorkspace is a partial update to a workspace with all optional fields.
  * @export
  * @interface V1PatchWorkspace
@@ -7094,6 +7227,26 @@ export interface V1PostSearcherOperationsRequest {
 export interface V1PostSearcherOperationsResponse {
 }
 /**
+ * Request to PostTaskLogs.
+ * @export
+ * @interface V1PostTaskLogsRequest
+ */
+export interface V1PostTaskLogsRequest {
+    /**
+     * The logs to persist.
+     * @type {Array<V1TaskLog>}
+     * @memberof V1PostTaskLogsRequest
+     */
+    logs: Array<V1TaskLog>;
+}
+/**
+ * Response to PostTaskLogs.
+ * @export
+ * @interface V1PostTaskLogsResponse
+ */
+export interface V1PostTaskLogsResponse {
+}
+/**
  * Response to PostTemplateRequest.
  * @export
  * @interface V1PostTemplateResponse
@@ -7476,6 +7629,19 @@ export interface V1ProxyPortConfig {
      * @memberof V1ProxyPortConfig
      */
     unauthenticated?: boolean;
+}
+/**
+ * Response to PutExperimentLabelRequest.
+ * @export
+ * @interface V1PutExperimentLabelResponse
+ */
+export interface V1PutExperimentLabelResponse {
+    /**
+     * The complete list of labels associated with the experiment.
+     * @type {Array<string>}
+     * @memberof V1PutExperimentLabelResponse
+     */
+    labels: Array<string>;
 }
 /**
  * Response to PutExperimentRequest.
@@ -9256,6 +9422,12 @@ export interface V1SSOProvider {
      * @memberof V1SSOProvider
      */
     ssoUrl: string;
+    /**
+     * The type of SSO (such as SAML, OIDC).
+     * @type {string}
+     * @memberof V1SSOProvider
+     */
+    type: string;
 }
 /**
  * Start a trial.
@@ -9337,6 +9509,79 @@ export interface V1Task {
      * @memberof V1Task
      */
     endTime?: Date;
+}
+/**
+ * 
+ * @export
+ * @interface V1TaskLog
+ */
+export interface V1TaskLog {
+    /**
+     * The ID of the log.
+     * @type {number}
+     * @memberof V1TaskLog
+     */
+    id?: number;
+    /**
+     * The ID of the task.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    taskId: string;
+    /**
+     * The ID of the allocation.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    allocationId?: string;
+    /**
+     * The agent the logs came from.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    agentId?: string;
+    /**
+     * The ID of the container or, in the case of k8s, the pod name.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    containerId?: string;
+    /**
+     * The rank ID.
+     * @type {number}
+     * @memberof V1TaskLog
+     */
+    rankId?: number;
+    /**
+     * The timestamp of the log.
+     * @type {Date}
+     * @memberof V1TaskLog
+     */
+    timestamp?: Date;
+    /**
+     * The level of this log.
+     * @type {V1LogLevel}
+     * @memberof V1TaskLog
+     */
+    level?: V1LogLevel;
+    /**
+     * The text of the log entry.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    log: string;
+    /**
+     * The source of the log entry.
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    source?: string;
+    /**
+     * The output stream (e.g. stdout, stderr).
+     * @type {string}
+     * @memberof V1TaskLog
+     */
+    stdtype?: string;
 }
 /**
  * Response to TaskLogsFieldsRequest.
@@ -9461,7 +9706,7 @@ export interface V1TaskLogsResponse {
     stdtype?: string;
 }
 /**
- * - TASK_TYPE_UNSPECIFIED: The task type is unknown  - TASK_TYPE_TRIAL: "TRIAL" task type for the enum public.task_type in Postgres.  - TASK_TYPE_NOTEBOOK: "NOTEBOOK" task type for the enum public.task_type in Postgres.  - TASK_TYPE_SHELL: "SHELL" task type for the enum public.task_type in Postgres.  - TASK_TYPE_COMMAND: "COMMAND" task type for the enum public.task_type in Postgres.  - TASK_TYPE_TENSORBOARD: "TENSORBOARD" task type for the enum public.task_type in Postgres.  - TASK_TYPE_CHECKPOINT_GC: "CHECKPOINT_GC" task type for the enum public.task_type in Postgres.
+ * Type of the task - TASK_TYPE_UNSPECIFIED: The task type is unknown  - TASK_TYPE_TRIAL: "TRIAL" task type for the enum public.task_type in Postgres.  - TASK_TYPE_NOTEBOOK: "NOTEBOOK" task type for the enum public.task_type in Postgres.  - TASK_TYPE_SHELL: "SHELL" task type for the enum public.task_type in Postgres.  - TASK_TYPE_COMMAND: "COMMAND" task type for the enum public.task_type in Postgres.  - TASK_TYPE_TENSORBOARD: "TENSORBOARD" task type for the enum public.task_type in Postgres.  - TASK_TYPE_CHECKPOINT_GC: "CHECKPOINT_GC" task type for the enum public.task_type in Postgres.
  * @export
  * @enum {string}
  */
@@ -10033,7 +10278,7 @@ export interface V1TrialSourceInfo {
     trialSourceInfoType: V1TrialSourceInfoType;
 }
 /**
- * - TRIAL_SOURCE_INFO_TYPE_UNSPECIFIED: The type is unspecified  - TRIAL_SOURCE_INFO_TYPE_INFERENCE: "Inference" Trial Source Info Type, used for batch inference  - TRIAL_SOURCE_INFO_TYPE_FINE_TUNING: "Fine Tuning" Trial Source Info Type, used in model hub
+ * TrialSourceInfoType is the type of the TrialSourceInfo, which serves as a link between a trial and a checkpoint or model version - TRIAL_SOURCE_INFO_TYPE_UNSPECIFIED: The type is unspecified  - TRIAL_SOURCE_INFO_TYPE_INFERENCE: "Inference" Trial Source Info Type, used for batch inference  - TRIAL_SOURCE_INFO_TYPE_FINE_TUNING: "Fine Tuning" Trial Source Info Type, used in model hub
  * @export
  * @enum {string}
  */
@@ -10156,7 +10401,7 @@ export interface V1Trigger {
      */
     triggerType?: V1TriggerType;
     /**
-     * The trigger condition.
+     * The trigger condition. For TRIGGER_TYPE_TASK_LOG needs {"regex": "abcd"}
      * @type {any}
      * @memberof V1Trigger
      */
@@ -10169,7 +10414,7 @@ export interface V1Trigger {
     webhookId?: number;
 }
 /**
- * Enum values for expected trigger types.   - TRIGGER_TYPE_UNSPECIFIED: Default value  - TRIGGER_TYPE_EXPERIMENT_STATE_CHANGE: For an experiment changing state  - TRIGGER_TYPE_METRIC_THRESHOLD_EXCEEDED: For metrics emitted during training.
+ * Enum values for expected trigger types.   - TRIGGER_TYPE_UNSPECIFIED: Default value  - TRIGGER_TYPE_EXPERIMENT_STATE_CHANGE: For an experiment changing state  - TRIGGER_TYPE_METRIC_THRESHOLD_EXCEEDED: For metrics emitted during training.  - TRIGGER_TYPE_TASK_LOG: For task logs.
  * @export
  * @enum {string}
  */
@@ -10177,6 +10422,7 @@ export const V1TriggerType = {
     UNSPECIFIED: 'TRIGGER_TYPE_UNSPECIFIED',
     EXPERIMENTSTATECHANGE: 'TRIGGER_TYPE_EXPERIMENT_STATE_CHANGE',
     METRICTHRESHOLDEXCEEDED: 'TRIGGER_TYPE_METRIC_THRESHOLD_EXCEEDED',
+    TASKLOG: 'TRIGGER_TYPE_TASK_LOG',
 } as const
 export type V1TriggerType = ValueOf<typeof V1TriggerType>
 /**
@@ -10396,6 +10642,50 @@ export interface V1User {
      * @memberof V1User
      */
     remote?: boolean;
+    /**
+     * when the user last authenticated
+     * @type {Date}
+     * @memberof V1User
+     */
+    lastAuthAt?: Date;
+}
+/**
+ * Message for results of individual users in a multi-user action.
+ * @export
+ * @interface V1UserActionResult
+ */
+export interface V1UserActionResult {
+    /**
+     * Optional error message.
+     * @type {string}
+     * @memberof V1UserActionResult
+     */
+    error: string;
+    /**
+     * User ID.
+     * @type {number}
+     * @memberof V1UserActionResult
+     */
+    id: number;
+}
+/**
+ * Options to filter a subset of users.
+ * @export
+ * @interface V1UserFilters
+ */
+export interface V1UserFilters {
+    /**
+     * Case-insensitive partial match of string to username or display name.
+     * @type {string}
+     * @memberof V1UserFilters
+     */
+    name?: string;
+    /**
+     * Matches users with or without an admin flag.
+     * @type {boolean}
+     * @memberof V1UserFilters
+     */
+    admin?: boolean;
 }
 /**
  * UserRoleAssignment contains information about the users belonging to a role.
@@ -13413,6 +13703,48 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
         },
         /**
          * 
+         * @summary Delete a label from the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to delete.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperimentLabel(experimentId: number, label: string, options: any = {}): FetchArgs {
+            // verify required parameter 'experimentId' is not null or undefined
+            if (experimentId === null || experimentId === undefined) {
+                throw new RequiredError('experimentId','Required parameter experimentId was null or undefined when calling deleteExperimentLabel.');
+            }
+            // verify required parameter 'label' is not null or undefined
+            if (label === null || label === undefined) {
+                throw new RequiredError('label','Required parameter label was null or undefined when calling deleteExperimentLabel.');
+            }
+            const localVarPath = `/api/v1/experiments/{experimentId}/labels/{label}`
+                .replace(`{${"experimentId"}}`, encodeURIComponent(String(experimentId)))
+                .replace(`{${"label"}}`, encodeURIComponent(String(label)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'DELETE', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Delete multiple experiments.
          * @param {V1DeleteExperimentsRequest} body
          * @param {*} [options] Override http request option.
@@ -13443,6 +13775,42 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
             objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
             localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Delete tensorboard files.
+         * @param {number} experimentId ID of experiment that the tensorboard files are linked to.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteTensorboardFiles(experimentId: number, options: any = {}): FetchArgs {
+            // verify required parameter 'experimentId' is not null or undefined
+            if (experimentId === null || experimentId === undefined) {
+                throw new RequiredError('experimentId','Required parameter experimentId was null or undefined when calling deleteTensorboardFiles.');
+            }
+            const localVarPath = `/api/v1/experiments/{experimentId}/tensorboard-files`
+                .replace(`{${"experimentId"}}`, encodeURIComponent(String(experimentId)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'DELETE', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             
             return {
                 url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
@@ -13489,7 +13857,8 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
          * 
          * @summary Get a list of checkpoints for an experiment.
          * @param {number} id The experiment id.
-         * @param {V1GetExperimentCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -13497,7 +13866,7 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getExperimentCheckpoints(id: number, sortBy?: V1GetExperimentCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options: any = {}): FetchArgs {
+        getExperimentCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options: any = {}): FetchArgs {
             // verify required parameter 'id' is not null or undefined
             if (id === null || id === undefined) {
                 throw new RequiredError('id','Required parameter id was null or undefined when calling getExperimentCheckpoints.');
@@ -13517,8 +13886,12 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
                 localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
             }
             
-            if (sortBy !== undefined) {
-                localVarQueryParameter['sortBy'] = sortBy
+            if (sortByAttr !== undefined) {
+                localVarQueryParameter['sortByAttr'] = sortByAttr
+            }
+            
+            if (sortByMetric !== undefined) {
+                localVarQueryParameter['sortByMetric'] = sortByMetric
             }
             
             if (orderBy !== undefined) {
@@ -13995,7 +14368,8 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
          * 
          * @summary Get a list of checkpoints for a trial.
          * @param {number} id The trial id.
-         * @param {V1GetTrialCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -14003,7 +14377,7 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getTrialCheckpoints(id: number, sortBy?: V1GetTrialCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options: any = {}): FetchArgs {
+        getTrialCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options: any = {}): FetchArgs {
             // verify required parameter 'id' is not null or undefined
             if (id === null || id === undefined) {
                 throw new RequiredError('id','Required parameter id was null or undefined when calling getTrialCheckpoints.');
@@ -14023,8 +14397,12 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
                 localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
             }
             
-            if (sortBy !== undefined) {
-                localVarQueryParameter['sortBy'] = sortBy
+            if (sortByAttr !== undefined) {
+                localVarQueryParameter['sortByAttr'] = sortByAttr
+            }
+            
+            if (sortByMetric !== undefined) {
+                localVarQueryParameter['sortByMetric'] = sortByMetric
             }
             
             if (orderBy !== undefined) {
@@ -14438,6 +14816,48 @@ export const ExperimentsApiFetchParamCreator = function (configuration?: Configu
             objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
             localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Put a new label on the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to add.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        putExperimentLabel(experimentId: number, label: string, options: any = {}): FetchArgs {
+            // verify required parameter 'experimentId' is not null or undefined
+            if (experimentId === null || experimentId === undefined) {
+                throw new RequiredError('experimentId','Required parameter experimentId was null or undefined when calling putExperimentLabel.');
+            }
+            // verify required parameter 'label' is not null or undefined
+            if (label === null || label === undefined) {
+                throw new RequiredError('label','Required parameter label was null or undefined when calling putExperimentLabel.');
+            }
+            const localVarPath = `/api/v1/experiments/{experimentId}/labels/{label}`
+                .replace(`{${"experimentId"}}`, encodeURIComponent(String(experimentId)))
+                .replace(`{${"label"}}`, encodeURIComponent(String(label)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'PUT', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
             
             return {
                 url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
@@ -14895,6 +15315,26 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Delete a label from the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to delete.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperimentLabel(experimentId: number, label: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1DeleteExperimentLabelResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).deleteExperimentLabel(experimentId, label, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
          * @summary Delete multiple experiments.
          * @param {V1DeleteExperimentsRequest} body
          * @param {*} [options] Override http request option.
@@ -14902,6 +15342,25 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          */
         deleteExperiments(body: V1DeleteExperimentsRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1DeleteExperimentsResponse> {
             const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).deleteExperiments(body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
+         * @summary Delete tensorboard files.
+         * @param {number} experimentId ID of experiment that the tensorboard files are linked to.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteTensorboardFiles(experimentId: number, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1DeleteTensorboardFilesResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).deleteTensorboardFiles(experimentId, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -14935,7 +15394,8 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          * 
          * @summary Get a list of checkpoints for an experiment.
          * @param {number} id The experiment id.
-         * @param {V1GetExperimentCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -14943,8 +15403,8 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getExperimentCheckpoints(id: number, sortBy?: V1GetExperimentCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetExperimentCheckpointsResponse> {
-            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).getExperimentCheckpoints(id, sortBy, orderBy, offset, limit, states, options);
+        getExperimentCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetExperimentCheckpointsResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).getExperimentCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -15154,7 +15614,8 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          * 
          * @summary Get a list of checkpoints for a trial.
          * @param {number} id The trial id.
-         * @param {V1GetTrialCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -15162,8 +15623,8 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getTrialCheckpoints(id: number, sortBy?: V1GetTrialCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetTrialCheckpointsResponse> {
-            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).getTrialCheckpoints(id, sortBy, orderBy, offset, limit, states, options);
+        getTrialCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetTrialCheckpointsResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).getTrialCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -15357,6 +15818,26 @@ export const ExperimentsApiFp = function (configuration?: Configuration) {
          */
         previewHPSearch(body: V1PreviewHPSearchRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PreviewHPSearchResponse> {
             const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).previewHPSearch(body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
+         * @summary Put a new label on the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to add.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        putExperimentLabel(experimentId: number, label: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PutExperimentLabelResponse> {
+            const localVarFetchArgs = ExperimentsApiFetchParamCreator(configuration).putExperimentLabel(experimentId, label, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -15592,6 +16073,17 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
         },
         /**
          * 
+         * @summary Delete a label from the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to delete.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteExperimentLabel(experimentId: number, label: string, options?: any) {
+            return ExperimentsApiFp(configuration).deleteExperimentLabel(experimentId, label, options)(fetch, basePath);
+        },
+        /**
+         * 
          * @summary Delete multiple experiments.
          * @param {V1DeleteExperimentsRequest} body
          * @param {*} [options] Override http request option.
@@ -15599,6 +16091,16 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          */
         deleteExperiments(body: V1DeleteExperimentsRequest, options?: any) {
             return ExperimentsApiFp(configuration).deleteExperiments(body, options)(fetch, basePath);
+        },
+        /**
+         * 
+         * @summary Delete tensorboard files.
+         * @param {number} experimentId ID of experiment that the tensorboard files are linked to.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteTensorboardFiles(experimentId: number, options?: any) {
+            return ExperimentsApiFp(configuration).deleteTensorboardFiles(experimentId, options)(fetch, basePath);
         },
         /**
          * 
@@ -15614,7 +16116,8 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          * 
          * @summary Get a list of checkpoints for an experiment.
          * @param {number} id The experiment id.
-         * @param {V1GetExperimentCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -15622,8 +16125,8 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getExperimentCheckpoints(id: number, sortBy?: V1GetExperimentCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
-            return ExperimentsApiFp(configuration).getExperimentCheckpoints(id, sortBy, orderBy, offset, limit, states, options)(fetch, basePath);
+        getExperimentCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
+            return ExperimentsApiFp(configuration).getExperimentCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options)(fetch, basePath);
         },
         /**
          * 
@@ -15743,7 +16246,8 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          * 
          * @summary Get a list of checkpoints for a trial.
          * @param {number} id The trial id.
-         * @param {V1GetTrialCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.
+         * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+         * @param {string} [sortByMetric] Sort by custom validation metric name.
          * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
          * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -15751,8 +16255,8 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getTrialCheckpoints(id: number, sortBy?: V1GetTrialCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
-            return ExperimentsApiFp(configuration).getTrialCheckpoints(id, sortBy, orderBy, offset, limit, states, options)(fetch, basePath);
+        getTrialCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
+            return ExperimentsApiFp(configuration).getTrialCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options)(fetch, basePath);
         },
         /**
          * 
@@ -15856,6 +16360,17 @@ export const ExperimentsApiFactory = function (configuration?: Configuration, fe
          */
         previewHPSearch(body: V1PreviewHPSearchRequest, options?: any) {
             return ExperimentsApiFp(configuration).previewHPSearch(body, options)(fetch, basePath);
+        },
+        /**
+         * 
+         * @summary Put a new label on the experiment.
+         * @param {number} experimentId The ID of the experiment.
+         * @param {string} label The label to add.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        putExperimentLabel(experimentId: number, label: string, options?: any) {
+            return ExperimentsApiFp(configuration).putExperimentLabel(experimentId, label, options)(fetch, basePath);
         },
         /**
          * 
@@ -16054,6 +16569,19 @@ export class ExperimentsApi extends BaseAPI {
     
     /**
      * 
+     * @summary Delete a label from the experiment.
+     * @param {number} experimentId The ID of the experiment.
+     * @param {string} label The label to delete.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ExperimentsApi
+     */
+    public deleteExperimentLabel(experimentId: number, label: string, options?: any) {
+        return ExperimentsApiFp(this.configuration).deleteExperimentLabel(experimentId, label, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
      * @summary Delete multiple experiments.
      * @param {V1DeleteExperimentsRequest} body
      * @param {*} [options] Override http request option.
@@ -16062,6 +16590,18 @@ export class ExperimentsApi extends BaseAPI {
      */
     public deleteExperiments(body: V1DeleteExperimentsRequest, options?: any) {
         return ExperimentsApiFp(this.configuration).deleteExperiments(body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Delete tensorboard files.
+     * @param {number} experimentId ID of experiment that the tensorboard files are linked to.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ExperimentsApi
+     */
+    public deleteTensorboardFiles(experimentId: number, options?: any) {
+        return ExperimentsApiFp(this.configuration).deleteTensorboardFiles(experimentId, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -16080,7 +16620,8 @@ export class ExperimentsApi extends BaseAPI {
      * 
      * @summary Get a list of checkpoints for an experiment.
      * @param {number} id The experiment id.
-     * @param {V1GetExperimentCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+     * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+     * @param {string} [sortByMetric] Sort by custom validation metric name.
      * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
      * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
      * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -16089,8 +16630,8 @@ export class ExperimentsApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ExperimentsApi
      */
-    public getExperimentCheckpoints(id: number, sortBy?: V1GetExperimentCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
-        return ExperimentsApiFp(this.configuration).getExperimentCheckpoints(id, sortBy, orderBy, offset, limit, states, options)(this.fetch, this.basePath)
+    public getExperimentCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
+        return ExperimentsApiFp(this.configuration).getExperimentCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -16229,7 +16770,8 @@ export class ExperimentsApi extends BaseAPI {
      * 
      * @summary Get a list of checkpoints for a trial.
      * @param {number} id The trial id.
-     * @param {V1GetTrialCheckpointsRequestSortBy} [sortBy] Sort checkpoints by the given field.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.
+     * @param {Checkpointv1SortBy} [sortByAttr] Sort by preset checkpoint attribute.   - SORT_BY_UNSPECIFIED: Returns checkpoints in an unsorted list.  - SORT_BY_UUID: Returns checkpoints sorted by UUID.  - SORT_BY_TRIAL_ID: Returns checkpoints sorted by trial id.  - SORT_BY_BATCH_NUMBER: Returns checkpoints sorted by batch number.  - SORT_BY_END_TIME: Returns checkpoints sorted by end time.  - SORT_BY_STATE: Returns checkpoints sorted by state.  - SORT_BY_SEARCHER_METRIC: Returns checkpoints sorted by the experiment's `searcher.metric` configuration setting.
+     * @param {string} [sortByMetric] Sort by custom validation metric name.
      * @param {V1OrderBy} [orderBy] Order checkpoints in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
      * @param {number} [offset] Skip the number of checkpoints before returning results. Negative values denote number of checkpoints to skip from the end before returning results.
      * @param {number} [limit] Limit the number of checkpoints. A value of 0 denotes no limit.
@@ -16238,8 +16780,8 @@ export class ExperimentsApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof ExperimentsApi
      */
-    public getTrialCheckpoints(id: number, sortBy?: V1GetTrialCheckpointsRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
-        return ExperimentsApiFp(this.configuration).getTrialCheckpoints(id, sortBy, orderBy, offset, limit, states, options)(this.fetch, this.basePath)
+    public getTrialCheckpoints(id: number, sortByAttr?: Checkpointv1SortBy, sortByMetric?: string, orderBy?: V1OrderBy, offset?: number, limit?: number, states?: Array<Checkpointv1State>, options?: any) {
+        return ExperimentsApiFp(this.configuration).getTrialCheckpoints(id, sortByAttr, sortByMetric, orderBy, offset, limit, states, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -16363,6 +16905,19 @@ export class ExperimentsApi extends BaseAPI {
      */
     public previewHPSearch(body: V1PreviewHPSearchRequest, options?: any) {
         return ExperimentsApiFp(this.configuration).previewHPSearch(body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Put a new label on the experiment.
+     * @param {number} experimentId The ID of the experiment.
+     * @param {string} label The label to add.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ExperimentsApi
+     */
+    public putExperimentLabel(experimentId: number, label: string, options?: any) {
+        return ExperimentsApiFp(this.configuration).putExperimentLabel(experimentId, label, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -16755,6 +17310,44 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
         },
         /**
          * 
+         * @summary Assign multiple users to multiple groups.
+         * @param {V1AssignMultipleGroupsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        assignMultipleGroups(body: V1AssignMultipleGroupsRequest, options: any = {}): FetchArgs {
+            // verify required parameter 'body' is not null or undefined
+            if (body === null || body === undefined) {
+                throw new RequiredError('body','Required parameter body was null or undefined when calling assignMultipleGroups.');
+            }
+            const localVarPath = `/api/v1/users/assignments`;
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'PATCH', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Bind resource pool to workspace
          * @param {string} resourcePoolName The resource pool name.
          * @param {V1BindRPToWorkspaceRequest} body
@@ -16816,6 +17409,44 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
             }
             const localVarPath = `/api/v1/trials/{trialId}/searcher/completed_operation`
                 .replace(`{${"trialId"}}`, encodeURIComponent(String(trialId)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'POST', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Continues an experiment either to make the existing experiment train longer or to retry it.
+         * @param {V1ContinueExperimentRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        continueExperiment(body: V1ContinueExperimentRequest, options: any = {}): FetchArgs {
+            // verify required parameter 'body' is not null or undefined
+            if (body === null || body === undefined) {
+                throw new RequiredError('body','Required parameter body was null or undefined when calling continueExperiment.');
+            }
+            const localVarPath = `/api/v1/experiments/continue`;
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
             const localVarRequestOptions = { method: 'POST', ...options };
             const localVarHeaderParameter = {} as any;
@@ -18134,6 +18765,44 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
         },
         /**
          * 
+         * @summary Patch multiple users' activation status.
+         * @param {V1PatchUsersRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        patchUsers(body: V1PatchUsersRequest, options: any = {}): FetchArgs {
+            // verify required parameter 'body' is not null or undefined
+            if (body === null || body === undefined) {
+                throw new RequiredError('body','Required parameter body was null or undefined when calling patchUsers.');
+            }
+            const localVarPath = `/api/v1/users`;
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'PATCH', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary PostAllocationAcceleratorData sets the accelerator for a given allocation.
          * @param {string} allocationId The id of the allocation.
          * @param {V1PostAllocationAcceleratorDataRequest} body
@@ -18195,6 +18864,44 @@ export const InternalApiFetchParamCreator = function (configuration?: Configurat
             }
             const localVarPath = `/api/v1/allocations/{allocationId}/proxy_address`
                 .replace(`{${"allocationId"}}`, encodeURIComponent(String(allocationId)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'POST', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            localVarRequestOptions.body = JSON.stringify(body)
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Persist the given task logs.
+         * @param {V1PostTaskLogsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        postTaskLogs(body: V1PostTaskLogsRequest, options: any = {}): FetchArgs {
+            // verify required parameter 'body' is not null or undefined
+            if (body === null || body === undefined) {
+                throw new RequiredError('body','Required parameter body was null or undefined when calling postTaskLogs.');
+            }
+            const localVarPath = `/api/v1/task/logs`;
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
             const localVarRequestOptions = { method: 'POST', ...options };
             const localVarHeaderParameter = {} as any;
@@ -19210,6 +19917,25 @@ export const InternalApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Assign multiple users to multiple groups.
+         * @param {V1AssignMultipleGroupsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        assignMultipleGroups(body: V1AssignMultipleGroupsRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1AssignMultipleGroupsResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).assignMultipleGroups(body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
          * @summary Bind resource pool to workspace
          * @param {string} resourcePoolName The resource pool name.
          * @param {V1BindRPToWorkspaceRequest} body
@@ -19238,6 +19964,25 @@ export const InternalApiFp = function (configuration?: Configuration) {
          */
         completeTrialSearcherValidation(trialId: number, body: V1CompleteValidateAfterOperation, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1CompleteTrialSearcherValidationResponse> {
             const localVarFetchArgs = InternalApiFetchParamCreator(configuration).completeTrialSearcherValidation(trialId, body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
+         * @summary Continues an experiment either to make the existing experiment train longer or to retry it.
+         * @param {V1ContinueExperimentRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        continueExperiment(body: V1ContinueExperimentRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1ContinueExperimentResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).continueExperiment(body, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -19858,6 +20603,25 @@ export const InternalApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Patch multiple users' activation status.
+         * @param {V1PatchUsersRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        patchUsers(body: V1PatchUsersRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PatchUsersResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).patchUsers(body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
          * @summary PostAllocationAcceleratorData sets the accelerator for a given allocation.
          * @param {string} allocationId The id of the allocation.
          * @param {V1PostAllocationAcceleratorDataRequest} body
@@ -19886,6 +20650,25 @@ export const InternalApiFp = function (configuration?: Configuration) {
          */
         postAllocationProxyAddress(allocationId: string, body: V1PostAllocationProxyAddressRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PostAllocationProxyAddressResponse> {
             const localVarFetchArgs = InternalApiFetchParamCreator(configuration).postAllocationProxyAddress(allocationId, body, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
+         * @summary Persist the given task logs.
+         * @param {V1PostTaskLogsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        postTaskLogs(body: V1PostTaskLogsRequest, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1PostTaskLogsResponse> {
+            const localVarFetchArgs = InternalApiFetchParamCreator(configuration).postTaskLogs(body, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -20354,6 +21137,16 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
         },
         /**
          * 
+         * @summary Assign multiple users to multiple groups.
+         * @param {V1AssignMultipleGroupsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        assignMultipleGroups(body: V1AssignMultipleGroupsRequest, options?: any) {
+            return InternalApiFp(configuration).assignMultipleGroups(body, options)(fetch, basePath);
+        },
+        /**
+         * 
          * @summary Bind resource pool to workspace
          * @param {string} resourcePoolName The resource pool name.
          * @param {V1BindRPToWorkspaceRequest} body
@@ -20373,6 +21166,16 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
          */
         completeTrialSearcherValidation(trialId: number, body: V1CompleteValidateAfterOperation, options?: any) {
             return InternalApiFp(configuration).completeTrialSearcherValidation(trialId, body, options)(fetch, basePath);
+        },
+        /**
+         * 
+         * @summary Continues an experiment either to make the existing experiment train longer or to retry it.
+         * @param {V1ContinueExperimentRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        continueExperiment(body: V1ContinueExperimentRequest, options?: any) {
+            return InternalApiFp(configuration).continueExperiment(body, options)(fetch, basePath);
         },
         /**
          * 
@@ -20714,6 +21517,16 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
         },
         /**
          * 
+         * @summary Patch multiple users' activation status.
+         * @param {V1PatchUsersRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        patchUsers(body: V1PatchUsersRequest, options?: any) {
+            return InternalApiFp(configuration).patchUsers(body, options)(fetch, basePath);
+        },
+        /**
+         * 
          * @summary PostAllocationAcceleratorData sets the accelerator for a given allocation.
          * @param {string} allocationId The id of the allocation.
          * @param {V1PostAllocationAcceleratorDataRequest} body
@@ -20733,6 +21546,16 @@ export const InternalApiFactory = function (configuration?: Configuration, fetch
          */
         postAllocationProxyAddress(allocationId: string, body: V1PostAllocationProxyAddressRequest, options?: any) {
             return InternalApiFp(configuration).postAllocationProxyAddress(allocationId, body, options)(fetch, basePath);
+        },
+        /**
+         * 
+         * @summary Persist the given task logs.
+         * @param {V1PostTaskLogsRequest} body
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        postTaskLogs(body: V1PostTaskLogsRequest, options?: any) {
+            return InternalApiFp(configuration).postTaskLogs(body, options)(fetch, basePath);
         },
         /**
          * 
@@ -21045,6 +21868,18 @@ export class InternalApi extends BaseAPI {
     
     /**
      * 
+     * @summary Assign multiple users to multiple groups.
+     * @param {V1AssignMultipleGroupsRequest} body
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof InternalApi
+     */
+    public assignMultipleGroups(body: V1AssignMultipleGroupsRequest, options?: any) {
+        return InternalApiFp(this.configuration).assignMultipleGroups(body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
      * @summary Bind resource pool to workspace
      * @param {string} resourcePoolName The resource pool name.
      * @param {V1BindRPToWorkspaceRequest} body
@@ -21067,6 +21902,18 @@ export class InternalApi extends BaseAPI {
      */
     public completeTrialSearcherValidation(trialId: number, body: V1CompleteValidateAfterOperation, options?: any) {
         return InternalApiFp(this.configuration).completeTrialSearcherValidation(trialId, body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Continues an experiment either to make the existing experiment train longer or to retry it.
+     * @param {V1ContinueExperimentRequest} body
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof InternalApi
+     */
+    public continueExperiment(body: V1ContinueExperimentRequest, options?: any) {
+        return InternalApiFp(this.configuration).continueExperiment(body, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -21469,6 +22316,18 @@ export class InternalApi extends BaseAPI {
     
     /**
      * 
+     * @summary Patch multiple users' activation status.
+     * @param {V1PatchUsersRequest} body
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof InternalApi
+     */
+    public patchUsers(body: V1PatchUsersRequest, options?: any) {
+        return InternalApiFp(this.configuration).patchUsers(body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
      * @summary PostAllocationAcceleratorData sets the accelerator for a given allocation.
      * @param {string} allocationId The id of the allocation.
      * @param {V1PostAllocationAcceleratorDataRequest} body
@@ -21491,6 +22350,18 @@ export class InternalApi extends BaseAPI {
      */
     public postAllocationProxyAddress(allocationId: string, body: V1PostAllocationProxyAddressRequest, options?: any) {
         return InternalApiFp(this.configuration).postAllocationProxyAddress(allocationId, body, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Persist the given task logs.
+     * @param {V1PostTaskLogsRequest} body
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof InternalApi
+     */
+    public postTaskLogs(body: V1PostTaskLogsRequest, options?: any) {
+        return InternalApiFp(this.configuration).postTaskLogs(body, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -26380,6 +27251,42 @@ export const TasksApiFetchParamCreator = function (configuration?: Configuration
         },
         /**
          * 
+         * @summary Get the model definition of a task.
+         * @param {string} taskId The id of the experiment.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getTaskContextDirectory(taskId: string, options: any = {}): FetchArgs {
+            // verify required parameter 'taskId' is not null or undefined
+            if (taskId === null || taskId === undefined) {
+                throw new RequiredError('taskId','Required parameter taskId was null or undefined when calling getTaskContextDirectory.');
+            }
+            const localVarPath = `/api/v1/tasks/{taskId}/context_directory`
+                .replace(`{${"taskId"}}`, encodeURIComponent(String(taskId)));
+            const localVarUrlObj = new URL(localVarPath, BASE_PATH);
+            const localVarRequestOptions = { method: 'GET', ...options };
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+            
+            // authentication BearerToken required
+            if (configuration && configuration.apiKey) {
+                const localVarApiKeyValue = typeof configuration.apiKey === 'function'
+                    ? configuration.apiKey("Authorization")
+                    : configuration.apiKey;
+                localVarHeaderParameter["Authorization"] = localVarApiKeyValue;
+            }
+            
+            objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
+            objToSearchParams(options.query || {}, localVarUrlObj.searchParams);
+            localVarRequestOptions.headers = { ...localVarHeaderParameter, ...options.headers };
+            
+            return {
+                url: `${localVarUrlObj.pathname}${localVarUrlObj.search}`,
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -26598,6 +27505,25 @@ export const TasksApiFp = function (configuration?: Configuration) {
         },
         /**
          * 
+         * @summary Get the model definition of a task.
+         * @param {string} taskId The id of the experiment.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getTaskContextDirectory(taskId: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetTaskContextDirectoryResponse> {
+            const localVarFetchArgs = TasksApiFetchParamCreator(configuration).getTaskContextDirectory(taskId, options);
+            return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
+                return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        return response.json();
+                    } else {
+                        throw response;
+                    }
+                });
+            };
+        },
+        /**
+         * 
          * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -26696,6 +27622,16 @@ export const TasksApiFactory = function (configuration?: Configuration, fetch?: 
         },
         /**
          * 
+         * @summary Get the model definition of a task.
+         * @param {string} taskId The id of the experiment.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getTaskContextDirectory(taskId: string, options?: any) {
+            return TasksApiFp(configuration).getTaskContextDirectory(taskId, options)(fetch, basePath);
+        },
+        /**
+         * 
          * @summary Get all tasks.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
@@ -26768,6 +27704,18 @@ export class TasksApi extends BaseAPI {
      */
     public getTask(taskId: string, options?: any) {
         return TasksApiFp(this.configuration).getTask(taskId, options)(this.fetch, this.basePath)
+    }
+    
+    /**
+     * 
+     * @summary Get the model definition of a task.
+     * @param {string} taskId The id of the experiment.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TasksApi
+     */
+    public getTaskContextDirectory(taskId: string, options?: any) {
+        return TasksApiFp(this.configuration).getTaskContextDirectory(taskId, options)(this.fetch, this.basePath)
     }
     
     /**
@@ -28933,15 +29881,18 @@ export const UsersApiFetchParamCreator = function (configuration?: Configuration
         /**
          * 
          * @summary Get a list of users.
-         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.
+         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.  - SORT_BY_LAST_AUTH_TIME: Returns users sorted by last authenticated time.  - SORT_BY_REMOTE: Returns users sorted by local or remote auth.
          * @param {V1OrderBy} [orderBy] Order users in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of projects before returning results. Negative values denote number of projects to skip from the end before returning results.
          * @param {number} [limit] Limit the number of projects. A value of 0 denotes no limit.
          * @param {string} [name] Filter by username or display name.
+         * @param {boolean} [active] Filter by status.
+         * @param {boolean} [admin] Filter by roles.
+         * @param {Array<number>} [roleIdAssignedDirectlyToUser] Filter by roles id assigned directly to user for EE.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, options: any = {}): FetchArgs {
+        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, active?: boolean, admin?: boolean, roleIdAssignedDirectlyToUser?: Array<number>, options: any = {}): FetchArgs {
             const localVarPath = `/api/v1/users`;
             const localVarUrlObj = new URL(localVarPath, BASE_PATH);
             const localVarRequestOptions = { method: 'GET', ...options };
@@ -28974,6 +29925,18 @@ export const UsersApiFetchParamCreator = function (configuration?: Configuration
             
             if (name !== undefined) {
                 localVarQueryParameter['name'] = name
+            }
+            
+            if (active !== undefined) {
+                localVarQueryParameter['active'] = active
+            }
+            
+            if (admin !== undefined) {
+                localVarQueryParameter['admin'] = admin
+            }
+            
+            if (roleIdAssignedDirectlyToUser) {
+                localVarQueryParameter['roleIdAssignedDirectlyToUser'] = roleIdAssignedDirectlyToUser
             }
             
             objToSearchParams(localVarQueryParameter, localVarUrlObj.searchParams);
@@ -29316,16 +30279,19 @@ export const UsersApiFp = function (configuration?: Configuration) {
         /**
          * 
          * @summary Get a list of users.
-         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.
+         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.  - SORT_BY_LAST_AUTH_TIME: Returns users sorted by last authenticated time.  - SORT_BY_REMOTE: Returns users sorted by local or remote auth.
          * @param {V1OrderBy} [orderBy] Order users in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of projects before returning results. Negative values denote number of projects to skip from the end before returning results.
          * @param {number} [limit] Limit the number of projects. A value of 0 denotes no limit.
          * @param {string} [name] Filter by username or display name.
+         * @param {boolean} [active] Filter by status.
+         * @param {boolean} [admin] Filter by roles.
+         * @param {Array<number>} [roleIdAssignedDirectlyToUser] Filter by roles id assigned directly to user for EE.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetUsersResponse> {
-            const localVarFetchArgs = UsersApiFetchParamCreator(configuration).getUsers(sortBy, orderBy, offset, limit, name, options);
+        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, active?: boolean, admin?: boolean, roleIdAssignedDirectlyToUser?: Array<number>, options?: any): (fetch?: FetchAPI, basePath?: string) => Promise<V1GetUsersResponse> {
+            const localVarFetchArgs = UsersApiFetchParamCreator(configuration).getUsers(sortBy, orderBy, offset, limit, name, active, admin, roleIdAssignedDirectlyToUser, options);
             return (fetch: FetchAPI = window.fetch, basePath: string = BASE_PATH) => {
                 return fetch(basePath + localVarFetchArgs.url, localVarFetchArgs.options).then((response) => {
                     if (response.status >= 200 && response.status < 300) {
@@ -29510,16 +30476,19 @@ export const UsersApiFactory = function (configuration?: Configuration, fetch?: 
         /**
          * 
          * @summary Get a list of users.
-         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.
+         * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.  - SORT_BY_LAST_AUTH_TIME: Returns users sorted by last authenticated time.  - SORT_BY_REMOTE: Returns users sorted by local or remote auth.
          * @param {V1OrderBy} [orderBy] Order users in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
          * @param {number} [offset] Skip the number of projects before returning results. Negative values denote number of projects to skip from the end before returning results.
          * @param {number} [limit] Limit the number of projects. A value of 0 denotes no limit.
          * @param {string} [name] Filter by username or display name.
+         * @param {boolean} [active] Filter by status.
+         * @param {boolean} [admin] Filter by roles.
+         * @param {Array<number>} [roleIdAssignedDirectlyToUser] Filter by roles id assigned directly to user for EE.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, options?: any) {
-            return UsersApiFp(configuration).getUsers(sortBy, orderBy, offset, limit, name, options)(fetch, basePath);
+        getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, active?: boolean, admin?: boolean, roleIdAssignedDirectlyToUser?: Array<number>, options?: any) {
+            return UsersApiFp(configuration).getUsers(sortBy, orderBy, offset, limit, name, active, admin, roleIdAssignedDirectlyToUser, options)(fetch, basePath);
         },
         /**
          * 
@@ -29639,17 +30608,20 @@ export class UsersApi extends BaseAPI {
     /**
      * 
      * @summary Get a list of users.
-     * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.
+     * @param {V1GetUsersRequestSortBy} [sortBy] Sort users by the given field.   - SORT_BY_UNSPECIFIED: Returns users in an unsorted list.  - SORT_BY_DISPLAY_NAME: Returns users sorted by display name.  - SORT_BY_USER_NAME: Returns users sorted by user name.  - SORT_BY_ADMIN: Returns users sorted by if they are admin.  - SORT_BY_ACTIVE: Returns users sorted by if they are active.  - SORT_BY_MODIFIED_TIME: Returns users sorted by modified time.  - SORT_BY_NAME: Returns users sorted by username unless display name exist.  - SORT_BY_LAST_AUTH_TIME: Returns users sorted by last authenticated time.  - SORT_BY_REMOTE: Returns users sorted by local or remote auth.
      * @param {V1OrderBy} [orderBy] Order users in either ascending or descending order.   - ORDER_BY_UNSPECIFIED: Returns records in no specific order.  - ORDER_BY_ASC: Returns records in ascending order.  - ORDER_BY_DESC: Returns records in descending order.
      * @param {number} [offset] Skip the number of projects before returning results. Negative values denote number of projects to skip from the end before returning results.
      * @param {number} [limit] Limit the number of projects. A value of 0 denotes no limit.
      * @param {string} [name] Filter by username or display name.
+     * @param {boolean} [active] Filter by status.
+     * @param {boolean} [admin] Filter by roles.
+     * @param {Array<number>} [roleIdAssignedDirectlyToUser] Filter by roles id assigned directly to user for EE.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof UsersApi
      */
-    public getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, options?: any) {
-        return UsersApiFp(this.configuration).getUsers(sortBy, orderBy, offset, limit, name, options)(this.fetch, this.basePath)
+    public getUsers(sortBy?: V1GetUsersRequestSortBy, orderBy?: V1OrderBy, offset?: number, limit?: number, name?: string, active?: boolean, admin?: boolean, roleIdAssignedDirectlyToUser?: Array<number>, options?: any) {
+        return UsersApiFp(this.configuration).getUsers(sortBy, orderBy, offset, limit, name, active, admin, roleIdAssignedDirectlyToUser, options)(this.fetch, this.basePath)
     }
     
     /**

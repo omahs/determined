@@ -11,7 +11,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/http/pprof"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -20,8 +22,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/determined-ai/determined/master/internal/job/jobservice"
 
 	"github.com/coreos/go-systemd/activation"
 	"github.com/google/uuid"
@@ -46,7 +46,8 @@ import (
 	"github.com/determined-ai/determined/master/internal/db"
 	"github.com/determined-ai/determined/master/internal/elastic"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
-	"github.com/determined-ai/determined/master/internal/job"
+	"github.com/determined-ai/determined/master/internal/job/jobservice"
+	"github.com/determined-ai/determined/master/internal/logpattern"
 	"github.com/determined-ai/determined/master/internal/plugin/sso"
 	"github.com/determined-ai/determined/master/internal/portregistry"
 	"github.com/determined-ai/determined/master/internal/prom"
@@ -59,8 +60,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/trials"
 	"github.com/determined-ai/determined/master/internal/user"
 	"github.com/determined-ai/determined/master/internal/webhooks"
-	"github.com/determined-ai/determined/master/pkg/actor"
-	"github.com/determined-ai/determined/master/pkg/actor/actors"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/etc"
 	"github.com/determined-ai/determined/master/pkg/logger"
@@ -93,11 +92,10 @@ type Master struct {
 	config   *config.Config
 	taskSpec *tasks.TaskSpec
 
-	logs   *logger.LogBuffer
-	system *actor.System
-	echo   *echo.Echo
-	db     *db.PgDB
-	rm     rm.ResourceManager
+	logs *logger.LogBuffer
+	echo *echo.Echo
+	db   *db.PgDB
+	rm   rm.ResourceManager
 
 	trialLogBackend TrialLogBackend
 	taskLogBackend  TaskLogBackend
@@ -608,7 +606,7 @@ func (m *Master) findListeningPort(listener net.Listener) (uint16, error) {
 	return 0, errors.New("listener not found")
 }
 
-func (m *Master) startServers(ctx context.Context, cert *tls.Certificate) error {
+func (m *Master) startServers(ctx context.Context, cert *tls.Certificate, gRPCLogInitDone chan struct{}) error {
 	// Create the base socket listener by either fetching one passed to us from systemd or creating a
 	// TCP listener manually.
 	var baseListener net.Listener
@@ -666,7 +664,9 @@ func (m *Master) startServers(ctx context.Context, cert *tls.Certificate) error 
 	// gRPC server (logger initialization, maybe more). Found by --race.
 	gRPCServer := grpcutil.NewGRPCServer(m.db, &apiServer{m: m},
 		m.config.Observability.EnablePrometheus,
-		&m.config.InternalConfig.ExternalSessions)
+		&m.config.InternalConfig.ExternalSessions,
+		m.logs,
+	)
 
 	err = grpcutil.RegisterHTTPProxy(ctx, m.echo, m.config.Port, cert)
 	if err != nil {
@@ -700,13 +700,16 @@ func (m *Master) startServers(ctx context.Context, cert *tls.Certificate) error 
 		// To be fixed by https://github.com/soheilhy/cmux/pull/69 which makes cmux an io.Closer.
 		return gRPCServer.Serve(grpcListener)
 	})
+	defer gRPCServer.Stop()
+
 	start("HTTP server", func() error {
 		m.echo.Listener = httpListener
 		m.echo.HidePort = true
 		m.echo.Server.ConnContext = connsave.SaveConn
-		defer closeWithErrCheck("echo", m.echo)
 		return m.echo.StartServer(m.echo.Server)
 	})
+	defer closeWithErrCheck("echo", m.echo)
+
 	start("cmux listener", mux.Serve)
 
 	if systemdListener != nil {
@@ -714,6 +717,11 @@ func (m *Master) startServers(ctx context.Context, cert *tls.Certificate) error 
 	} else {
 		log.Infof("accepting incoming connections on port %d", m.config.Port)
 	}
+
+	if gRPCLogInitDone != nil {
+		close(gRPCLogInitDone)
+	}
+
 	select {
 	case err := <-errs:
 		return err
@@ -803,6 +811,18 @@ func convertDBErrorsToNotFound(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// convertCtxErrsToTimeout helps reduce boilerplate in our handlers and reduce
+// spurious logs by classifying context.Canceled as 408 (>=500 is logged).
+func convertCtxErrsToTimeout(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := next(c)
+		if errors.Is(err, context.Canceled) {
+			return echo.NewHTTPError(http.StatusRequestTimeout, err.Error())
+		}
+		return err
+	}
+}
+
 func updateClusterHeartbeat(ctx context.Context, db *db.PgDB) {
 	t := time.NewTicker(10 * time.Minute)
 	defer t.Stop()
@@ -852,7 +872,11 @@ func (m *Master) postTaskLogs(c echo.Context) (interface{}, error) {
 }
 
 // Run causes the Determined master to connect the database and begin listening for HTTP requests.
-func (m *Master) Run(ctx context.Context) error {
+//
+// gRPCLogInitDone is closed when the grpclog package's logger singletons are set. This is just
+// used by tests to soothe -race, since we asynchronously launch a gRPC server and connect with a
+// gRPC client, in the same program, using the same singletons.
+func (m *Master) Run(ctx context.Context, gRPCLogInitDone chan struct{}) error {
 	log.Infof("Determined master %s (built with %s)", version.Version, runtime.Version())
 
 	var err error
@@ -867,10 +891,22 @@ func (m *Master) Run(ctx context.Context) error {
 	}
 	defer closeWithErrCheck("db", m.db)
 
-	m.ClusterID, err = m.db.GetOrCreateClusterID()
+	m.ClusterID, err = m.db.GetOrCreateClusterID(m.config.Telemetry.ClusterID)
 	if err != nil {
 		return errors.Wrap(err, "could not fetch cluster id from database")
 	}
+
+	webhookManager, err := webhooks.New(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing webhooks: %w", err)
+	}
+	webhooks.SetDefault(webhookManager)
+
+	l, err := logpattern.New(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing log pattern policies: %w", err)
+	}
+	logpattern.SetDefault(l)
 
 	err = m.checkIfRMDefaultsAreUnbound(m.config.ResourceManager)
 	if err != nil {
@@ -896,33 +932,6 @@ func (m *Master) Run(ctx context.Context) error {
 
 	go m.cleanUpExperimentSnapshots()
 
-	// Actor structure:
-	// master system
-	// +- Agent Group (actors.Group: agents)
-	//     +- Agent (internal.agent: <agent-id>)
-	//         +- Websocket (actors.WebSocket: <remote-address>)
-	// +- ResourceManagers (scheduler.ResourceManagers: resourceManagers)
-	// Exactly one of the resource managers is enabled at a time.
-	// +- AgentResourceManager (resourcemanagers.AgentResourceManager: agentRM)
-	//     +- Resource Pool (resourcemanagers.ResourcePool: <resource-pool-name>)
-	//         +- Provisioner (provisioner.Provisioner: provisioner)
-	// +- KubernetesResourceManager (scheduler.KubernetesResourceManager: kubernetesRM)
-	// +- Service Proxy (proxy.Proxy: proxy)
-	// +- Telemetry (telemetry.telemetry: telemetry)
-	// +- TrialLogger (internal.trialLogger: trialLogger)
-	// +- Experiments (actors.Group: experiments)
-	//     +- Experiment (internal.experiment: <experiment-id>)
-	//         +- Trial (internal.trial: <trial-request-id>)
-	//             +- Websocket (actors.WebSocket: <remote-address>)
-	m.system = actor.NewSystemWithRoot("master", actor.ActorFunc(root))
-
-	ctx, cancel := context.WithCancel(ctx)
-	go func() {
-		sErr := m.system.Ref.AwaitTermination()
-		log.WithError(sErr).Error("actor system exited")
-		cancel()
-	}()
-
 	switch {
 	case m.config.Logging.DefaultLoggingConfig != nil:
 		m.trialLogBackend = m.db
@@ -939,12 +948,13 @@ func (m *Master) Run(ctx context.Context) error {
 	}
 	tasklogger.SetDefaultLogger(tasklogger.New(m.taskLogBackend))
 
-	user.InitService(m.db, m.system, &m.config.InternalConfig.ExternalSessions)
+	user.InitService(m.db, &m.config.InternalConfig.ExternalSessions)
 	userService := user.GetService()
 
 	proxy.InitProxy(processProxyAuthentication)
-	portregistry.InitPortRegistry()
-	m.system.MustActorOf(actor.Addr("allocation-aggregator"), &allocationAggregator{db: m.db})
+	portregistry.InitPortRegistry(config.GetMasterConfig().ReservedPorts)
+
+	go periodicallyAggregateResourceAllocation(m.db)
 
 	// Initialize the HTTP server and listen for incoming requests.
 	m.echo = echo.New()
@@ -994,6 +1004,7 @@ func (m *Master) Run(ctx context.Context) error {
 	})
 
 	m.echo.Use(convertDBErrorsToNotFound)
+	m.echo.Use(convertCtxErrsToTimeout)
 
 	if m.config.InternalConfig.AuditLoggingEnabled {
 		m.echo.Use(auditLogMiddleware())
@@ -1005,7 +1016,12 @@ func (m *Master) Run(ctx context.Context) error {
 	}
 
 	m.echo.Use(authzAuditLogMiddleware())
-	m.echo.Use(userService.ProcessAuthentication)
+
+	var proxiedRoutes []string
+	for _, ps := range m.config.InternalConfig.ProxiedServers {
+		proxiedRoutes = append(proxiedRoutes, ps.PathPrefix)
+	}
+	m.echo.Use(processAuthWithRedirect(proxiedRoutes))
 
 	m.echo.Logger = logger.New()
 	m.echo.HideBanner = true
@@ -1021,7 +1037,6 @@ func (m *Master) Run(ctx context.Context) error {
 
 	// Resource Manager.
 	m.rm = rm.New(
-		m.system,
 		m.db,
 		m.echo,
 		&m.config.ResourceConfig,
@@ -1032,12 +1047,10 @@ func (m *Master) Run(ctx context.Context) error {
 		},
 		cert,
 	)
-	jobservice.SetDefaultService(job.NewManager(m.rm, m.system))
+	jobservice.SetDefaultService(m.rm)
 
 	tasksGroup := m.echo.Group("/tasks")
 	tasksGroup.GET("", api.Route(m.getTasks))
-
-	m.system.ActorOf(actor.Addr("experiments"), &actors.Group{})
 
 	if err = m.restoreNonTerminalExperiments(); err != nil {
 		return err
@@ -1051,12 +1064,17 @@ func (m *Master) Run(ctx context.Context) error {
 		return err
 	}
 
-	command.RegisterAPIHandler(
-		m.system,
-		m.echo,
-		m.db,
-		m.rm,
-	)
+	// Wait for all NTSC services to initialize.
+	cs, err := command.NewService(m.db, m.rm)
+	if err != nil {
+		return fmt.Errorf("initializing command service: %w", err)
+	}
+	command.SetDefaultService(cs)
+
+	// Restore any commands.
+	if err = command.DefaultCmdService.RestoreAllCommands(ctx); err != nil {
+		return err
+	}
 
 	if err = m.closeOpenAllocations(); err != nil {
 		return err
@@ -1192,6 +1210,16 @@ func (m *Master) Run(ctx context.Context) error {
 	handler := proxy.DefaultProxy.NewProxyHandler("service")
 	m.echo.Any("/proxy/:service/*", handler)
 
+	for _, ps := range m.config.InternalConfig.ProxiedServers {
+		psGroup := m.echo.Group(ps.PathPrefix)
+		psTarget, err := url.Parse(ps.Destination)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse the given proxied server path")
+		}
+		psProxy := httputil.NewSingleHostReverseProxy(psTarget)
+		psGroup.Any("*", echo.WrapHandler(http.StripPrefix(ps.PathPrefix, psProxy)))
+	}
+
 	// Catch-all for requests not matched by any above handler
 	// echo does not set the response error on the context if no handler is matched
 	m.echo.Any("/*", func(c echo.Context) error {
@@ -1203,13 +1231,8 @@ func (m *Master) Run(ctx context.Context) error {
 
 	user.RegisterAPIHandler(m.echo, userService)
 
-	telemetry.Init(
-		m.system,
-		m.db,
-		m.rm,
-		m.ClusterID,
-		m.config.Telemetry,
-	)
+	telemetry.Init(m.ClusterID, m.config.Telemetry)
+	go telemetry.PeriodicallyReportMasterTick(m.db, m.rm)
 
 	if err := sso.RegisterAPIHandlers(m.config, m.db, m.echo); err != nil {
 		return err
@@ -1218,5 +1241,5 @@ func (m *Master) Run(ctx context.Context) error {
 	webhooks.Init()
 	defer webhooks.Deinit()
 
-	return m.startServers(ctx, cert)
+	return m.startServers(ctx, cert, gRPCLogInitDone)
 }

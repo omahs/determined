@@ -1,5 +1,5 @@
 import enum
-from typing import Callable, Iterator, Optional, Set, Tuple, TypeVar, Union
+from typing import Callable, Iterator, Optional, Tuple, TypeVar, Union
 
 import urllib3
 
@@ -19,6 +19,7 @@ RETRY_STATUSES = [502, 503, 504]  # Bad Gateway, Service Unavailable, Gateway Ti
 
 # Default max number of times to retry a request.
 MAX_RETRIES = 5
+
 
 # Not that read_paginated requires the output of get_with_offset to be a Paginated type to work.
 # The Paginated union type is generated based on response objects with a .pagination attribute.
@@ -70,14 +71,6 @@ class NTSC_Kind(enum.Enum):
 
 AnyNTSC = Union[bindings.v1Notebook, bindings.v1Tensorboard, bindings.v1Shell, bindings.v1Command]
 
-all_ntsc: Set[NTSC_Kind] = {
-    NTSC_Kind.notebook,
-    NTSC_Kind.shell,
-    NTSC_Kind.command,
-    NTSC_Kind.tensorboard,
-}
-proxied_ntsc: Set[NTSC_Kind] = {NTSC_Kind.notebook, NTSC_Kind.tensorboard}
-
 
 def get_ntsc_details(session: api.Session, typ: NTSC_Kind, ntsc_id: str) -> AnyNTSC:
     if typ == NTSC_Kind.notebook:
@@ -121,15 +114,14 @@ def task_is_ready(
         if progress_report:
             progress_report()
         assert task is not None, "task must be present."
+        if task.endTime is not None:
+            return True, "task has been terminated."
+
         if len(task.allocations) == 0:
             return False, None
-
         is_ready = task.allocations[0].isReady
         if is_ready:
             return True, None
-
-        if task.endTime is not None:
-            return True, "task has been terminated."
 
         return False, ""
 

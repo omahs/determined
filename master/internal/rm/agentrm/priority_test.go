@@ -4,14 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/determined-ai/determined/master/internal/rm/tasklist"
-
 	"github.com/shopspring/decimal"
-
 	"gotest.tools/assert"
 
+	"github.com/determined-ai/determined/master/internal/rm/tasklist"
 	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/model"
 )
@@ -39,8 +36,7 @@ func TestSortTasksByPriorityAndTimestamps(t *testing.T) {
 
 	emptyQueuePositions := make(map[model.JobID]decimal.Decimal)
 
-	system := actor.NewSystem(t.Name())
-	taskList, mockGroups, _ := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, mockGroups, _ := setupSchedulerStates(t, tasks, groups, agents)
 
 	zeroSlotPendingTasksByPriority, _ := sortTasksByPriorityAndPositionAndTimestamp(
 		taskList, mockGroups, emptyQueuePositions, taskFilter(true))
@@ -93,8 +89,7 @@ func TestPrioritySchedulingMaxZeroSlotContainer(t *testing.T) {
 		{ID: "task6", SlotsNeeded: 0, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -125,8 +120,7 @@ func TestPrioritySchedulingPreemptionDisabled(t *testing.T) {
 		{ID: "task6", SlotsNeeded: 0, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -159,8 +153,7 @@ func TestPrioritySchedulingPreemptionDisabledHigherPriorityBlocksLowerPriority(t
 		{ID: "task3", SlotsNeeded: 12, Group: groups[1]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -196,8 +189,7 @@ func TestPrioritySchedulingPreemptionDisabledAddTasks(t *testing.T) {
 		{ID: "task6", SlotsNeeded: 0, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -217,7 +209,7 @@ func TestPrioritySchedulingPreemptionDisabledAddTasks(t *testing.T) {
 		{ID: "task8", SlotsNeeded: 1, Group: groups[0]},
 		{ID: "task9", SlotsNeeded: 1, Group: groups[0]},
 	}
-	AddUnallocatedTasks(t, newTasks, system, taskList)
+	AddUnallocatedTasks(t, newTasks, taskList)
 
 	toAllocate, _ = p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -246,8 +238,7 @@ func TestPrioritySchedulingPreemptionDisabledAllSlotsAllocated(t *testing.T) {
 		{ID: "task6", SlotsNeeded: 1, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -266,7 +257,7 @@ func TestPrioritySchedulingPreemptionDisabledAllSlotsAllocated(t *testing.T) {
 		{ID: "task7", SlotsNeeded: 1, Group: groups[1]},
 		{ID: "task8", SlotsNeeded: 1, Group: groups[1]},
 	}
-	AddUnallocatedTasks(t, newTasks, system, taskList)
+	AddUnallocatedTasks(t, newTasks, taskList)
 
 	toAllocate, _ = p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -293,8 +284,7 @@ func TestPrioritySchedulingPreemptionDisabledLowerPriorityMustWait(t *testing.T)
 		{ID: "task5", SlotsNeeded: 2, Group: groups[1]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	firstAllocation, _ := p.prioritySchedule(taskList, groupMap,
@@ -337,8 +327,7 @@ func TestPrioritySchedulingPreemptionDisabledTaskFinished(t *testing.T) {
 		{ID: "task1", SlotsNeeded: 4, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -359,7 +348,7 @@ func TestPrioritySchedulingPreemptionDisabledTaskFinished(t *testing.T) {
 		{ID: "task8", SlotsNeeded: 1, Group: groups[0]},
 		{ID: "task9", SlotsNeeded: 0, Group: groups[0]},
 	}
-	AddUnallocatedTasks(t, newTasks, system, taskList)
+	AddUnallocatedTasks(t, newTasks, taskList)
 
 	toAllocate, _ = p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -388,8 +377,7 @@ func TestPrioritySchedulingPreemptionDisabledAllTasksFinished(t *testing.T) {
 		{ID: "task6", SlotsNeeded: 1, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -407,7 +395,7 @@ func TestPrioritySchedulingPreemptionDisabledAllTasksFinished(t *testing.T) {
 	newTasks := []*MockTask{
 		{ID: "task7", SlotsNeeded: 4, Group: groups[1]},
 	}
-	AddUnallocatedTasks(t, newTasks, system, taskList)
+	AddUnallocatedTasks(t, newTasks, taskList)
 
 	for _, task := range toAllocate {
 		RemoveTask(task.SlotsNeeded, task.AllocationID, taskList, true)
@@ -435,8 +423,7 @@ func TestPrioritySchedulingPreemptionDisabledZeroSlotTask(t *testing.T) {
 		{ID: "task2", SlotsNeeded: 0, Group: groups[0]},
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 
 	p := &priorityScheduler{}
 	toAllocate, _ := p.prioritySchedule(taskList, groupMap,
@@ -450,7 +437,7 @@ func TestPrioritySchedulingPreemptionDisabledZeroSlotTask(t *testing.T) {
 	newTasks := []*MockTask{
 		{ID: "task3", SlotsNeeded: 0, Group: groups[1]},
 	}
-	AddUnallocatedTasks(t, newTasks, system, taskList)
+	AddUnallocatedTasks(t, newTasks, taskList)
 
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -499,8 +486,7 @@ func TestPrioritySchedulingPreemption(t *testing.T) {
 	expectedToAllocate := []*MockTask{}
 	expectedToRelease := []*MockTask{tasks[1]}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -554,8 +540,7 @@ func TestPrioritySchedulingBackfilling(t *testing.T) {
 	expectedToAllocate := []*MockTask{tasks[2], tasks[4]}
 	expectedToRelease := []*MockTask{tasks[0]}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -599,8 +584,7 @@ func TestPrioritySchedulingPreemptionZeroSlotTask(t *testing.T) {
 	expectedToAllocate := []*MockTask{}
 	expectedToRelease := []*MockTask{tasks[1]}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -646,8 +630,7 @@ func TestPrioritySchedulingBackfillingZeroSlotTask(t *testing.T) {
 	expectedToAllocate := []*MockTask{tasks[0], tasks[3]}
 	expectedToRelease := []*MockTask{}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		make(map[model.JobID]decimal.Decimal), agentMap, BestFit)
@@ -663,9 +646,9 @@ func TestPrioritySchedulingPreemptOneByPosition(t *testing.T) {
 		{ID: "agent2", Slots: 4},
 	}
 	groups := []*MockGroup{
-		{ID: "group1", Priority: &priority},
-		{ID: "group2", Priority: &priority},
-		{ID: "group3", Priority: &priority},
+		{ID: "1", Priority: &priority},
+		{ID: "2", Priority: &priority},
+		{ID: "3", Priority: &priority},
 	}
 	tasks := []*MockTask{
 		{
@@ -693,11 +676,9 @@ func TestPrioritySchedulingPreemptOneByPosition(t *testing.T) {
 		"3": decimal.NewFromFloatWithExponent(1.5, sproto.DecimalExp),
 	}
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
-	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
-		jobsList, agentMap, BestFit)
+	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap, jobsList, agentMap, BestFit)
 	assertEqualToAllocate(t, toAllocate, expectedToAllocate)
 	assertEqualToRelease(t, taskList, toRelease, expectedToRelease)
 
@@ -752,8 +733,7 @@ func TestPrioritySchedulingNoPreemptionByPosition(t *testing.T) {
 	}
 	jobsList["3"] = decimal.Avg(jobsList["1"], jobsList["2"])
 
-	system := actor.NewSystem(t.Name())
-	taskList, groupMap, agentMap := setupSchedulerStates(t, system, tasks, groups, agents)
+	taskList, groupMap, agentMap := setupSchedulerStates(t, tasks, groups, agents)
 	p := &priorityScheduler{preemptionEnabled: true}
 	toAllocate, toRelease := p.prioritySchedule(taskList, groupMap,
 		jobsList, agentMap, BestFit)
@@ -763,7 +743,7 @@ func TestPrioritySchedulingNoPreemptionByPosition(t *testing.T) {
 
 func AllocateTasks(
 	toAllocate []*sproto.AllocateRequest,
-	agents map[*actor.Ref]*agentState,
+	agents map[agentID]*agentState,
 	taskList *tasklist.TaskList,
 ) {
 	for _, req := range toAllocate {
@@ -794,16 +774,12 @@ func AllocateTasks(
 func AddUnallocatedTasks(
 	t *testing.T,
 	mockTasks []*MockTask,
-	system *actor.System,
 	taskList *tasklist.TaskList,
 ) {
 	for _, mockTask := range mockTasks {
-		ref, created := system.ActorOf(actor.Addr(mockTask.ID), mockTask)
-		assert.Assert(t, created)
-		req := MockTaskToAllocateRequest(mockTask, ref)
+		req := MockTaskToAllocateRequest(mockTask)
 		if mockTask.Group != nil {
-			groupRef, _ := system.ActorOf(actor.Addr(mockTask.Group.ID), mockTask.Group)
-			req.Group = groupRef
+			req.JobID = model.JobID(mockTask.Group.ID)
 		}
 
 		taskList.AddTask(req)

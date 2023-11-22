@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from 'dayjs';
+import Tooltip from 'hew/Tooltip';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import Tooltip from 'components/kit/Tooltip';
 import { ValueOf } from 'types';
 import { isNumber, isString } from 'utils/data';
 import {
@@ -14,8 +14,6 @@ import {
 } from 'utils/datetime';
 import { capitalize, capitalizeWord } from 'utils/string';
 
-import css from './TimeAgo.module.scss';
-
 export const TimeAgoCase = {
   Lower: 'lower',
   Sentence: 'sentence',
@@ -24,8 +22,7 @@ export const TimeAgoCase = {
 
 export type TimeAgoCase = ValueOf<typeof TimeAgoCase>;
 
-interface Props {
-  className?: string;
+export interface Props {
   dateFormat?: string;
   datetime: Dayjs | Date | number | string;
   long?: boolean;
@@ -39,7 +36,6 @@ export const JUST_NOW = 'Just Now';
 export const DEFAULT_TOOLTIP_FORMAT = 'MMM D, YYYY - h:mm a';
 
 const TimeAgo: React.FC<Props> = ({
-  className,
   dateFormat = 'MMM D, YYYY',
   datetime,
   long = false,
@@ -49,9 +45,6 @@ const TimeAgo: React.FC<Props> = ({
   units = 1,
 }: Props) => {
   const [now, setNow] = useState(() => Date.now());
-  const classes: string[] = [css.base];
-
-  if (className) classes.push(className);
 
   const milliseconds = useMemo(() => {
     if (isNumber(datetime)) {
@@ -97,12 +90,13 @@ const TimeAgo: React.FC<Props> = ({
     }
   }, [duration, stringCase]);
 
-  const updateInterval = useMemo(() => {
+  const updateInterval = useMemo((): number => {
     if (noUpdate || delta === 0) return 0;
     if (delta < DURATION_MINUTE) return DURATION_SECOND;
     if (delta < DURATION_HOUR) return DURATION_MINUTE;
     if (delta < DURATION_DAY) return DURATION_HOUR;
     if (delta < DURATION_YEAR) return DURATION_DAY;
+    return 0;
   }, [delta, noUpdate]);
 
   useEffect(() => {
@@ -116,8 +110,13 @@ const TimeAgo: React.FC<Props> = ({
   }, [updateInterval]);
 
   return (
-    <Tooltip content={dayjs(milliseconds).format(tooltipFormat)}>
-      <div className={classes.join(' ')}>{durationString}</div>
+    <Tooltip
+      content={
+        <div style={{ whiteSpace: 'pre-wrap' }}>
+          {dayjs(milliseconds).format(tooltipFormat).replace('\\n', '\n')}
+        </div>
+      }>
+      {durationString}
     </Tooltip>
   );
 };

@@ -1,15 +1,17 @@
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import useConfirm from 'hew/useConfirm';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useMemo } from 'react';
 
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
+import { useAsync } from 'hooks/useAsync';
 import usePermissions from 'hooks/usePermissions';
 import { paths } from 'routes/utils';
-import { killTask } from 'services/api';
+import { getCommand, getJupyterLab, getShell, getTensorBoard, killTask } from 'services/api';
 import { CommandTask, CommandType } from 'types';
 import handleError from 'utils/error';
 import { routeToReactUrl } from 'utils/routes';
 
-import useConfirm from './kit/useConfirm';
 import css from './TaskBar.module.scss';
 
 interface Props {
@@ -34,9 +36,16 @@ export const TaskBar: React.FC<Props> = ({
 }: Props) => {
   const { canModifyWorkspaceNSC } = usePermissions();
   const confirm = useConfirm();
-  const task = useMemo(() => {
-    return { id, name, resourcePool, type } as CommandTask;
-  }, [id, name, resourcePool, type]);
+
+  const task = useAsync(() => {
+    const call = {
+      'command': getCommand,
+      'jupyter-lab': getJupyterLab,
+      'shell': getShell,
+      'tensor-board': getTensorBoard,
+    }[type];
+    return call({ commandId: id });
+  }, [type, id]);
 
   const deleteTask = useCallback(
     (task: CommandTask) => {
@@ -66,19 +75,22 @@ export const TaskBar: React.FC<Props> = ({
   const menuItems: MenuItem[] = useMemo(
     () => [
       {
-        disabled: !canModifyWorkspaceNSC({ workspace: { id: task.workspaceId } }),
+        disabled: Loadable.match(task, {
+          _: () => true,
+          Loaded: (t) => !canModifyWorkspaceNSC({ workspace: { id: t.workspaceId } }),
+        }),
         key: MenuKey.Kill,
         label: 'Kill',
       },
       { key: MenuKey.ViewLogs, label: 'View Logs' },
     ],
-    [canModifyWorkspaceNSC, task.workspaceId],
+    [canModifyWorkspaceNSC, task],
   );
 
   const handleDropdown = (key: string) => {
     switch (key) {
       case MenuKey.Kill:
-        deleteTask(task);
+        Loadable.forEach(task, deleteTask);
         break;
       case MenuKey.ViewLogs:
         handleViewLogsClick();
@@ -94,7 +106,7 @@ export const TaskBar: React.FC<Props> = ({
         <Dropdown menu={menuItems} placement="bottomRight" onClick={handleDropdown}>
           <div className={css.dropdownTrigger} data-testid="task-action-dropdown-trigger">
             <span className={css.dropdownTrigger}>{resourcePool}</span>
-            <Icon name="arrow-down" size="tiny" title="Action menu" />
+            <Icon name="arrow-down" title="Action menu" />
           </div>
         </Dropdown>
       </div>

@@ -21,6 +21,8 @@ import determined as det
 from determined import core, profiler, pytorch, tensorboard, util
 from determined.horovod import hvd
 
+logger = logging.getLogger("determined.pytorch")
+
 # Apex is included only for GPU trials.
 try:
     import apex
@@ -68,6 +70,11 @@ class TrainUnit:
             return Batch(length)
         else:
             raise ValueError(f"unrecognized searcher unit {unit}")
+
+    def _to_searcher_unit(self) -> core.Unit:
+        if isinstance(self, Batch):
+            return core.Unit.BATCHES
+        return core.Unit.EPOCHS
 
     @staticmethod
     def _from_values(
@@ -176,7 +183,7 @@ class _TrialState:
 class _PyTorchTrialController:
     def __init__(
         self,
-        trial_inst: det.Trial,
+        trial_inst: det.LegacyTrial,
         context: pytorch.PyTorchTrialContext,
         checkpoint_period: TrainUnit,
         validation_period: TrainUnit,
@@ -218,8 +225,15 @@ class _PyTorchTrialController:
         if local_training:
             self.trial_id = 0
             assert self.max_length, "max_length must be specified for local-training mode."
+            self.searcher_unit = self.max_length._to_searcher_unit()
         else:
             self.trial_id = self.core_context.train._trial_id
+            configured_units = self.core_context.searcher.get_configured_units()
+            if configured_units is None:
+                raise ValueError(
+                    "Searcher units must be configured for training with PyTorchTrial."
+                )
+            self.searcher_unit = configured_units
 
         # Don't initialize the state here because it will be invalid until we load a checkpoint.
         self.state = None  # type: Optional[_TrialState]
@@ -235,7 +249,6 @@ class _PyTorchTrialController:
         self.smaller_is_better = smaller_is_better
         self.global_batch_size = global_batch_size
 
-        self.searcher_unit = self.core_context.searcher.get_configured_units()
         if self.searcher_unit == core.Unit.RECORDS:
             if self.global_batch_size is None:
                 raise ValueError("global_batch_size required for searcher unit RECORDS.")
@@ -366,7 +379,7 @@ class _PyTorchTrialController:
                 if sig.parameters:
                     callback.on_training_epoch_start(epoch_idx)
                 else:
-                    logging.warning(
+                    logger.warning(
                         "on_training_epoch_start() without parameters is deprecated"
                         " since 0.17.8. Please add epoch_idx parameter."
                     )
@@ -415,8 +428,8 @@ class _PyTorchTrialController:
         Check if the user has implemented evaluate_batch
         or evaluate_full_dataset.
         """
-        logging.debug(f"Evaluate_batch_defined: {self._evaluate_batch_defined()}.")
-        logging.debug(f"Evaluate full dataset defined: {self._evaluate_full_dataset_defined()}.")
+        logger.debug(f"Evaluate_batch_defined: {self._evaluate_batch_defined()}.")
+        logger.debug(f"Evaluate full dataset defined: {self._evaluate_full_dataset_defined()}.")
         if self._evaluate_batch_defined() == self._evaluate_full_dataset_defined():
             raise det.errors.InvalidExperimentException(
                 "Please define exactly one of: `evaluate_batch()` or `evaluate_full_dataset()`. "
@@ -592,7 +605,7 @@ class _PyTorchTrialController:
 
             # If a load path is provided load weights and restore the data location.
             if self.latest_checkpoint is not None:
-                logging.info(f"Restoring trial from checkpoint {self.latest_checkpoint}")
+                logger.info(f"Restoring trial from checkpoint {self.latest_checkpoint}")
                 with self.context._core.checkpoint.restore_path(
                     self.latest_checkpoint
                 ) as load_path:
@@ -739,9 +752,17 @@ class _PyTorchTrialController:
     def _train_for_op(
         self, op: core.SearcherOperation, train_boundaries: List[_TrainBoundary]
     ) -> None:
-        searcher_complete = op._completed
+        if self.test_mode:
+            train_length = Batch(1)
+        elif self.local_training:
+            train_length = self.max_length  # type: ignore
+        else:
+            train_length = TrainUnit._from_searcher_unit(
+                op.length, self.searcher_unit, self.global_batch_size
+            )  # type: ignore
+        assert train_length
 
-        while not searcher_complete:
+        while self._steps_until_complete(train_length) > 0:
             train_boundaries, training_metrics = self._train_with_boundaries(
                 self.training_enumerator, train_boundaries
             )
@@ -754,15 +775,21 @@ class _PyTorchTrialController:
                     batch_metrics=metrics["batch_metrics"],
                 )
 
+            step_reported = False
+
             for train_boundary in train_boundaries:
                 if not train_boundary.limit_reached:
                     continue
 
                 # Train step limits reached, proceed accordingly.
                 if train_boundary.step_type == _TrainBoundaryType.TRAIN:
-                    if not op._completed and self.is_chief:
+                    if not op._completed and self.is_chief and not step_reported:
                         self._report_searcher_progress(op, self.searcher_unit)
-                    searcher_complete = train_boundary.limit_reached
+                        step_reported = True
+                elif train_boundary.step_type == _TrainBoundaryType.REPORT:
+                    if not op._completed and self.is_chief and not step_reported:
+                        self._report_searcher_progress(op, self.searcher_unit)
+                        step_reported = True
                 elif train_boundary.step_type == _TrainBoundaryType.VALIDATE:
                     if not self._validation_is_current():
                         self._validate(op)
@@ -786,7 +813,11 @@ class _PyTorchTrialController:
 
         # Test mode will break after one batch despite not completing op.
         if self.is_chief and not self.test_mode:
-            assert op._completed, "logic error; op was never completed."
+            # The only case where op isn't reported as completed is if we restarted but
+            # op.length was already trained for and validated on; in that case just raise
+            # ShouldExit; we have nothing to do.
+            if not op._completed:
+                raise ShouldExit(skip_exit_checkpoint=True)
 
     def _check_searcher_metric(self, val_metrics: Dict) -> Any:
         if self.searcher_metric_name not in val_metrics:
@@ -1010,7 +1041,7 @@ class _PyTorchTrialController:
             util.is_overridden(c.on_validation_end, pytorch.PyTorchCallback)
             for c in self.callbacks.values()
         ):
-            logging.debug(
+            logger.debug(
                 "Broadcasting metrics to all worker processes to execute a "
                 "validation step end callback."
             )
@@ -1029,7 +1060,7 @@ class _PyTorchTrialController:
             # validation data.
             if self._evaluate_batch_defined():
                 step_duration = time.time() - step_start_time
-                logging.info(
+                logger.info(
                     det.util.make_timing_log("validated", step_duration, num_inputs, num_batches)
                 )
             if self.context.get_enable_tensorboard_logging():
@@ -1125,12 +1156,12 @@ class _PyTorchTrialController:
                     # If the checkpointed model is non-DDP and the current model is DDP, append
                     # module prefix to the checkpointed data
                     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-                        logging.debug("Loading non-DDP checkpoint into a DDP model.")
+                        logger.debug("Loading non-DDP checkpoint into a DDP model.")
                         self._add_prefix_in_state_dict_if_not_present(model_state_dict, "module.")
                     else:
                         # If the checkpointed model is DDP and if we are currently running in
                         # single-slot mode, remove the module prefix from checkpointed data
-                        logging.debug("Loading DDP checkpoint into a non-DDP model.")
+                        logger.debug("Loading DDP checkpoint into a non-DDP model.")
                         torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(
                             model_state_dict, "module."
                         )
@@ -1170,13 +1201,13 @@ class _PyTorchTrialController:
             if self.context._scaler:
                 self.context._scaler.load_state_dict(checkpoint["scaler_state_dict"])
             else:
-                logging.warning(
+                logger.warning(
                     "There exists scaler_state_dict in checkpoint but the experiment is not using "
                     "AMP."
                 )
         else:
             if self.context._scaler:
-                logging.warning(
+                logger.warning(
                     "The experiment is using AMP but scaler_state_dict does not exist in the "
                     "checkpoint."
                 )
@@ -1185,12 +1216,12 @@ class _PyTorchTrialController:
             if self.context._use_apex:
                 apex.amp.load_state_dict(checkpoint["amp_state"])
             else:
-                logging.warning(
+                logger.warning(
                     "There exists amp_state in checkpoint but the experiment is not using Apex."
                 )
         else:
             if self.context._use_apex:
-                logging.warning(
+                logger.warning(
                     "The experiment is using Apex but amp_state does not exist in the checkpoint."
                 )
 
@@ -1206,23 +1237,23 @@ class _PyTorchTrialController:
                         rng_state["gpu_rng_state"], device=self.context.distributed.local_rank
                     )
                 else:
-                    logging.warning(
+                    logger.warning(
                         "The system has a gpu but no gpu_rng_state exists in the checkpoint."
                     )
             else:
                 if "gpu_rng_state" in rng_state:
-                    logging.warning(
+                    logger.warning(
                         "There exists gpu_rng_state in checkpoint but the system has no gpu."
                     )
         else:
-            logging.warning("The checkpoint has no random state to restore.")
+            logger.warning("The checkpoint has no random state to restore.")
 
         callback_state = checkpoint.get("callbacks", {})
         for name in self.callbacks:
             if name in callback_state:
                 self.callbacks[name].load_state_dict(callback_state[name])
             elif util.is_overridden(self.callbacks[name].load_state_dict, pytorch.PyTorchCallback):
-                logging.warning(
+                logger.warning(
                     f"Callback '{name}' implements load_state_dict(), but no callback state "
                     "was found for that name when restoring from checkpoint. This "
                     "callback will be initialized from scratch."
@@ -1382,7 +1413,7 @@ class _PyTorchTrialController:
                     metadata[newkey] = metadata.pop(key)
 
 
-class PyTorchTrial(det.Trial):
+class PyTorchTrial(det.LegacyTrial):
     """
     PyTorch trials are created by subclassing this abstract class.
 

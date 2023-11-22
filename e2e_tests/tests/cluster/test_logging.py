@@ -1,11 +1,11 @@
 import functools
 import re
+import sys
+import threading
 from typing import Any, Callable, Dict, Iterable, Optional, Union
 
-import _socket
 import pytest
 
-from determined.cli import command
 from determined.common import api
 from determined.common.api import authentication, bindings, certs
 from tests import config as conf
@@ -22,6 +22,8 @@ LogFields = Union[bindings.v1TaskLogsFieldsResponse, bindings.v1TrialLogsFieldsR
 @pytest.mark.e2e_cpu_postgres
 @pytest.mark.e2e_cpu_cross_version
 @pytest.mark.e2e_gpu
+@pytest.mark.e2e_slurm
+@pytest.mark.e2e_pbs
 @pytest.mark.timeout(10 * 60)
 def test_trial_logs() -> None:
     # TODO: refactor tests to not use cli singleton auth.
@@ -58,15 +60,16 @@ def test_trial_logs() -> None:
 @pytest.mark.e2e_cpu
 @pytest.mark.e2e_cpu_elastic
 @pytest.mark.e2e_cpu_cross_version
-@pytest.mark.e2e_gpu  # Note, e2e_gpu and not gpu_required hits k8s cpu tests.
-@pytest.mark.timeout(5 * 60)
+@pytest.mark.e2e_gpu_quarantine  # Note, e2e_gpu and not gpu_required hits k8s cpu tests.
+@pytest.mark.e2e_slurm
+@pytest.mark.e2e_pbs
 @pytest.mark.parametrize(
     "task_type,task_config,log_regex",
     [
-        (command.TaskTypeCommand, {"entrypoint": ["echo", "hello"]}, re.compile("^.*hello.*$")),
-        (command.TaskTypeNotebook, {}, re.compile("^.*Jupyter Server .* is running.*$")),
-        (command.TaskTypeShell, {}, re.compile("^.*Server listening on.*$")),
-        (command.TaskTypeTensorBoard, {}, re.compile("^.*TensorBoard .* at .*$")),
+        ("command", {"entrypoint": ["echo", "hello"]}, re.compile("^.*hello.*$")),
+        ("notebook", {}, re.compile("^.*Jupyter Server .* is running.*$")),
+        ("shell", {}, re.compile("^.*Server listening on.*$")),
+        ("tensorboard", {}, re.compile("^.*TensorBoard .* at .*$")),
     ],
 )
 def test_task_logs(task_type: str, task_config: Dict[str, Any], log_regex: Any) -> None:
@@ -78,14 +81,7 @@ def test_task_logs(task_type: str, task_config: Dict[str, Any], log_regex: Any) 
     rps = bindings.get_GetResourcePools(session)
     assert rps.resourcePools and len(rps.resourcePools) > 0, "missing resource pool"
 
-    if (
-        rps.resourcePools[0].type == bindings.v1ResourcePoolType.K8S
-        and task_type == command.TaskTypeCommand
-    ):
-        # TODO(DET-6712): Investigate intermittent slowness with K8s command logs.
-        pytest.skip("DET-6712: Investigate intermittent slowness with K8s command logs")
-
-    if task_type == command.TaskTypeTensorBoard:
+    if task_type == "tensorboard":
         exp_id = exp.run_basic_test(
             conf.fixtures_path("no_op/single.yaml"),
             conf.fixtures_path("no_op"),
@@ -93,13 +89,13 @@ def test_task_logs(task_type: str, task_config: Dict[str, Any], log_regex: Any) 
         )
         treq = bindings.v1LaunchTensorboardRequest(config=task_config, experimentIds=[exp_id])
         task_id = bindings.post_LaunchTensorboard(session, body=treq).tensorboard.id
-    elif task_type == command.TaskTypeNotebook:
+    elif task_type == "notebook":
         nreq = bindings.v1LaunchNotebookRequest(config=task_config)
         task_id = bindings.post_LaunchNotebook(session, body=nreq).notebook.id
-    elif task_type == command.TaskTypeCommand:
+    elif task_type == "command":
         creq = bindings.v1LaunchCommandRequest(config=task_config)
         task_id = bindings.post_LaunchCommand(session, body=creq).command.id
-    elif task_type == command.TaskTypeShell:
+    elif task_type == "shell":
         sreq = bindings.v1LaunchShellRequest(config=task_config)
         task_id = bindings.post_LaunchShell(session, body=sreq).shell.id
     else:
@@ -112,16 +108,44 @@ def test_task_logs(task_type: str, task_config: Dict[str, Any], log_regex: Any) 
         return bindings.get_TaskLogsFields(session, taskId=task_id, follow=follow)
 
     try:
-        check_logs(
-            log_regex,
-            functools.partial(api.task_logs, session, task_id),
-            functools.partial(bindings.get_TaskLogsFields, session, taskId=task_id),
-        )
-    except _socket.timeout:
-        raise TimeoutError(f"timed out waiting for {task_type} with id {task_id}")
+        result: Optional[Exception] = None
+
+        def do_check_logs() -> None:
+            nonlocal result
+            try:
+                check_logs(
+                    log_regex,
+                    functools.partial(api.task_logs, session, task_id),
+                    functools.partial(bindings.get_TaskLogsFields, session, taskId=task_id),
+                )
+            except Exception as e:
+                result = e
+
+        thread = threading.Thread(target=do_check_logs, daemon=True)
+        thread.start()
+        thread.join(timeout=5 * 60)
+        if thread.is_alive():
+            # The thread did not exit
+            raise ValueError("do_check_logs timed out")
+        elif isinstance(result, Exception):
+            # There was a failure on the thread.
+            raise result
+    except Exception:
+        print("============= test_task_logs_failed, logs from task =============")
+        for log in task_logs():
+            print(log.log, end="", file=sys.stderr)
+        print("============= end of task logs =============")
+        raise
 
     finally:
-        command._kill(master_url, task_type, task_id)
+        if task_type == "tensorboard":
+            bindings.post_KillTensorboard(session, tensorboardId=task_id)
+        elif task_type == "notebook":
+            bindings.post_KillNotebook(session, notebookId=task_id)
+        elif task_type == "command":
+            bindings.post_KillCommand(session, commandId=task_id)
+        elif task_type == "shell":
+            bindings.post_KillShell(session, shellId=task_id)
 
 
 def check_logs(
@@ -134,9 +158,7 @@ def check_logs(
         if log_regex.match(log.message):
             break
     else:
-        for log in log_fn(follow=True):
-            print(log.message)
-        pytest.fail("ran out of logs without a match")
+        raise ValueError("ran out of logs without a match")
 
     # Just make sure these calls 200 and return some logs.
     assert any(log_fn(tail=10)), "tail returned no logs"

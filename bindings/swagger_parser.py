@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 import typing
 from dataclasses import dataclass, field
@@ -77,13 +78,16 @@ class Parameter:
     name: str
     type: TypeAnno
     required: bool
-    where: typing_extensions.Literal["query", "body", "path", "definitions"]
+    where: typing_extensions.Literal["query", "body", "path", "definitions", "formData"]
     serialized_name: typing.Optional[str] = None
     title: typing.Optional[str] = None
 
     def __post_init__(self):
         # validations
-        assert self.where in ("query", "body", "path", "definitions"), (self.name, self.where)
+        assert self.where in ("query", "body", "path", "definitions", "formData"), (
+            self.name,
+            self.where,
+        )
         assert self.where != "path" or self.required, self.name
         if self.where == "path":
             if not isinstance(self.type, (String, Int)):
@@ -93,6 +97,16 @@ class Parameter:
             if not isinstance(underlying_typ, (String, Int, Bool, DateTime, Float)):
                 if not (isinstance(underlying_typ, Ref) and underlying_typ.url_encodable):
                     raise AssertionError(f"bad type in query parameter {self.name}: {self.type}")
+        if self.where == "formData":
+            logging.warning(
+                f"""The bindings for endpoints that use `formData` are not currently supported!
+
+We need to properly support Multipart FormData
+in our binding generation and requests library before these bindings can be safely used.
+
+This is a temporary workaround. Ticket for fixing this properly: https://hpe-aiatscale.atlassian.net/browse/MLG-1019
+"""
+            )
 
 
 @dataclass
@@ -236,7 +250,16 @@ def classify_definition(enums: dict, name: str, schema: dict):
     if "enum" in schema:
         if schema["type"] == "string":
             members = schema["enum"]
-            return Enum(name, members, schema["description"])
+            description = schema.get("description", "")
+            title = schema.get("title", "")
+            # title is always set to the enum's name if it's unused thus
+            # for augmenting description we assume it as empty if it's a single word.
+            title = title if " " in title else ""
+            if description and title:
+                description = title + "\n" + description
+            elif title:
+                description = title
+            return Enum(name, members, description or None)
         raise ValueError("unhandled enum type ({schema['type']}): {schema}")
 
     if schema["type"] == "object":

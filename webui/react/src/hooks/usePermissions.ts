@@ -1,3 +1,4 @@
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useMemo } from 'react';
 
@@ -18,7 +19,6 @@ import {
   UserRole,
   WorkspacePermissionsArgs,
 } from 'types';
-import { Loadable } from 'utils/loadable';
 
 interface ModelPermissionsArgs {
   model: ModelItem;
@@ -181,7 +181,7 @@ const usePermissions = (): PermissionsHook => {
       canViewWorkspaces: canViewWorkspaces(rbacOpts),
       loading:
         rbacOpts.rbacEnabled &&
-        Loadable.isLoading(Loadable.all([loadableCurrentUser, loadablePermissions])),
+        Loadable.isNotLoaded(Loadable.all([loadableCurrentUser, loadablePermissions])),
     }),
     [rbacOpts, loadableCurrentUser, loadablePermissions],
   );

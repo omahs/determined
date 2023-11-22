@@ -1,7 +1,13 @@
-import { HolderOutlined } from '@ant-design/icons';
-import { type SelectProps as AntdSelectProps, DatePicker } from 'antd';
+import { type SelectProps as AntdSelectProps } from 'antd';
 import type { DatePickerProps } from 'antd/es/date-picker';
 import dayjs from 'dayjs';
+import Button from 'hew/Button';
+import DatePicker from 'hew/DatePicker';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import InputNumber from 'hew/InputNumber';
+import Select, { SelectValue } from 'hew/Select';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useCallback, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
@@ -22,15 +28,9 @@ import {
   SEARCHER_TYPE,
   SpecialColumnNames,
 } from 'components/FilterForm/components/type';
-import Button from 'components/kit/Button';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import InputNumber from 'components/kit/InputNumber';
-import Select, { SelectValue } from 'components/kit/Select';
 import { V1ColumnType, V1ProjectColumn } from 'services/api-ts-sdk';
 import clusterStore from 'stores/cluster';
 import userStore from 'stores/users';
-import { Loadable } from 'utils/loadable';
 import { alphaNumericSorter } from 'utils/sort';
 
 import css from './FilterField.module.scss';
@@ -79,7 +79,7 @@ const FilterField = ({
 
   const onChangeColumnName = (value: SelectValue) => {
     const prevType = currentColumn?.type;
-    const newCol = columns.find((c) => c.column === value?.toString() ?? '');
+    const newCol = columns.find((c) => c.column === (value?.toString() ?? ''));
     if (newCol) {
       formStore.setFieldColumnName(field.id, newCol);
 
@@ -274,13 +274,13 @@ const FilterField = ({
           </>
         )}
         <Button
-          icon={<Icon name="close" title="Close Field" />}
+          icon={<Icon name="close" size="tiny" title="Close Field" />}
           type="text"
           onClick={() => formStore.removeChild(field.id)}
         />
         <Button type="text">
           <div ref={drag}>
-            <HolderOutlined />
+            <Icon name="holder" size="small" title="Move field" />
           </div>
         </Button>
       </div>

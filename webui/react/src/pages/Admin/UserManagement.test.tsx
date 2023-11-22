@@ -1,17 +1,18 @@
 import { render, screen } from '@testing-library/react';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 import React, { useCallback, useEffect } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter } from 'react-router-dom';
 
-import { UIProvider } from 'components/kit/Theme';
+import { ThemeProvider } from 'components/ThemeProvider';
 import { SettingsProvider } from 'hooks/useSettingsProvider';
 import authStore from 'stores/auth';
 import userStore from 'stores/users';
 import { DetailedUser } from 'types';
 
-import UserManagement, { CREATE_USER, USER_TITLE } from './UserManagement';
+import UserManagement, { CREATE_USER } from './UserManagement';
 
 const DISPLAY_NAME = 'Test Name';
 const USERNAME = 'test_username1';
@@ -66,10 +67,12 @@ const Container: React.FC = () => {
 
 const setup = () =>
   render(
-    <UIProvider>
-      <DndProvider backend={HTML5Backend}>
-        <Container />
-      </DndProvider>
+    <UIProvider theme={DefaultTheme.Light}>
+      <ThemeProvider>
+        <DndProvider backend={HTML5Backend}>
+          <Container />
+        </DndProvider>
+      </ThemeProvider>
     </UIProvider>,
   );
 
@@ -81,7 +84,6 @@ describe('UserManagement', () => {
     setup();
 
     expect(await screen.findByText(CREATE_USER)).toBeInTheDocument();
-    expect(await screen.findByText(USER_TITLE)).toBeInTheDocument();
 
     expect(await screen.findByText(DISPLAY_NAME)).toBeInTheDocument();
     expect(await screen.findByText(USERNAME)).toBeInTheDocument();

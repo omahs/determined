@@ -1,8 +1,8 @@
+import { Loadable } from 'hew/utils/loadable';
 import { useState } from 'react';
 
 import { resetUserSetting } from 'services/api';
 import userStore from 'stores/users';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { StorageManager } from 'utils/storage';
 

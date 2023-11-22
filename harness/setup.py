@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="determined",
-    version="0.25.2-dev0",
+    version="0.26.5-dev0",
     author="Determined AI",
     author_email="hello@determined.ai",
     url="https://determined.ai/",
@@ -43,8 +43,7 @@ setuptools.setup(
         "python-dateutil",
         "pytz",
         "tabulate>=0.8.3",
-        # det preview-search "pretty-dumps" a sub-yaml with an API added in 0.15.29
-        "ruamel.yaml>=0.15.29",
+        "ruamel.yaml",
         # Deploy
         "docker[ssh]>=3.7.3",
         "google-api-python-client>=1.12.1",

@@ -15,10 +15,10 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/groupv1"
 )
 
-// addGroup adds a group to the database. Returns ErrDuplicateRow if a
+// AddGroupTx adds a group to the database. Returns ErrDuplicateRow if a
 // group already exists with the same name or ID. Will use db.Bun() if
 // passed nil for idb.
-func addGroup(ctx context.Context, idb bun.IDB, group model.Group) (model.Group, error) {
+func AddGroupTx(ctx context.Context, idb bun.IDB, group model.Group) (model.Group, error) {
 	if idb == nil {
 		idb = db.Bun()
 	}
@@ -33,7 +33,7 @@ func AddGroupWithMembers(ctx context.Context, group model.Group, uids ...model.U
 	[]model.User, error,
 ) {
 	if len(uids) == 0 {
-		newGroup, err := addGroup(ctx, nil, group)
+		newGroup, err := AddGroupTx(ctx, nil, group)
 		return newGroup, nil, err
 	}
 	tx, err := db.Bun().BeginTx(ctx, nil)
@@ -50,7 +50,7 @@ func AddGroupWithMembers(ctx context.Context, group model.Group, uids ...model.U
 		}
 	}()
 
-	group, err = addGroup(ctx, tx, group)
+	group, err = AddGroupTx(ctx, tx, group)
 	if err != nil {
 		return model.Group{}, nil, err
 	}
@@ -61,7 +61,7 @@ func AddGroupWithMembers(ctx context.Context, group model.Group, uids ...model.U
 		idsToAdd = append(idsToAdd, group.OwnerID)
 	}
 	if len(idsToAdd) > 0 {
-		err = AddUsersToGroupTx(ctx, tx, group.ID, idsToAdd...)
+		err = AddUsersToGroupsTx(ctx, tx, []int{group.ID}, false, idsToAdd...)
 		if err != nil {
 			return model.Group{}, nil, err
 		}
@@ -97,6 +97,27 @@ func GroupByIDTx(ctx context.Context, idb bun.IDB, gid int) (model.Group, error)
 	return g, errors.Wrapf(db.MatchSentinelError(err), "Error getting group %d", gid)
 }
 
+// ModifiableGroupsTx verifies that groups are in the DB and non-personal. Returns error if any group isn't found.
+// Based on singular GroupByIDTx.
+func ModifiableGroupsTx(ctx context.Context, idb bun.IDB, groups []int) error {
+	if len(groups) == 0 {
+		return nil
+	}
+	if idb == nil {
+		idb = db.Bun()
+	}
+	count, err := idb.NewSelect().
+		Table("groups").
+		Where("user_id IS NULL").
+		Where("id IN (?)", bun.In(groups)).
+		Count(ctx)
+	if len(groups) != count {
+		return errors.Wrap(db.ErrNotFound, "group does not exist or is a personal group")
+	}
+
+	return errors.Wrapf(db.MatchSentinelError(err), "Error getting non-personal groups")
+}
+
 // SearchGroups searches the database for groups. userBelongsTo is "optional"
 // in that if a value < 1 is passed in, the parameter is ignored. SearchGroups
 // does not return an error if no groups are found, as that is considered a
@@ -109,15 +130,34 @@ func SearchGroups(
 	return SearchGroupsPaginated(ctx, query, offset, limit)
 }
 
-// SearchGroupsWithoutPersonalGroups searches the database for groups.
+// SearchGroupsWithoutPersonalGroupsTx searches the database for groups.
 // userBelongsTo is "optional" in that if a value < 1 is passed in, the
 // parameter is ignored. SearchGroups does not return an error if no groups
 // are found, as that is considered a successful search.
-func SearchGroupsWithoutPersonalGroups(
-	ctx context.Context, name string, userBelongsTo model.UserID, offset, limit int,
-) (groups []model.Group, memberCounts []int32, tableRows int, err error) {
-	query := SearchGroupsQuery(name, userBelongsTo, false)
-	return SearchGroupsPaginated(ctx, query, offset, limit)
+func SearchGroupsWithoutPersonalGroupsTx(
+	ctx context.Context, idb bun.IDB, name string, userBelongsTo model.UserID,
+) ([]model.Group, error) {
+	var groups []model.Group
+	query := idb.NewSelect().Model(&groups).Where("groups.user_id IS NULL")
+
+	if len(name) > 0 {
+		query = query.Where("group_name = ?", name)
+	}
+
+	if userBelongsTo != 0 {
+		query = query.Where(
+			`EXISTS(SELECT 1
+			FROM user_group_membership AS m
+			WHERE m.group_id=groups.id AND m.user_id = ?)`,
+			userBelongsTo)
+	}
+
+	err := query.Scan(ctx, &groups)
+	if err != nil {
+		return nil, err
+	}
+
+	return groups, nil
 }
 
 // SearchGroupsQuery builds a query and returns it to the caller. userBelongsTo
@@ -217,15 +257,18 @@ func UpdateGroupTx(ctx context.Context, idb bun.IDB, group model.Group) error {
 		group.ID)
 }
 
-// AddUsersToGroupTx adds users to a group by creating GroupMembership rows.
+// AddUsersToGroupsTx adds users to groups by creating GroupMembership rows.
 // Returns ErrNotFound if the group isn't found or ErrDuplicateRow if one
-// of the users is already in the group. Will use db.Bun() if passed nil
-// for idb.
-func AddUsersToGroupTx(ctx context.Context, idb bun.IDB, gid int, uids ...model.UserID) error {
+// of the users is already in the group (unless ignoreDuplicates).
+// Will use db.Bun() if passed nil for idb.
+func AddUsersToGroupsTx(ctx context.Context, idb bun.IDB, groups []int, ignoreDuplicates bool,
+	uids ...model.UserID,
+) error {
 	if idb == nil {
 		idb = db.Bun()
 	}
-	if _, err := GroupByIDTx(ctx, idb, gid); err != nil {
+
+	if err := ModifiableGroupsTx(ctx, idb, groups); err != nil {
 		return err
 	}
 
@@ -233,27 +276,39 @@ func AddUsersToGroupTx(ctx context.Context, idb bun.IDB, gid int, uids ...model.
 		return nil
 	}
 
-	groupMem := make([]model.GroupMembership, 0, len(uids))
+	groupMem := make([]model.GroupMembership, 0, len(uids)*len(groups))
 	for _, uid := range uids {
-		groupMem = append(groupMem, model.GroupMembership{
-			UserID:  uid,
-			GroupID: gid,
-		})
-	}
-
-	res, err := idb.NewInsert().Model(&groupMem).Exec(ctx)
-	if foundErr := db.MustHaveAffectedRows(res, err); foundErr != nil {
-		sError := db.MatchSentinelError(foundErr)
-		if errors.Is(sError, db.ErrNotFound) {
-			return errors.Wrapf(sError,
-				"Error adding %d user(s) to group %d because"+
-					" one or more of them were not found", len(uids), gid)
+		for _, gid := range groups {
+			groupMem = append(groupMem, model.GroupMembership{
+				UserID:  uid,
+				GroupID: gid,
+			})
 		}
-		return errors.Wrapf(sError, "Error when adding %d user(s) to group %d",
-			len(uids), gid)
 	}
 
-	err = UpdateUsersTimestampTx(ctx, idb, uids)
+	query := idb.NewInsert().Model(&groupMem)
+	if ignoreDuplicates {
+		query = query.On("CONFLICT(user_id, group_id) DO NOTHING")
+		_, err := query.Exec(ctx)
+		if err != nil {
+			return errors.Wrapf(err,
+				"Error adding %d user(s) to %d group(s)", len(uids), len(groups))
+		}
+	} else {
+		res, err := query.Exec(ctx)
+		if foundErr := db.MustHaveAffectedRows(res, err); foundErr != nil {
+			sError := db.MatchSentinelError(foundErr)
+			if errors.Is(sError, db.ErrNotFound) {
+				return errors.Wrapf(sError,
+					"Error adding %d user(s) to %d group(s) because"+
+						" one or more of them were not found", len(uids), len(groups))
+			}
+			return errors.Wrapf(sError, "Error when adding %d user(s) to %d group(s)",
+				len(uids), len(groups))
+		}
+	}
+
+	err := UpdateUsersTimestampTx(ctx, idb, uids)
 	if err != nil {
 		return fmt.Errorf("error when updating users timestamps: %w", err)
 	}
@@ -261,11 +316,17 @@ func AddUsersToGroupTx(ctx context.Context, idb bun.IDB, gid int, uids ...model.
 	return nil
 }
 
-// RemoveUsersFromGroupTx removes users from a group. Removes nothing and
-// returns ErrNotFound if the group or one of the users' membership rows
+// RemoveUsersFromGroupsTx removes users from a group. Removes nothing and
+// returns ErrNotFound if the group or all of the membership rows
 // aren't found.
-func RemoveUsersFromGroupTx(ctx context.Context, idb bun.IDB, gid int, uids ...model.UserID) error {
-	if _, err := GroupByIDTx(ctx, idb, gid); err != nil {
+func RemoveUsersFromGroupsTx(ctx context.Context, idb bun.IDB, groups []int,
+	uids ...model.UserID,
+) error {
+	if idb == nil {
+		idb = db.Bun()
+	}
+
+	if err := ModifiableGroupsTx(ctx, idb, groups); err != nil {
 		return err
 	}
 
@@ -273,23 +334,22 @@ func RemoveUsersFromGroupTx(ctx context.Context, idb bun.IDB, gid int, uids ...m
 		return nil
 	}
 
-	if idb == nil {
-		idb = db.Bun()
+	var changeRecords []int32
+	_, err := idb.NewDelete().Model(&changeRecords).
+		Table("user_group_membership").
+		Where("group_id IN (?)", bun.In(groups)).
+		Where("user_id IN (?)", bun.In(uids)).
+		Returning("user_id").
+		Exec(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "Error when removing %d user(s) from %d group(s)",
+			len(uids), len(groups))
 	}
 
-	res, err := idb.NewDelete().Table("user_group_membership").
-		Where("group_id = ?", gid).
-		Where("user_id IN (?)", bun.In(uids)).
-		Exec(ctx)
-	if foundErr := db.MustHaveAffectedRows(res, err); foundErr != nil {
-		sError := db.MatchSentinelError(foundErr)
-		if errors.Is(sError, db.ErrNotFound) {
-			return errors.Wrapf(sError,
-				"Error removing %d user(s) from group %d because"+
-					" one or more of them were not found", len(uids), gid)
-		}
-		return errors.Wrapf(sError, "Error when removing %d user(s) from group %d",
-			len(uids), gid)
+	if len(changeRecords) == 0 {
+		return errors.Wrapf(db.ErrNotFound,
+			"Error removing %d user(s) from %d group(s) because"+
+				" none were members of these groups", len(uids), len(groups))
 	}
 
 	err = UpdateUsersTimestampTx(ctx, idb, uids)
@@ -340,14 +400,14 @@ func UpdateGroupAndMembers(
 	}
 
 	if len(addUsers) > 0 {
-		err = AddUsersToGroupTx(ctx, tx, gid, addUsers...)
+		err = AddUsersToGroupsTx(ctx, tx, []int{gid}, false, addUsers...)
 		if err != nil {
 			return nil, "", err
 		}
 	}
 
 	if len(removeUsers) > 0 {
-		err = RemoveUsersFromGroupTx(ctx, tx, gid, removeUsers...)
+		err = RemoveUsersFromGroupsTx(ctx, tx, []int{gid}, removeUsers...)
 		if err != nil {
 			return nil, "", err
 		}
@@ -365,6 +425,33 @@ func UpdateGroupAndMembers(
 	}
 
 	return users, newName, nil
+}
+
+// UpdateGroupsForMultipleUsers adds and removes group associations for multiple members.
+func UpdateGroupsForMultipleUsers(
+	ctx context.Context,
+	modUsers []model.UserID,
+	addGroups []int,
+	removeGroups []int,
+) error {
+	return db.Bun().RunInTx(ctx, &sql.TxOptions{},
+		func(ctx context.Context, tx bun.Tx) error {
+			if len(addGroups) > 0 {
+				err := AddUsersToGroupsTx(ctx, tx, addGroups, true, modUsers...)
+				if err != nil {
+					return err
+				}
+			}
+
+			if len(removeGroups) > 0 {
+				err := RemoveUsersFromGroupsTx(ctx, tx, removeGroups, modUsers...)
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
 }
 
 // UpdateUsersTimestampTx updates the user modified_at field to the present time.

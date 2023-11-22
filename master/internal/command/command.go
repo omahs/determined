@@ -3,35 +3,30 @@ package command
 import (
 	"context"
 	"fmt"
-	"slices"
+	"sync"
 	"time"
-
-	"github.com/determined-ai/determined/master/internal/job/jobservice"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/determined-ai/determined/master/pkg/cproto"
-	"github.com/determined-ai/determined/master/pkg/logger"
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/uptrace/bun"
+	"golang.org/x/exp/slices"
 
-	"github.com/determined-ai/determined/master/pkg/actor/actors"
-
-	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/master/internal/job/jobservice"
 	"github.com/determined-ai/determined/master/internal/rm"
 	"github.com/determined-ai/determined/master/internal/rm/rmerrors"
+	"github.com/determined-ai/determined/master/internal/rm/tasklist"
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task"
 	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/pkg/actor"
+	"github.com/determined-ai/determined/master/pkg/cproto"
+	"github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/protoutils"
 	"github.com/determined-ai/determined/master/pkg/tasks"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 	"github.com/determined-ai/determined/proto/pkg/commandv1"
-	"github.com/determined-ai/determined/proto/pkg/jobv1"
 	"github.com/determined-ai/determined/proto/pkg/notebookv1"
 	"github.com/determined-ai/determined/proto/pkg/shellv1"
 	"github.com/determined-ai/determined/proto/pkg/taskv1"
@@ -42,165 +37,17 @@ import (
 // terminated state in the master before garbage collecting.
 const terminatedDuration = 24 * time.Hour
 
-// terminateForGC is an internal message indicating that the command actor
-// should stop and garbage collect its state.
-type terminateForGC struct{}
-
 // queueStates are allocation states which the API and UI will show as "Queued".
 var queueStates = []model.AllocationState{
 	model.AllocationStatePending,
 	model.AllocationStateAssigned,
 }
 
-func enrichState(state model.AllocationState) taskv1.State {
-	if slices.Contains(queueStates, state) {
-		return taskv1.State_STATE_QUEUED
-	}
-	return state.Proto()
-}
+// Command is executed in a containerized environment on a Determined cluster.
+// Locking in: Start, OnExit, DeleteIfInWorkspace, ToV1Command/Shell/Notebook/Tensorboard.
+type Command struct {
+	mu sync.Mutex
 
-func createGenericCommandActor(
-	ctx *actor.Context,
-	db *db.PgDB,
-	rm rm.ResourceManager,
-	taskID model.TaskID,
-	taskType model.TaskType,
-	jobID model.JobID,
-	jobType model.JobType,
-	spec tasks.GenericCommandSpec,
-) error {
-	spec.TaskType = taskType
-	cmd := &command{
-		db: db,
-		rm: rm,
-
-		GenericCommandSpec: spec,
-
-		taskID:   taskID,
-		taskType: taskType,
-		jobType:  jobType,
-		jobID:    jobID,
-
-		logCtx: logger.Context{
-			"job-id":    jobID,
-			"task-id":   taskID,
-			"task-type": taskType,
-		},
-	}
-
-	a, _ := ctx.ActorOf(cmd.taskID, cmd)
-	summaryFut := ctx.Ask(a, getSummary{})
-	if err := summaryFut.Error(); err != nil {
-		return errors.Wrap(err, "failed to create generic command")
-	}
-	// Sync with the actor, but we don't really need the summary. actor.Ping works too,
-	// but this makes sure it can form some sort of useful response (ping doesn't actually
-	// hit the receive block).
-	summaryFut.Get()
-	return nil
-}
-
-func commandFromSnapshot(
-	ctx *actor.Context,
-	db *db.PgDB,
-	rm rm.ResourceManager,
-	snapshot *CommandSnapshot,
-) *command {
-	taskID := snapshot.TaskID
-	taskType := snapshot.Task.TaskType
-	jobID := snapshot.Task.Job.JobID
-	cmd := &command{
-		db:             db,
-		rm:             rm,
-		registeredTime: snapshot.RegisteredTime,
-
-		GenericCommandSpec: snapshot.GenericCommandSpec,
-
-		taskID:   taskID,
-		taskType: taskType,
-		jobType:  snapshot.Task.Job.JobType,
-		jobID:    jobID,
-
-		logCtx: logger.Context{
-			"job-id":    jobID,
-			"task-id":   taskID,
-			"task-type": taskType,
-		},
-
-		restored: true,
-	}
-
-	return cmd
-}
-
-func remakeCommandsByType(
-	ctx *actor.Context,
-	pgDB *db.PgDB,
-	rm rm.ResourceManager,
-	taskType model.TaskType,
-) ([]*command, error) {
-	snapshots := []CommandSnapshot{}
-
-	err := db.Bun().NewSelect().Model(&snapshots).
-		Relation("Allocation").
-		Relation("Task").
-		Relation("Task.Job").
-		Where("allocation.end_time IS NULL").
-		Where("allocation.state != ?", model.AllocationStateTerminated).
-		Where("task.task_type = ?", taskType).
-		Scan(context.TODO())
-	if err != nil {
-		ctx.Log().WithError(err).Warnf("failed to restore task type %s", taskType)
-		return nil, err
-	}
-
-	results := []*command{}
-	for i := range snapshots {
-		cmd := commandFromSnapshot(ctx, pgDB, rm, &snapshots[i])
-		results = append(results, cmd)
-	}
-
-	return results, nil
-}
-
-func restoreCommandsByType(
-	ctx *actor.Context,
-	pgDB *db.PgDB,
-	rm rm.ResourceManager,
-	taskType model.TaskType,
-) error {
-	commands, err := remakeCommandsByType(ctx, pgDB, rm, taskType)
-	if err != nil {
-		return err
-	}
-
-	for _, cmd := range commands {
-		a, ok := ctx.ActorOf(cmd.taskID, cmd)
-		if !ok {
-			return fmt.Errorf("failed to recreate restored generic command actor %s", cmd.taskID)
-		}
-
-		ctx.Ask(a, actor.Ping{}).Get()
-		ctx.Log().Debugf("restored generic command %s", cmd.taskID)
-	}
-
-	return nil
-}
-
-func tryRestoreCommandsByType(
-	ctx *actor.Context,
-	pgDB *db.PgDB,
-	rm rm.ResourceManager,
-	taskType model.TaskType,
-) {
-	err := restoreCommandsByType(ctx, pgDB, rm, taskType)
-	if err != nil {
-		ctx.Log().WithError(err).Warnf("failed to restoreCommandsByType: %s", taskType)
-	}
-}
-
-// command is executed in a containerized environment on a Determined cluster.
-type command struct {
 	db *db.PgDB
 	rm rm.ResourceManager
 
@@ -216,277 +63,217 @@ type command struct {
 	exitStatus     *task.AllocationExited
 	restored       bool
 
+	contextDirectory []byte // Don't rely on this being set outsides of PreStart non restore case.
+
 	logCtx logger.Context
+	syslog *logrus.Entry
 }
 
-// Receive implements the actor.Actor interface.
-func (c *command) Receive(ctx *actor.Context) error {
-	switch msg := ctx.Message().(type) {
-	case actor.PreStart:
-		ctx.AddLabels(c.logCtx)
-		c.allocationID = model.AllocationID(fmt.Sprintf("%s.%d", c.taskID, 1))
-		if !c.restored {
-			c.registeredTime = ctx.Self().RegisteredTime().Truncate(time.Millisecond)
-			if err := c.db.AddJob(&model.Job{
-				JobID:   c.jobID,
-				JobType: c.jobType,
-				OwnerID: &c.Base.Owner.ID,
-			}); err != nil {
-				return errors.Wrapf(err, "persisting job %v", c.taskID)
-			}
+// CreateGeneric is a request to the CommandService to create a generic command.
+type CreateGeneric struct {
+	ContextDirectory []byte
+	Spec             *tasks.GenericCommandSpec
+}
 
-			if err := c.db.AddTask(&model.Task{
-				TaskID:     c.taskID,
-				TaskType:   c.taskType,
-				StartTime:  c.registeredTime,
-				JobID:      &c.jobID,
-				LogVersion: model.CurrentTaskLogVersion,
-			}); err != nil {
-				return errors.Wrapf(err, "persisting task %v", c.taskID)
-			}
-		}
+func commandFromSnapshot(
+	db *db.PgDB,
+	rm rm.ResourceManager,
+	snapshot *CommandSnapshot,
+) (*Command, error) {
+	taskID := snapshot.TaskID
+	taskType := snapshot.Task.TaskType
+	jobID := snapshot.Task.Job.JobID
 
-		priority := c.Config.Resources.Priority
-		if priority != nil {
-			if err := c.setPriority(ctx, *priority, true); err != nil {
-				return errors.Wrapf(err, "setting priority of task %v", c.taskID)
-			}
-		}
+	logCtx := logger.Context{
+		"job-id":    jobID,
+		"task-id":   taskID,
+		"task-type": taskType,
+	}
 
-		var idleWatcherConfig *sproto.IdleTimeoutConfig
-		if c.Config.IdleTimeout != nil && (c.WatchProxyIdleTimeout || c.WatchRunnerIdleTimeout) {
-			idleWatcherConfig = &sproto.IdleTimeoutConfig{
-				ServiceID:       string(c.taskID),
-				UseProxyState:   c.WatchProxyIdleTimeout,
-				UseRunnerState:  c.WatchRunnerIdleTimeout,
-				TimeoutDuration: time.Duration(*c.Config.IdleTimeout),
-				Debug:           c.Config.Debug,
-			}
-		}
+	cmd := &Command{
+		db:                 db,
+		rm:                 rm,
+		registeredTime:     snapshot.RegisteredTime,
+		GenericCommandSpec: snapshot.GenericCommandSpec,
+		taskID:             taskID,
+		taskType:           taskType,
+		jobType:            snapshot.Task.Job.JobType,
+		jobID:              jobID,
+		restored:           true,
+		logCtx:             logCtx,
+		syslog:             logrus.WithFields(logrus.Fields{"component": "command"}).WithFields(logCtx.Fields()),
+	}
+	return cmd, cmd.Start(context.TODO())
+}
 
-		err := task.DefaultService.StartAllocation(c.logCtx, sproto.AllocateRequest{
-			AllocationID:      c.allocationID,
-			TaskID:            c.taskID,
-			JobID:             c.jobID,
-			JobSubmissionTime: c.registeredTime,
-			IsUserVisible:     true,
-			Name:              c.Config.Description,
-			Group:             ctx.Self(),
+// Start starts the command & its respective allocation. Once started, it persists to the db.
+func (c *Command) Start(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-			SlotsNeeded:  c.Config.Resources.Slots,
-			ResourcePool: c.Config.Resources.ResourcePool,
-			FittingRequirements: sproto.FittingRequirements{
-				SingleAgent: true,
-			},
+	priorityChange := func(priority int) error {
+		return c.setNTSCPriority(priority, false)
+	}
+	if err := tasklist.GroupPriorityChangeRegistry.Add(c.jobID, priorityChange); err != nil {
+		return err
+	}
+	c.allocationID = model.AllocationID(fmt.Sprintf("%s.%d", c.taskID, 1))
 
-			ProxyPorts:  sproto.NewProxyPortConfig(c.GenericCommandSpec.ProxyPorts(), c.taskID),
-			IdleTimeout: idleWatcherConfig,
-			Restore:     c.restored,
-			ProxyTLS:    c.TaskType == model.TaskTypeNotebook,
-		}, c.db, c.rm, c.GenericCommandSpec, ctx.Self().System(), func(ae *task.AllocationExited) {
-			ctx.Tell(ctx.Self(), ae)
-		})
-		if err != nil {
+	if !c.restored {
+		if err := db.Bun().RunInTx(ctx, nil, c.registerJobAndTask); err != nil {
 			return err
 		}
-
-		jobservice.Default.RegisterJob(c.jobID, ctx.Self())
-
-		if err := c.persist(); err != nil {
-			ctx.Log().WithError(err).Warnf("command persist failure")
+		if err := c.persistAndEvictContextDirectoryFromMemory(); err != nil {
+			return err
 		}
-	case sproto.GetJob:
-		ctx.Respond(c.toV1Job())
+	}
 
-	case actor.PostStop:
-		if c.exitStatus == nil {
-			if err := c.db.CompleteTask(c.taskID, time.Now().UTC()); err != nil {
-				ctx.Log().WithError(err).Error("marking task complete")
-			}
+	priority := c.Config.Resources.Priority
+	if priority != nil {
+		if err := c.setNTSCPriority(*priority, true); err != nil {
+			return errors.Wrapf(err, "setting priority of task %v", c.taskID)
 		}
-		jobservice.Default.UnregisterJob(c.jobID)
-		if err := user.DeleteSessionByToken(
-			context.TODO(),
-			c.GenericCommandSpec.Base.UserSessionToken,
-		); err != nil {
-			ctx.Log().WithError(err).Errorf(
-				"failure to delete user session for task: %v", c.taskID)
+	}
+
+	var idleWatcherConfig *sproto.IdleTimeoutConfig
+	if c.Config.IdleTimeout != nil && (c.WatchProxyIdleTimeout || c.WatchRunnerIdleTimeout) {
+		idleWatcherConfig = &sproto.IdleTimeoutConfig{
+			ServiceID:       string(c.taskID),
+			UseProxyState:   c.WatchProxyIdleTimeout,
+			UseRunnerState:  c.WatchRunnerIdleTimeout,
+			TimeoutDuration: time.Duration(*c.Config.IdleTimeout),
+			Debug:           c.Config.Debug,
 		}
-	case *task.AllocationExited:
-		c.exitStatus = msg
-		if err := c.db.CompleteTask(c.taskID, time.Now().UTC()); err != nil {
-			ctx.Log().WithError(err).Error("marking task complete")
-		}
-		if err := user.DeleteSessionByToken(
-			context.TODO(),
-			c.GenericCommandSpec.Base.UserSessionToken,
-		); err != nil {
-			ctx.Log().WithError(err).Errorf(
-				"failure to delete user session for task: %v", c.taskID)
-		}
-		actors.NotifyAfter(ctx, terminatedDuration, terminateForGC{})
-	case getSummary:
-		if msg.userFilter == "" || c.Base.Owner.Username == msg.userFilter {
-			ctx.Respond(c.summary(ctx))
-		}
+	}
 
-	case *notebookv1.Notebook:
-		ctx.Respond(c.toNotebook(ctx))
+	err := task.DefaultService.StartAllocation(c.logCtx,
+		sproto.AllocateRequest{
+			AllocationID:        c.allocationID,
+			TaskID:              c.taskID,
+			JobID:               c.jobID,
+			JobSubmissionTime:   c.registeredTime,
+			IsUserVisible:       true,
+			Name:                c.Config.Description,
+			SlotsNeeded:         c.Config.Resources.Slots,
+			ResourcePool:        c.Config.Resources.ResourcePool,
+			FittingRequirements: sproto.FittingRequirements{SingleAgent: true},
+			ProxyPorts:          sproto.NewProxyPortConfig(c.GenericCommandSpec.ProxyPorts(), c.taskID),
+			IdleTimeout:         idleWatcherConfig,
+			Restore:             c.restored,
+			ProxyTLS:            c.TaskType == model.TaskTypeNotebook,
+		}, c.db, c.rm, c.GenericCommandSpec, c.OnExit)
+	if err != nil {
+		return err
+	}
 
-	case *apiv1.GetNotebookRequest:
-		ctx.Respond(&apiv1.GetNotebookResponse{
-			Notebook: c.toNotebook(ctx),
-			Config:   protoutils.ToStruct(c.Config),
-		})
-	case *apiv1.KillNotebookRequest:
-		// TODO(Brad): Do the same thing to allocations that we are doing to RMs.
-		err := task.DefaultService.Signal(c.allocationID, task.KillAllocation, "user requested kill")
-		if err != nil {
-			ctx.Log().WithError(err).Warn("failed to kill allocation")
-		}
-		ctx.Respond(&apiv1.KillNotebookResponse{Notebook: c.toNotebook(ctx)})
-	case *apiv1.SetNotebookPriorityRequest:
-		err := c.setPriority(ctx, int(msg.Priority), true)
-		if err != nil {
-			ctx.Respond(err)
-			return nil
-		}
-		ctx.Respond(&apiv1.SetNotebookPriorityResponse{Notebook: c.toNotebook(ctx)})
+	// Once the command is persisted to the dbs & allocation starts, register it with the local job service.
+	jobservice.DefaultService.RegisterJob(c.jobID, c)
 
-	case *commandv1.Command:
-		ctx.Respond(c.toCommand(ctx))
-
-	case *apiv1.GetCommandRequest:
-		ctx.Respond(&apiv1.GetCommandResponse{
-			Command: c.toCommand(ctx),
-			Config:  protoutils.ToStruct(c.Config),
-		})
-
-	case *apiv1.KillCommandRequest:
-		err := task.DefaultService.Signal(c.allocationID, task.KillAllocation, "user requested kill")
-		if err != nil {
-			ctx.Log().WithError(err).Warn("failed to kill allocation")
-		}
-		ctx.Respond(&apiv1.KillCommandResponse{Command: c.toCommand(ctx)})
-
-	case *apiv1.SetCommandPriorityRequest:
-		err := c.setPriority(ctx, int(msg.Priority), true)
-		if err != nil {
-			ctx.Respond(err)
-			return nil
-		}
-		ctx.Respond(&apiv1.SetCommandPriorityResponse{Command: c.toCommand(ctx)})
-
-	case *shellv1.Shell:
-		ctx.Respond(c.toShell(ctx))
-
-	case *apiv1.GetShellRequest:
-		ctx.Respond(&apiv1.GetShellResponse{
-			Shell:  c.toShell(ctx),
-			Config: protoutils.ToStruct(c.Config),
-		})
-
-	case *apiv1.KillShellRequest:
-		err := task.DefaultService.Signal(c.allocationID, task.KillAllocation, "user requested kill")
-		if err != nil {
-			ctx.Log().WithError(err).Warn("failed to kill allocation")
-		}
-		ctx.Respond(&apiv1.KillShellResponse{Shell: c.toShell(ctx)})
-
-	case *apiv1.SetShellPriorityRequest:
-		err := c.setPriority(ctx, int(msg.Priority), true)
-		if err != nil {
-			ctx.Respond(err)
-			return nil
-		}
-		ctx.Respond(&apiv1.SetShellPriorityResponse{Shell: c.toShell(ctx)})
-
-	case *tensorboardv1.Tensorboard:
-		ctx.Respond(c.toTensorboard(ctx))
-
-	case *apiv1.GetTensorboardRequest:
-		ctx.Respond(&apiv1.GetTensorboardResponse{
-			Tensorboard: c.toTensorboard(ctx),
-			Config:      protoutils.ToStruct(c.Config),
-		})
-
-	case *apiv1.KillTensorboardRequest:
-		err := task.DefaultService.Signal(c.allocationID, task.KillAllocation, "user requested kill")
-		if err != nil {
-			ctx.Log().WithError(err).Warn("failed to kill allocation")
-		}
-		ctx.Respond(&apiv1.KillTensorboardResponse{Tensorboard: c.toTensorboard(ctx)})
-
-	case *apiv1.SetTensorboardPriorityRequest:
-		err := c.setPriority(ctx, int(msg.Priority), true)
-		if err != nil {
-			ctx.Respond(err)
-			return nil
-		}
-		ctx.Respond(&apiv1.SetTensorboardPriorityResponse{Tensorboard: c.toTensorboard(ctx)})
-
-	case *apiv1.DeleteWorkspaceRequest:
-		if c.Metadata.WorkspaceID == model.AccessScopeID(msg.Id) {
-			err := task.DefaultService.Signal(
-				c.allocationID,
-				task.KillAllocation,
-				"user requested workspace delete",
-			)
-			if err != nil {
-				ctx.Log().WithError(err).Warn("failed to kill allocation while deleting workspace")
-			}
-		}
-
-	case sproto.NotifyRMPriorityChange:
-		ctx.Respond(c.setPriority(ctx, msg.Priority, false))
-
-	case sproto.ContainerLog:
-
-	case terminateForGC:
-		ctx.Self().Stop()
-
-	case sproto.SetGroupWeight:
-		err := c.setWeight(ctx, msg.Weight)
-		if err != nil {
-			ctx.Log().WithError(err).Info("setting command job weight")
-		}
-		if ctx.ExpectingResponse() {
-			ctx.Respond(err)
-		}
-
-	case sproto.SetGroupPriority:
-		err := c.setPriority(ctx, msg.Priority, true)
-		if err != nil {
-			ctx.Log().WithError(err).Info("setting command job priority")
-		}
-		if ctx.ExpectingResponse() {
-			ctx.Respond(err)
-		}
-
-	case sproto.RegisterJobPosition:
-		err := c.db.UpdateJobPosition(msg.JobID, msg.JobPosition)
-		if err != nil {
-			ctx.Log().WithError(err).Errorf("persisting position for job %s failed", msg.JobID)
-		}
-
-	case sproto.SetResourcePool:
-		ctx.Respond(fmt.Errorf("setting resource pool for job type %s is not supported", c.jobType))
-
-	default:
-		return actor.ErrUnexpectedMessage(ctx)
+	if err := c.persist(); err != nil {
+		c.syslog.WithError(err).Warnf("command persist failure")
 	}
 	return nil
 }
 
-func (c *command) setPriority(ctx *actor.Context, priority int, forward bool) error {
+// registerJobAndTask registers the command with the job service & adds the command to the job & task dbs.
+func (c *Command) registerJobAndTask(ctx context.Context, tx bun.Tx) error {
+	c.registeredTime = time.Now().Truncate(time.Millisecond)
+	if err := db.AddJobTx(ctx, tx, &model.Job{
+		JobID:   c.jobID,
+		JobType: c.jobType,
+		OwnerID: &c.Base.Owner.ID,
+	}); err != nil {
+		return fmt.Errorf("persisting job %v: %w", c.taskID, err)
+	}
+
+	if err := db.AddTaskTx(ctx, tx, &model.Task{
+		TaskID:     c.taskID,
+		TaskType:   c.taskType,
+		StartTime:  c.registeredTime,
+		JobID:      &c.jobID,
+		LogVersion: model.CurrentTaskLogVersion,
+	}); err != nil {
+		return fmt.Errorf("persisting task %v: %w", c.taskID, err)
+	}
+	return nil
+}
+
+func (c *Command) persistAndEvictContextDirectoryFromMemory() error {
+	if c.contextDirectory == nil {
+		c.contextDirectory = make([]byte, 0)
+	}
+
+	if _, err := db.Bun().NewInsert().Model(&model.TaskContextDirectory{
+		TaskID:           c.taskID,
+		ContextDirectory: c.contextDirectory,
+	}).Exec(context.TODO()); err != nil {
+		return fmt.Errorf("persisting context directory files: %w", err)
+	}
+
+	c.contextDirectory = nil
+	return nil
+}
+
+func (c *Command) persist() error {
+	snapshot := &CommandSnapshot{
+		TaskID:             c.taskID,
+		RegisteredTime:     c.registeredTime,
+		AllocationID:       c.allocationID,
+		GenericCommandSpec: c.GenericCommandSpec,
+	}
+	_, err := db.Bun().NewInsert().Model(snapshot).
+		On("CONFLICT (task_id) DO UPDATE").
+		Exec(context.TODO())
+	return err
+}
+
+// OnExit runs when an command's allocation exits. It marks the command task as complete, and unregisters where needed.
+// OnExit locks ahead of gc -> unregisterCommand.
+func (c *Command) OnExit(ae *task.AllocationExited) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.exitStatus = ae
+
+	if err := c.db.CompleteTask(c.taskID, time.Now().UTC()); err != nil {
+		c.syslog.WithError(err).Error("marking task complete")
+	}
+	if err := user.DeleteSessionByToken(context.TODO(), c.GenericCommandSpec.Base.UserSessionToken); err != nil {
+		c.syslog.WithError(err).Errorf(
+			"failure to delete user session for task: %v", c.taskID)
+	}
+
+	go func() {
+		time.Sleep(terminatedDuration)
+		c.garbageCollect()
+	}()
+}
+
+// gc garbage collects the exited command.
+func (c *Command) garbageCollect() {
+	if err := tasklist.GroupPriorityChangeRegistry.Delete(c.jobID); err != nil {
+		c.syslog.WithError(err).Error("deleting command from GroupPriorityChangeRegistry")
+	}
+
+	if c.exitStatus == nil {
+		if err := c.db.CompleteTask(c.taskID, time.Now().UTC()); err != nil {
+			c.syslog.WithError(err).Error("marking task complete")
+		}
+	}
+
+	go jobservice.DefaultService.UnregisterJob(c.jobID)
+	go DefaultCmdService.unregisterCommand(c.taskID)
+}
+
+func (c *Command) setNTSCPriority(priority int, forward bool) error {
 	if forward {
-		switch err := c.rm.SetGroupPriority(ctx, sproto.SetGroupPriority{
+		switch err := c.rm.SetGroupPriority(sproto.SetGroupPriority{
 			Priority: priority,
-			Handler:  ctx.Self(),
+			JobID:    c.jobID,
 		}).(type) {
 		case nil:
-		case rmerrors.ErrUnsupported:
-			ctx.Log().WithError(err).Debug("ignoring unsupported call to set group priority")
+		case rmerrors.UnsupportedError:
+			c.syslog.WithError(err).Debug("ignoring unsupported call to set group priority")
 		default:
 			return fmt.Errorf("setting group priority for command: %w", err)
 		}
@@ -497,37 +284,54 @@ func (c *command) setPriority(ctx *actor.Context, priority int, forward bool) er
 	return nil
 }
 
-func (c *command) setWeight(ctx *actor.Context, weight float64) error {
-	switch err := c.rm.SetGroupWeight(ctx, sproto.SetGroupWeight{
-		Weight:  weight,
-		Handler: ctx.Self(),
-	}).(type) {
-	case nil:
-	case rmerrors.ErrUnsupported:
-		ctx.Log().WithError(err).Debug("ignoring unsupported call to set group weight")
-	default:
-		return fmt.Errorf("setting group weight for command: %w", err)
+// DeleteIfInWorkspace deletes a command's allocation matching a workspaceID.
+func (c *Command) DeleteIfInWorkspace(req *apiv1.DeleteWorkspaceRequest) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.Metadata.WorkspaceID == model.AccessScopeID(req.Id) {
+		err := task.DefaultService.Signal(
+			c.allocationID,
+			task.KillAllocation,
+			"user requested workspace delete",
+		)
+		if err != nil {
+			c.syslog.WithError(err).Warn("failed to kill allocation while deleting workspace")
+		}
 	}
-
-	c.Config.Resources.Weight = weight
-	return nil
 }
 
-func (c *command) stringID() string {
-	return c.taskID.String()
+// ToV1Command takes a *Command from the command service registry & returns a *commandv1.Command.
+func (c *Command) ToV1Command() *commandv1.Command {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	allo := c.refreshAllocationState()
+	return &commandv1.Command{
+		Id:           c.stringID(),
+		State:        enrichState(allo.State),
+		Description:  c.Config.Description,
+		Container:    allo.SingleContainer().ToProto(),
+		StartTime:    protoutils.ToTimestamp(c.registeredTime),
+		Username:     c.Base.Owner.Username,
+		UserId:       int32(c.Base.Owner.ID),
+		DisplayName:  c.Base.Owner.DisplayName.ValueOrZero(),
+		ResourcePool: c.Config.Resources.ResourcePool,
+		ExitStatus:   c.exitStatus.String(),
+		JobId:        c.jobID.String(),
+		WorkspaceId:  int32(c.GenericCommandSpec.Metadata.WorkspaceID),
+	}
 }
 
-func (c *command) serviceAddress() string {
-	return fmt.Sprintf("/proxy/%s/", c.taskID)
-}
+// ToV1Notebook takes a *Command from the command service registry & returns a *notebookv1.Notebook.
+func (c *Command) ToV1Notebook() *notebookv1.Notebook {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-func (c *command) toNotebook(ctx *actor.Context) *notebookv1.Notebook {
-	allo := c.refreshAllocationState(ctx)
-	state := enrichState(allo.State)
-
+	allo := c.refreshAllocationState()
 	return &notebookv1.Notebook{
 		Id:             c.stringID(),
-		State:          state,
+		State:          enrichState(allo.State),
 		Description:    c.Config.Description,
 		Container:      allo.SingleContainer().ToProto(),
 		ServiceAddress: c.serviceAddress(),
@@ -542,31 +346,15 @@ func (c *command) toNotebook(ctx *actor.Context) *notebookv1.Notebook {
 	}
 }
 
-func (c *command) toCommand(ctx *actor.Context) *commandv1.Command {
-	allo := c.refreshAllocationState(ctx)
-	state := enrichState(allo.State)
-	return &commandv1.Command{
-		Id:           c.stringID(),
-		State:        state,
-		Description:  c.Config.Description,
-		Container:    allo.SingleContainer().ToProto(),
-		StartTime:    protoutils.ToTimestamp(c.registeredTime),
-		Username:     c.Base.Owner.Username,
-		UserId:       int32(c.Base.Owner.ID),
-		DisplayName:  c.Base.Owner.DisplayName.ValueOrZero(),
-		ResourcePool: c.Config.Resources.ResourcePool,
-		ExitStatus:   c.exitStatus.String(),
-		JobId:        c.jobID.String(),
-		WorkspaceId:  int32(c.GenericCommandSpec.Metadata.WorkspaceID),
-	}
-}
+// ToV1Shell takes a *Command from the command service registry & returns a *shellv1.Shell.
+func (c *Command) ToV1Shell() *shellv1.Shell {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-func (c *command) toShell(ctx *actor.Context) *shellv1.Shell {
-	allo := c.refreshAllocationState(ctx)
-	state := enrichState(allo.State)
+	allo := c.refreshAllocationState()
 	return &shellv1.Shell{
 		Id:             c.stringID(),
-		State:          state,
+		State:          enrichState(allo.State),
 		Description:    c.Config.Description,
 		StartTime:      protoutils.ToTimestamp(c.registeredTime),
 		Container:      allo.SingleContainer().ToProto(),
@@ -584,8 +372,12 @@ func (c *command) toShell(ctx *actor.Context) *shellv1.Shell {
 	}
 }
 
-func (c *command) toTensorboard(ctx *actor.Context) *tensorboardv1.Tensorboard {
-	allo := c.refreshAllocationState(ctx)
+// ToV1Tensorboard takes a *Command from the command service registry & returns a *tensorboardv1.Tensorboard.
+func (c *Command) ToV1Tensorboard() *tensorboardv1.Tensorboard {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	allo := c.refreshAllocationState()
 	state := enrichState(allo.State)
 	return &tensorboardv1.Tensorboard{
 		Id:             c.stringID(),
@@ -606,22 +398,32 @@ func (c *command) toTensorboard(ctx *actor.Context) *tensorboardv1.Tensorboard {
 	}
 }
 
+// ToV1Command(), ToV1Notebook(), ToV1Shell(), ToV1Tensorboard() helper functions:
+// refreshAllocationState, enrichState, toProto, serviceAddress, stringID
+
 // Refresh our view of the allocation state. If the allocation has sent us an exit status,
 // we don't ask for a refresh because it won't respond. Otherwise, ask with a timeout
 // since there is another ask in the opposite direction, and even though it's probably
 // 1 in a million runs, we don't want to deadlock.
-func (c *command) refreshAllocationState(ctx *actor.Context) task.AllocationState {
+func (c *Command) refreshAllocationState() task.AllocationState {
 	if c.exitStatus != nil {
 		return c.exitStatus.FinalState
 	}
 
 	state, err := task.DefaultService.State(c.allocationID)
 	if err != nil {
-		ctx.Log().WithError(err).Warn("refreshing allocation state")
+		c.syslog.WithError(err).Warn("refreshing allocation state")
 	} else {
 		c.lastState = state
 	}
 	return c.lastState
+}
+
+func enrichState(state model.AllocationState) taskv1.State {
+	if slices.Contains(queueStates, state) {
+		return taskv1.State_STATE_QUEUED
+	}
+	return state.Proto()
 }
 
 func toProto(as []cproto.Address) []*structpb.Struct {
@@ -632,42 +434,10 @@ func toProto(as []cproto.Address) []*structpb.Struct {
 	return res
 }
 
-func (c *command) toV1Job() *jobv1.Job {
-	j := jobv1.Job{
-		JobId:          c.jobID.String(),
-		EntityId:       string(c.taskID),
-		Type:           c.jobType.Proto(),
-		SubmissionTime: timestamppb.New(c.registeredTime),
-		Username:       c.Base.Owner.Username,
-		UserId:         int32(c.Base.Owner.ID),
-		Weight:         c.Config.Resources.Weight,
-		Name:           c.Config.Description,
-		WorkspaceId:    int32(c.GenericCommandSpec.Metadata.WorkspaceID),
-	}
-
-	j.IsPreemptible = false
-	j.Priority = int32(config.ReadPriority(j.ResourcePool, &c.Config))
-	j.Weight = config.ReadWeight(j.ResourcePool, &c.Config)
-
-	j.ResourcePool = c.Config.Resources.ResourcePool
-
-	return &j
+func (c *Command) serviceAddress() string {
+	return fmt.Sprintf("/proxy/%s/", c.taskID)
 }
 
-func (c *command) snapshot() *CommandSnapshot {
-	res := CommandSnapshot{
-		TaskID:             c.taskID,
-		RegisteredTime:     c.registeredTime,
-		AllocationID:       c.allocationID,
-		GenericCommandSpec: c.GenericCommandSpec,
-	}
-	return &res
-}
-
-func (c *command) persist() error {
-	snapshot := c.snapshot()
-	_, err := db.Bun().NewInsert().Model(snapshot).
-		On("CONFLICT (task_id) DO UPDATE").
-		Exec(context.TODO())
-	return err
+func (c *Command) stringID() string {
+	return c.taskID.String()
 }

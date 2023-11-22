@@ -214,8 +214,9 @@ var wAuthZ *mocks.WorkspaceAuthZ
 // pgdb can be nil to use the singleton database for testing.
 func setupWorkspaceAuthZTest(
 	t *testing.T, pgdb *db.PgDB,
+	altMockRM ...*mocks.ResourceManager,
 ) (*apiServer, *mocks.WorkspaceAuthZ, model.User, context.Context) {
-	api, _, curUser, ctx := setupUserAuthzTest(t, pgdb)
+	api, _, curUser, ctx := setupUserAuthzTest(t, pgdb, altMockRM...)
 
 	if wAuthZ == nil {
 		wAuthZ = &mocks.WorkspaceAuthZ{}

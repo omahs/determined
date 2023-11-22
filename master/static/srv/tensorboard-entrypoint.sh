@@ -1,7 +1,6 @@
 #!/bin/bash
 
-source /run/determined/task-signal-handling.sh
-source /run/determined/task-logging-setup.sh
+source /run/determined/task-setup.sh
 
 set -e
 
@@ -16,7 +15,7 @@ if [ -z "$DET_SKIP_PIP_INSTALL" ]; then
     "$DET_PYTHON_EXECUTABLE" -m pip install tensorboard tensorboard-plugin-profile
 fi
 
-"$DET_PYTHON_EXECUTABLE" -m determined.exec.prep_container --proxy
+"$DET_PYTHON_EXECUTABLE" -m determined.exec.prep_container --proxy --download_context_directory
 
 set -x
 test -f "${STARTUP_HOOK}" && source "${STARTUP_HOOK}"
@@ -26,7 +25,5 @@ READINESS_REGEX="TensorBoard contains metrics"
 WAITING_REGEX="TensorBoard waits on metrics"
 TENSORBOARD_VERSION=$("$DET_PYTHON_EXECUTABLE" -c "import tensorboard; print(tensorboard.__version__)")
 
-trap_and_forward_signals
 "$DET_PYTHON_EXECUTABLE" -m determined.exec.tensorboard "$TENSORBOARD_VERSION" "$@" \
-    > >(tee -p >("$DET_PYTHON_EXECUTABLE" /run/determined/check_ready_logs.py --ready-regex "$READINESS_REGEX" --waiting-regex "$WAITING_REGEX")) &
-wait_and_handle_signals $!
+    > >(tee -p >("$DET_PYTHON_EXECUTABLE" /run/determined/check_ready_logs.py --ready-regex "$READINESS_REGEX" --waiting-regex "$WAITING_REGEX"))

@@ -1,15 +1,15 @@
+import Button from 'hew/Button';
+import { shortcutToString } from 'hew/InputShortcut';
+import { useModal } from 'hew/Modal';
+import Tooltip from 'hew/Tooltip';
 import React from 'react';
 
 import JupyterLabModalComponent from 'components/JupyterLabModal';
-import Button from 'components/kit/Button';
-import { useModal } from 'components/kit/Modal';
-import Tooltip from 'components/kit/Tooltip';
 import shortCutSettingsConfig, {
   Settings as ShortcutSettings,
 } from 'components/UserSettings.settings';
 import { useSettings } from 'hooks/useSettings';
 import { Workspace } from 'types';
-import { shortcutToString } from 'utils/shortcut';
 interface Props {
   enabled?: boolean;
   workspace?: Workspace;

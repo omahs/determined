@@ -31,7 +31,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/grpcutil"
 	"github.com/determined-ai/determined/master/internal/rbac/audit"
 	"github.com/determined-ai/determined/master/internal/trials"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/archive"
 	"github.com/determined-ai/determined/master/pkg/check"
 	pkgCommand "github.com/determined-ai/determined/master/pkg/command"
@@ -42,7 +41,6 @@ import (
 	"github.com/determined-ai/determined/master/pkg/schemas"
 	"github.com/determined-ai/determined/master/pkg/schemas/expconf"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
-	"github.com/determined-ai/determined/proto/pkg/tensorboardv1"
 	"github.com/determined-ai/determined/proto/pkg/utilv1"
 )
 
@@ -53,8 +51,6 @@ const (
 	tensorboardEntrypointFile = "/run/determined/tensorboard/tensorboard-entrypoint.sh"
 	storageConfPath           = "/run/determined/tensorboard/storage_config.json"
 )
-
-var tensorboardsAddr = actor.Addr("tensorboard")
 
 func filesToArchive(files []*utilv1.File) archive.Archive {
 	filesArchive := make([]archive.Item, 0, len(files))
@@ -95,7 +91,8 @@ func (a *apiServer) GetTensorboards(
 		}
 	}
 
-	if err = a.ask(tensorboardsAddr, req, &resp); err != nil {
+	resp, err = command.DefaultCmdService.GetTensorboards(req)
+	if err != nil {
 		return nil, err
 	}
 
@@ -107,20 +104,20 @@ func (a *apiServer) GetTensorboards(
 
 	resp.Tensorboards = filteredTensorboards
 
-	a.sort(resp.Tensorboards, req.OrderBy, req.SortBy, apiv1.GetTensorboardsRequest_SORT_BY_ID)
-	return resp, a.paginate(&resp.Pagination, &resp.Tensorboards, req.Offset, req.Limit)
+	api.Sort(resp.Tensorboards, req.OrderBy, req.SortBy, apiv1.GetTensorboardsRequest_SORT_BY_ID)
+	return resp, api.Paginate(&resp.Pagination, &resp.Tensorboards, req.Offset, req.Limit)
 }
 
 func (a *apiServer) GetTensorboard(
 	ctx context.Context, req *apiv1.GetTensorboardRequest,
-) (resp *apiv1.GetTensorboardResponse, err error) {
+) (*apiv1.GetTensorboardResponse, error) {
 	curUser, _, err := grpcutil.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	addr := tensorboardsAddr.Child(req.TensorboardId)
-	if err := a.ask(addr, req, &resp); err != nil {
+	resp, err := command.DefaultCmdService.GetTensorboard(req)
+	if err != nil {
 		return nil, err
 	}
 
@@ -128,7 +125,7 @@ func (a *apiServer) GetTensorboard(
 	if err := command.AuthZProvider.Get().CanGetTensorboard(
 		ctx, *curUser, model.AccessScopeID(resp.Tensorboard.WorkspaceId),
 		resp.Tensorboard.ExperimentIds, resp.Tensorboard.TrialIds); err != nil {
-		return nil, authz.SubIfUnauthorized(err, api.NotFoundErrs("actor", fmt.Sprint(addr), true))
+		return nil, authz.SubIfUnauthorized(err, api.NotFoundErrs("tensorboard", req.TensorboardId, true))
 	}
 	return resp, nil
 }
@@ -160,7 +157,12 @@ func (a *apiServer) KillTensorboard(
 		return nil, err
 	}
 
-	return resp, a.ask(tensorboardsAddr.Child(req.TensorboardId), req, &resp)
+	cmd, err := command.DefaultCmdService.KillNTSC(req.TensorboardId, model.TaskTypeTensorboard)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.KillTensorboardResponse{Tensorboard: cmd.ToV1Tensorboard()}, nil
 }
 
 func (a *apiServer) SetTensorboardPriority(
@@ -190,7 +192,15 @@ func (a *apiServer) SetTensorboardPriority(
 		return nil, err
 	}
 
-	return resp, a.ask(tensorboardsAddr.Child(req.TensorboardId), req, &resp)
+	cmd, err := command.DefaultCmdService.SetNTSCPriority(
+		req.TensorboardId,
+		int(req.Priority),
+		model.TaskTypeTensorboard)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.SetTensorboardPriorityResponse{Tensorboard: cmd.ToV1Tensorboard()}, nil
 }
 
 func (a *apiServer) LaunchTensorboard(
@@ -209,7 +219,7 @@ func (a *apiServer) LaunchTensorboard(
 		return nil, status.Errorf(codes.Internal, "failed to get the user: %s", err)
 	}
 
-	spec, launchWarnings, err := a.getCommandLaunchParams(ctx, &protoCommandParams{
+	launchReq, launchWarnings, err := a.getCommandLaunchParams(ctx, &protoCommandParams{
 		TemplateName: req.TemplateName,
 		WorkspaceID:  req.WorkspaceId,
 		Config:       req.Config,
@@ -220,11 +230,11 @@ func (a *apiServer) LaunchTensorboard(
 		return nil, api.WrapWithFallbackCode(err, codes.InvalidArgument,
 			"failed to prepare launch params")
 	}
-	spec.TaskType = model.TaskTypeTensorboard
-	spec.Metadata.ExperimentIDs = req.ExperimentIds
-	spec.Metadata.TrialIDs = req.TrialIds
+	launchReq.Spec.TaskType = model.TaskTypeTensorboard
+	launchReq.Spec.Metadata.ExperimentIDs = req.ExperimentIds
+	launchReq.Spec.Metadata.TrialIDs = req.TrialIds
 
-	if err = a.isNTSCPermittedToLaunch(ctx, spec, user); err != nil {
+	if err = a.isNTSCPermittedToLaunch(ctx, launchReq.Spec, user); err != nil {
 		return nil, err
 	}
 
@@ -236,16 +246,16 @@ func (a *apiServer) LaunchTensorboard(
 		return nil, status.Error(codes.InvalidArgument, "no experiments found")
 	}
 
-	spec.WatchProxyIdleTimeout = true
+	launchReq.Spec.WatchProxyIdleTimeout = true
 
-	// Postprocess the spec.
-	if spec.Config.IdleTimeout == nil {
+	// Postprocess the launchReq.Spec.
+	if launchReq.Spec.Config.IdleTimeout == nil {
 		masterTensorBoardIdleTimeout := model.Duration(
 			time.Duration(a.m.config.TensorBoardTimeout) * time.Second)
-		spec.Config.IdleTimeout = &masterTensorBoardIdleTimeout
+		launchReq.Spec.Config.IdleTimeout = &masterTensorBoardIdleTimeout
 	}
 
-	spec.Config.Description = fmt.Sprintf(
+	launchReq.Spec.Config.Description = fmt.Sprintf(
 		"TensorBoard (%s)",
 		petname.Generate(expconf.TaskNameGeneratorWords, expconf.TaskNameGeneratorSep),
 	)
@@ -253,7 +263,7 @@ func (a *apiServer) LaunchTensorboard(
 	// Selecting a random port mitigates the risk of multiple processes binding
 	// the same port on an agent in host mode.
 	port := getRandomPort(minTensorBoardPort, maxTensorBoardPort)
-	spec.Base.ExtraProxyPorts = append(spec.Base.ExtraProxyPorts, expconf.ProxyPort{
+	launchReq.Spec.Base.ExtraProxyPorts = append(launchReq.Spec.Base.ExtraProxyPorts, expconf.ProxyPort{
 		RawProxyPort:        port,
 		RawDefaultServiceID: ptrs.Ptr(true),
 	})
@@ -271,7 +281,7 @@ func (a *apiServer) LaunchTensorboard(
 		"DET_TASK_TYPE":        string(model.TaskTypeTensorboard),
 	}
 
-	if spec.Config.Debug {
+	if launchReq.Spec.Config.Debug {
 		uniqEnvVars["DET_DEBUG"] = "true"
 	}
 
@@ -290,6 +300,9 @@ func (a *apiServer) LaunchTensorboard(
 			})
 			uniqMounts[sharedFSMount.ContainerPath()] = model.ToModelBindMount(sharedFSMount)
 			logBasePath = c.PathInContainer()
+
+		case expconf.DirectoryConfig:
+			logBasePath = c.ContainerPath()
 
 		case expconf.S3Config:
 			if c.AccessKey() != nil {
@@ -343,14 +356,14 @@ func (a *apiServer) LaunchTensorboard(
 
 		if len(exp.TrialIDs) == 0 {
 			expDir := fmt.Sprintf("%s/%s/tensorboard/experiment/%d/",
-				logBasePath, spec.Base.ClusterID, exp.ExperimentID)
+				logBasePath, launchReq.Spec.Base.ClusterID, exp.ExperimentID)
 			logDirs = append(logDirs, expDir)
 			continue
 		}
 
 		for _, id := range exp.TrialIDs {
 			trialDir := fmt.Sprintf("%s/%s/tensorboard/experiment/%d/trial/%d/",
-				logBasePath, spec.Base.ClusterID, exp.ExperimentID, id)
+				logBasePath, launchReq.Spec.Base.ClusterID, exp.ExperimentID, id)
 
 			logDirs = append(logDirs, trialDir)
 		}
@@ -364,21 +377,21 @@ func (a *apiServer) LaunchTensorboard(
 		return nil, errors.Wrapf(err, "error loading experiment: %d", mostRecentExpID)
 	}
 
-	spec.Config.Entrypoint = append(
+	launchReq.Spec.Config.Entrypoint = append(
 		[]string{tensorboardEntrypointFile, storageConfPath, strings.Join(logDirs, ",")},
-		spec.Config.TensorBoardArgs...)
+		launchReq.Spec.Config.TensorBoardArgs...)
 
-	spec.Base.ExtraEnvVars = uniqEnvVars
+	launchReq.Spec.Base.ExtraEnvVars = uniqEnvVars
 
 	if !model.UsingCustomImage(req) {
-		spec.Config.Environment.Image = model.RuntimeItem{
+		launchReq.Spec.Config.Environment.Image = model.RuntimeItem{
 			CPU:  exp.Config.Environment.Image().CPU(),
 			CUDA: exp.Config.Environment.Image().CUDA(),
 			ROCM: exp.Config.Environment.Image().ROCM(),
 		}
 
 		// Inherit ImagePullSecrets too, if we inherit the image.
-		presentPod := spec.Config.Environment.PodSpec
+		presentPod := launchReq.Spec.Config.Environment.PodSpec
 		experimentPod := exp.Config.Environment.PodSpec()
 		if experimentPod != nil && len(experimentPod.Spec.ImagePullSecrets) > 0 {
 			if presentPod != nil {
@@ -388,7 +401,7 @@ func (a *apiServer) LaunchTensorboard(
 				)
 			} else {
 				// Construct a new k8sV1.Pod with just ImagePullSecrets set.
-				spec.Config.Environment.PodSpec = &k8sV1.Pod{
+				launchReq.Spec.Config.Environment.PodSpec = &k8sV1.Pod{
 					Spec: k8sV1.PodSpec{
 						ImagePullSecrets: experimentPod.Spec.ImagePullSecrets,
 					},
@@ -397,29 +410,29 @@ func (a *apiServer) LaunchTensorboard(
 		}
 	}
 	// Prefer RegistryAuth already present over the one from inferred from the experiment.
-	if spec.Config.Environment.RegistryAuth == nil {
-		spec.Config.Environment.RegistryAuth = exp.Config.Environment.RegistryAuth()
+	if launchReq.Spec.Config.Environment.RegistryAuth == nil {
+		launchReq.Spec.Config.Environment.RegistryAuth = exp.Config.Environment.RegistryAuth()
 	}
 
 	var bindMounts []model.BindMount
 	for _, uniqMount := range uniqMounts {
 		bindMounts = append(bindMounts, uniqMount)
 	}
-	spec.Config.BindMounts = append(spec.Config.BindMounts, bindMounts...)
+	launchReq.Spec.Config.BindMounts = append(launchReq.Spec.Config.BindMounts, bindMounts...)
 
 	confBytes, err := json.Marshal(exp.Config.CheckpointStorage)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error marshaling checkpoint_storage")
 	}
 
-	spec.AdditionalFiles = archive.Archive{
-		spec.Base.AgentUserGroup.OwnedArchiveItem(
+	launchReq.Spec.AdditionalFiles = archive.Archive{
+		launchReq.Spec.Base.AgentUserGroup.OwnedArchiveItem(
 			tensorboardEntrypointFile,
 			etc.MustStaticFile(etc.TensorboardEntryScriptResource), 0o700,
 			tar.TypeReg,
 		),
-		spec.Base.AgentUserGroup.OwnedArchiveItem(storageConfPath, confBytes, 0o700, tar.TypeReg),
-		spec.Base.AgentUserGroup.OwnedArchiveItem(
+		launchReq.Spec.Base.AgentUserGroup.OwnedArchiveItem(storageConfPath, confBytes, 0o700, tar.TypeReg),
+		launchReq.Spec.Base.AgentUserGroup.OwnedArchiveItem(
 			taskReadyCheckLogs,
 			etc.MustStaticFile(etc.TaskCheckReadyLogsResource),
 			0o700,
@@ -431,20 +444,16 @@ func (a *apiServer) LaunchTensorboard(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid TensorBoard config: %s", err.Error())
 	}
 
-	// Launch a TensorBoard actor.
-	var tbID model.TaskID
-	if err = a.ask(tensorboardsAddr, *spec, &tbID); err != nil {
-		return nil, err
-	}
-
-	var tb *tensorboardv1.Tensorboard
-	if err = a.ask(tensorboardsAddr.Child(tbID), &tensorboardv1.Tensorboard{}, &tb); err != nil {
+	// Launch a TensorBoard.
+	cmd, err := command.DefaultCmdService.LaunchGenericCommand(model.TaskTypeTensorboard,
+		model.JobTypeTensorboard, launchReq)
+	if err != nil {
 		return nil, err
 	}
 
 	return &apiv1.LaunchTensorboardResponse{
-		Tensorboard: tb,
-		Config:      protoutils.ToStruct(spec.Config),
+		Tensorboard: cmd.ToV1Tensorboard(),
+		Config:      protoutils.ToStruct(launchReq.Spec.Config),
 		Warnings:    pkgCommand.LaunchWarningToProto(launchWarnings),
 	}, err
 }

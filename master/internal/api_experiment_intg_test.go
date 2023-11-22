@@ -5,12 +5,18 @@ package internal
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/pkg/errors"
+
+	"github.com/determined-ai/determined/proto/pkg/checkpointv1"
 
 	"github.com/uptrace/bun"
 
@@ -34,6 +40,7 @@ import (
 	expauth "github.com/determined-ai/determined/master/internal/experiment"
 	"github.com/determined-ai/determined/master/internal/mocks"
 	modelauth "github.com/determined-ai/determined/master/internal/model"
+	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/pkg/etc"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
@@ -48,12 +55,17 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/workspacev1"
 )
 
+//nolint:containedctx
 type mockStream[T any] struct {
+	mu   sync.Mutex
 	ctx  context.Context
 	data []T
 }
 
 func (m *mockStream[T]) Send(resp T) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.data = append(m.data, resp)
 	return nil
 }
@@ -64,16 +76,28 @@ func (m *mockStream[T]) Context() context.Context      { return m.ctx }
 func (m *mockStream[T]) SendMsg(mes interface{}) error { return nil }
 func (m *mockStream[T]) RecvMsg(mes interface{}) error { return nil }
 
+func (m *mockStream[T]) getData() []T {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	out := make([]T, len(m.data))
+	copy(out, m.data)
+
+	return out
+}
+
 var (
 	authZExp   *mocks.ExperimentAuthZ
 	authzModel *mocks.ModelAuthZ
 )
 
 // pgdb can be nil to use the singleton database for testing.
-func setupExpAuthTest(t *testing.T, pgdb *db.PgDB) (
+func setupExpAuthTest(t *testing.T, pgdb *db.PgDB,
+	altMockRM ...*mocks.ResourceManager,
+) (
 	*apiServer, *mocks.ExperimentAuthZ, *mocks.ProjectAuthZ, model.User, context.Context,
 ) {
-	api, projectAuthZ, _, user, ctx := setupProjectAuthZTest(t, pgdb)
+	api, projectAuthZ, _, user, ctx := setupProjectAuthZTest(t, pgdb, altMockRM...)
 	if authZExp == nil {
 		authZExp = &mocks.ExperimentAuthZ{}
 		expauth.AuthZProvider.Register("mock", authZExp)
@@ -102,7 +126,7 @@ func minExpConfToYaml(t *testing.T) string {
 	return string(bytes)
 }
 
-// nolint: exhaustivestruct
+// nolint: exhaustruct
 var minExpConfig = expconf.ExperimentConfig{
 	RawResources: &expconf.ResourcesConfig{
 		RawResourcePool: ptrs.Ptr("kubernetes"),
@@ -165,6 +189,45 @@ func TestGetExperimentLabels(t *testing.T) {
 	require.Subset(t, resp.Labels, labels)
 }
 
+func TestGetTaskContextDirectoryExperiment(t *testing.T) {
+	api, curUser, ctx := setupAPITest(t, nil)
+
+	trial, task := createTestTrial(t, api, curUser)
+
+	expected, err := api.GetModelDef(ctx, &apiv1.GetModelDefRequest{
+		ExperimentId: int32(trial.ExperimentID),
+	})
+	require.NoError(t, err)
+
+	actual, err := api.GetTaskContextDirectory(ctx, &apiv1.GetTaskContextDirectoryRequest{
+		TaskId: string(task.TaskID),
+	})
+	require.NoError(t, err)
+	require.Equal(t, expected.B64Tgz, actual.B64Tgz)
+}
+
+func TestGetTaskContextDirectoryTask(t *testing.T) {
+	api, _, ctx := setupAPITest(t, nil)
+	task := &model.Task{TaskType: model.TaskTypeNotebook, TaskID: model.NewTaskID()}
+	require.NoError(t, api.m.db.AddTask(task))
+
+	expectedContextDirectory := []byte("expectedContextDirectory")
+	_, err := db.Bun().NewInsert().Model(&model.TaskContextDirectory{
+		TaskID:           task.TaskID,
+		ContextDirectory: expectedContextDirectory,
+	}).Exec(context.TODO())
+	require.NoError(t, err)
+
+	actual, err := api.GetTaskContextDirectory(ctx, &apiv1.GetTaskContextDirectoryRequest{
+		TaskId: string(task.TaskID),
+	})
+	require.NoError(t, err)
+
+	actualString, err := base64.StdEncoding.DecodeString(actual.B64Tgz)
+	require.NoError(t, err)
+	require.Equal(t, string(expectedContextDirectory), string(actualString))
+}
+
 func TestDeleteExperimentWithoutCheckpoints(t *testing.T) {
 	api, curUser, ctx := setupAPITest(t, nil)
 	exp := createTestExp(t, api, curUser)
@@ -189,7 +252,95 @@ func TestDeleteExperimentWithoutCheckpoints(t *testing.T) {
 	t.Error("expected experiment to delete after 1 minute and it did not")
 }
 
-// nolint: exhaustivestruct
+func TestParseAndMergeContinueConfig(t *testing.T) {
+	// Blank config.
+	api, curUser, ctx := setupAPITest(t, nil)
+	exp := createTestExp(t, api, curUser)
+
+	_, _, err := api.parseAndMergeContinueConfig(exp.ID, ``)
+	require.NoError(t, err)
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `{}`)
+	require.NoError(t, err)
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `
+project: test
+`)
+	require.ErrorContains(t, err, "'project' in override config cannot be specified")
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `
+workspace: test
+`)
+	require.ErrorContains(t, err, "'workspace' in override config cannot be specified")
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `
+searcher:
+    max_length:
+        batches: 10
+`)
+	require.ErrorContains(t, err, "you might also need to specify searcher.name=single")
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `
+searcher:
+  max_length:
+    batches: 10
+  name: single
+`)
+	require.NoError(t, err)
+
+	_, _, err = api.parseAndMergeContinueConfig(exp.ID, `
+searcher:
+  name: random
+  metric: accuracy
+  max_trials: 5
+  max_length:
+    batches: 1000
+`)
+	require.ErrorContains(t, err,
+		"override config must have single searcher type got 'random' instead")
+
+	conf := `
+entrypoint: test
+checkpoint_storage:
+  type: shared_fs
+  host_path: /tmp
+  storage_path: determined-integration-checkpoints
+searcher:
+  metric: validation_error
+  smaller_is_better: true
+  name: random
+  max_trials: 3
+  max_length:
+    batches: 10
+resources:
+  resource_pool: kubernetes`
+	createReq := &apiv1.CreateExperimentRequest{
+		ModelDefinition: []*utilv1.File{{Content: []byte{1}}},
+		Config:          conf,
+		ParentId:        0,
+		Activate:        false,
+		ProjectId:       1,
+	}
+
+	// No checkpoint specified anywhere.
+	resp, err := api.CreateExperiment(ctx, createReq)
+	require.NoError(t, err)
+	_, _, err = api.parseAndMergeContinueConfig(int(resp.Experiment.Id), `{}`)
+	require.NoError(t, err)
+
+	_, _, err = api.parseAndMergeContinueConfig(int(resp.Experiment.Id), `
+searcher:
+  name: random
+  metric: accuracy
+  max_trials: 5
+  max_length:
+    batches: 1000
+`)
+	require.ErrorContains(t, err,
+		"override config is provided and experiment is not single searcher, got 'random' instead")
+}
+
+// nolint: exhaustruct
 func TestCreateExperimentCheckpointStorage(t *testing.T) {
 	api, _, ctx := setupAPITest(t, nil)
 	api.m.config.CheckpointStorage = expconf.CheckpointStorageConfig{}
@@ -289,7 +440,7 @@ checkpoint_storage:
 	require.Equal(t, expected, resp.Config.AsMap()["checkpoint_storage"])
 }
 
-// nolint: exhaustivestruct
+// nolint: exhaustruct
 func TestGetExperiments(t *testing.T) {
 	// Setup.
 	api, _, ctx := setupAPITest(t, nil)
@@ -677,8 +828,10 @@ func TestLegacyExperiments(t *testing.T) {
 
 	t.Run("GetExperimentCheckpoints", func(t *testing.T) {
 		req := &apiv1.GetExperimentCheckpointsRequest{
-			Id:     prse.CompletedPBTExpID,
-			SortBy: apiv1.GetExperimentCheckpointsRequest_SORT_BY_SEARCHER_METRIC,
+			Id: prse.CompletedPBTExpID,
+			SortBy: &apiv1.GetExperimentCheckpointsRequest_SortByAttr{
+				SortByAttr: checkpointv1.SortBy_SORT_BY_SEARCHER_METRIC,
+			},
 		}
 		_, err = api.GetExperimentCheckpoints(ctx, req)
 		require.NoError(t, err)
@@ -713,7 +866,7 @@ func TestLegacyExperiments(t *testing.T) {
 
 var res *apiv1.GetExperimentsResponse // Avoid compiler optimizing res out.
 
-// nolint: exhaustivestruct
+// nolint: exhaustruct
 func benchmarkGetExperiments(b *testing.B, n int) {
 	// This should be fine as long as no error happens. For some
 	// reason passing nil gives an error. In addition this
@@ -792,7 +945,7 @@ func BenchmarkGetExeriments500(b *testing.B) { benchmarkGetExperiments(b, 500) }
 
 func BenchmarkGetExeriments2500(b *testing.B) { benchmarkGetExperiments(b, 2500) }
 
-// nolint: exhaustivestruct
+// nolint: exhaustruct
 func createTestExpWithProjectID(
 	t *testing.T, api *apiServer, curUser model.User, projectID int, labels ...string,
 ) *model.Experiment {
@@ -828,11 +981,15 @@ func TestAuthZGetExperiment(t *testing.T) {
 	api, authZExp, _, curUser, ctx := setupExpAuthTest(t, nil)
 	exp := createTestExp(t, api, curUser)
 
+	mockUserArg := mock.MatchedBy(func(u model.User) bool {
+		return u.ID == curUser.ID
+	})
+
 	// Not found returns same as permission denied.
 	_, err := api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: -999})
 	require.Equal(t, apiPkg.NotFoundErrs("experiment", "-999", true).Error(), err.Error())
 
-	authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).
+	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).
 		Return(authz2.PermissionDeniedError{}).Once()
 	_, err = api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: int32(exp.ID)})
 	require.Equal(t, apiPkg.NotFoundErrs("experiment", fmt.Sprint(exp.ID), true).Error(),
@@ -840,12 +997,12 @@ func TestAuthZGetExperiment(t *testing.T) {
 
 	// Error returns error unmodified.
 	expectedErr := fmt.Errorf("canGetExperimentError")
-	authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).
+	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).
 		Return(expectedErr).Once()
 	_, err = api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: int32(exp.ID)})
 	require.Equal(t, expectedErr, err)
 
-	authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).Return(nil).Once()
+	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).Return(nil).Once()
 	res, err := api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: int32(exp.ID)})
 	require.NoError(t, err)
 	require.Equal(t, int32(exp.ID), res.Experiment.Id)
@@ -857,18 +1014,22 @@ func TestAuthZGetExperiments(t *testing.T) {
 	exp0 := createTestExpWithProjectID(t, api, curUser, projectID)
 	createTestExpWithProjectID(t, api, curUser, projectID, uuid.New().String())
 
+	mockUserArg := mock.MatchedBy(func(u model.User) bool {
+		return u.ID == curUser.ID
+	})
+
 	// Can't view project gets a 404.
-	authZProject.On("CanGetProject", mock.Anything, curUser,
+	authZProject.On("CanGetProject", mock.Anything, mockUserArg,
 		mock.Anything).Return(authz2.PermissionDeniedError{}).Once()
 	_, err := api.GetExperiments(ctx, &apiv1.GetExperimentsRequest{ProjectId: int32(projectID)})
 	require.Equal(t, apiPkg.NotFoundErrs("project", fmt.Sprint(projectID), true).Error(),
 		err.Error())
 
 	// Error from FilterExperimentsQuery passes through.
-	authZProject.On("CanGetProject", mock.Anything, curUser, mock.Anything).
+	authZProject.On("CanGetProject", mock.Anything, mockUserArg, mock.Anything).
 		Return(nil).Once()
 	expectedErr := fmt.Errorf("filterExperimentsQueryError")
-	authZExp.On("FilterExperimentsQuery", mock.Anything, curUser, mock.Anything, mock.Anything,
+	authZExp.On("FilterExperimentsQuery", mock.Anything, mockUserArg, mock.Anything, mock.Anything,
 		[]rbacv1.PermissionType{rbacv1.PermissionType_PERMISSION_TYPE_VIEW_EXPERIMENT_METADATA}).
 		Return(nil, expectedErr).Once()
 	_, err = api.GetExperiments(ctx, &apiv1.GetExperimentsRequest{ProjectId: int32(projectID)})
@@ -876,7 +1037,7 @@ func TestAuthZGetExperiments(t *testing.T) {
 
 	// Filter only to only one experiment ID.
 	resQuery := &bun.SelectQuery{}
-	authZExp.On("FilterExperimentsQuery", mock.Anything, curUser, mock.Anything, mock.Anything,
+	authZExp.On("FilterExperimentsQuery", mock.Anything, mockUserArg, mock.Anything, mock.Anything,
 		mock.Anything).
 		Return(resQuery, nil).Once().Run(func(args mock.Arguments) {
 		q := args.Get(3).(*bun.SelectQuery)
@@ -944,8 +1105,13 @@ func TestAuthZCreateExperiment(t *testing.T) {
 	forkFrom := createTestExp(t, api, curUser)
 	_, projectID := createProjectAndWorkspace(ctx, t, api)
 
+	// user is logged in again during experiment creation, meaning args don't match
+	mockUserArg := mock.MatchedBy(func(u model.User) bool {
+		return u.ID == curUser.ID
+	})
+
 	// Can't view forked experiment.
-	authZExp.On("CanGetExperiment", mock.Anything, curUser,
+	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg,
 		mock.Anything).Return(authz2.PermissionDeniedError{}).Once()
 	_, err := api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		ParentId: int32(forkFrom.ID),
@@ -955,8 +1121,8 @@ func TestAuthZCreateExperiment(t *testing.T) {
 
 	// Can't fork from experiment.
 	expectedErr := status.Errorf(codes.PermissionDenied, "canForkExperimentError")
-	authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).Return(nil).Once()
-	authZExp.On("CanForkFromExperiment", mock.Anything, curUser, mock.Anything).
+	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).Return(nil).Once()
+	authZExp.On("CanForkFromExperiment", mock.Anything, mockUserArg, mock.Anything).
 		Return(fmt.Errorf("canForkExperimentError")).Once()
 	_, err = api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		ParentId: int32(forkFrom.ID),
@@ -964,7 +1130,7 @@ func TestAuthZCreateExperiment(t *testing.T) {
 	require.Equal(t, expectedErr, err)
 
 	// Can't view project passed in.
-	pAuthZ.On("CanGetProject", mock.Anything, curUser,
+	pAuthZ.On("CanGetProject", mock.Anything, mockUserArg,
 		mock.Anything).Return(authz2.PermissionDeniedError{}).Once()
 	_, err = api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		ProjectId: int32(projectID),
@@ -973,7 +1139,7 @@ func TestAuthZCreateExperiment(t *testing.T) {
 	require.Equal(t, apiPkg.NotFoundErrs("project", fmt.Sprint(projectID), true), err)
 
 	// Can't view project passed in from config.
-	pAuthZ.On("CanGetProject", mock.Anything, curUser,
+	pAuthZ.On("CanGetProject", mock.Anything, mockUserArg,
 		mock.Anything).Return(authz2.PermissionDeniedError{}).Once()
 	_, err = api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		Config: minExpConfToYaml(t) + "project: Uncategorized\nworkspace: Uncategorized",
@@ -989,8 +1155,8 @@ func TestAuthZCreateExperiment(t *testing.T) {
 
 	// Can't create experiment deny.
 	expectedErr = status.Errorf(codes.PermissionDenied, "canCreateExperimentError")
-	pAuthZ.On("CanGetProject", mock.Anything, curUser, mock.Anything).Return(nil).Once()
-	authZExp.On("CanCreateExperiment", mock.Anything, curUser, mock.Anything).
+	pAuthZ.On("CanGetProject", mock.Anything, mockUserArg, mock.Anything).Return(nil).Once()
+	authZExp.On("CanCreateExperiment", mock.Anything, mockUserArg, mock.Anything).
 		Return(fmt.Errorf("canCreateExperimentError")).Once()
 	_, err = api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		ProjectId:       int32(projectID),
@@ -1001,10 +1167,10 @@ func TestAuthZCreateExperiment(t *testing.T) {
 
 	// Can't activate experiment deny.
 	expectedErr = status.Errorf(codes.PermissionDenied, "canActivateExperimentError")
-	pAuthZ.On("CanGetProject", mock.Anything, curUser, mock.Anything).Return(nil).Once()
-	authZExp.On("CanCreateExperiment", mock.Anything, curUser, mock.Anything).
+	pAuthZ.On("CanGetProject", mock.Anything, mockUserArg, mock.Anything).Return(nil).Once()
+	authZExp.On("CanCreateExperiment", mock.Anything, mockUserArg, mock.Anything).
 		Return(nil).Once()
-	authZExp.On("CanEditExperiment", mock.Anything, curUser, mock.Anything, mock.Anything).Return(
+	authZExp.On("CanEditExperiment", mock.Anything, mockUserArg, mock.Anything, mock.Anything).Return(
 		fmt.Errorf("canActivateExperimentError")).Once()
 	_, err = api.CreateExperiment(ctx, &apiv1.CreateExperimentRequest{
 		Activate:        true,
@@ -1019,12 +1185,23 @@ func TestAuthZGetExperimentAndCanDoActions(t *testing.T) {
 	authZNSC := setupNSCAuthZ()
 	exp := createTestExp(t, api, curUser)
 
+	// put/patch
+	mockUserArg := mock.MatchedBy(func(u model.User) bool {
+		return u.ID == curUser.ID
+	})
+
 	caseIndividualCalls := []struct {
 		DenyFuncName string
 		IDToReqCall  func(id int) error
 	}{
 		{"CanEditExperiment", func(id int) error {
 			_, err := api.ActivateExperiment(ctx, &apiv1.ActivateExperimentRequest{
+				Id: int32(id),
+			})
+			return err
+		}},
+		{"CanEditExperiment", func(id int) error {
+			_, err := api.ContinueExperiment(ctx, &apiv1.ContinueExperimentRequest{
 				Id: int32(id),
 			})
 			return err
@@ -1140,7 +1317,7 @@ func TestAuthZGetExperimentAndCanDoActions(t *testing.T) {
 			return err
 		}},
 		{"CanGetExperimentArtifacts", func(id int) error {
-			authZNSC.On("CanGetTensorboard", mock.Anything, curUser, mock.Anything, mock.Anything,
+			authZNSC.On("CanGetTensorboard", mock.Anything, mockUserArg, mock.Anything, mock.Anything,
 				mock.Anything).Return(nil).Once()
 			_, err := api.LaunchTensorboard(ctx, &apiv1.LaunchTensorboardRequest{
 				ExperimentIds: []int32{int32(id)},
@@ -1153,22 +1330,22 @@ func TestAuthZGetExperimentAndCanDoActions(t *testing.T) {
 		// Not found returns same as permission denied.
 		require.Equal(t, apiPkg.NotFoundErrs("experiment", "-999", true), curCase.IDToReqCall(-999))
 
-		authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).
+		authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).
 			Return(authz2.PermissionDeniedError{}).Once()
 		require.Equal(t, apiPkg.NotFoundErrs("experiment", fmt.Sprint(exp.ID), true),
 			curCase.IDToReqCall(exp.ID))
 
 		// CanGetExperiment error returns unmodified.
 		expectedErr := fmt.Errorf("canGetExperimentError")
-		authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).
+		authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).
 			Return(expectedErr).Once()
 		require.Equal(t, expectedErr, curCase.IDToReqCall(exp.ID))
 
 		// Deny returns error with PermissionDenied.
 		expectedErr = status.Errorf(codes.PermissionDenied, curCase.DenyFuncName+"Error")
-		authZExp.On("CanGetExperiment", mock.Anything, curUser, mock.Anything).
+		authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).
 			Return(nil).Once()
-		authZExp.On(curCase.DenyFuncName, mock.Anything, curUser, mock.Anything).
+		authZExp.On(curCase.DenyFuncName, mock.Anything, mockUserArg, mock.Anything).
 			Return(fmt.Errorf(curCase.DenyFuncName + "Error")).Once()
 		require.Equal(t, expectedErr.Error(), curCase.IDToReqCall(exp.ID).Error())
 	}
@@ -1352,7 +1529,7 @@ func TestExperimentSearchApiFilterParsing(t *testing.T) {
 		{`{"filterGroup":{"children":[{"columnName":"id","kind":"field","operator":"=","value":1},{"columnName":"id","kind":"field","operator":"=","value":2},{"children":[{"columnName":"id","kind":"field","operator":"=","value":3},{"columnName":"id","kind":"field","operator":"=","value":4}],"conjunction":"and","kind":"group"},{"children":[{"columnName":"id","kind":"field","operator":"=","value":5},{"children":[{"columnName":"id","kind":"field","operator":"=","value":6},{"columnName":"id","kind":"field","operator":"=","value":7}],"conjunction":"and","kind":"group"}],"conjunction":"or","kind":"group"}],"conjunction":"or","kind":"group"},"showArchived":false}`, `(((e.id = 1)) OR ((e.id = 2)) OR (((e.id = 3)) AND ((e.id = 4))) OR (((e.id = 5)) OR (((e.id = 6)) AND ((e.id = 7))))) AND ((e.archived = false))`},
 		{`{"filterGroup":{"children":[{"children":[{"columnName":"id","kind":"field","operator":"=","value":1},{"columnName":"id","kind":"field","operator":"=","value":2}],"conjunction":"and","kind":"group"},{"children":[{"columnName":"id","kind":"field","operator":"=","value":3},{"columnName":"id","kind":"field","operator":"=","value":4}],"conjunction":"and","kind":"group"},{"children":[{"columnName":"id","kind":"field","operator":"=","value":5},{"columnName":"id","kind":"field","operator":"=","value":6}],"conjunction":"and","kind":"group"}],"conjunction":"or","kind":"group"},"showArchived":false}`, `((((e.id = 1)) AND ((e.id = 2))) OR (((e.id = 3)) AND ((e.id = 4))) OR (((e.id = 5)) AND ((e.id = 6)))) AND ((e.archived = false))`},
 		{`{"filterGroup":{"children":[{"children":[],"conjunction":"and","kind":"group"},{"children":[],"conjunction":"and","kind":"group"},{"children":[],"conjunction":"and","kind":"group"}],"conjunction":"or","kind":"group"},"showArchived":false}`, `(((true)) OR ((true)) OR ((true))) AND ((e.archived = false))`},
-		{`{"filterGroup":{"children":[{"children":[],"conjunction":"and","kind":"group"},{"children":[],"conjunction":"and","kind":"group"},{"children":[{"columnName":"description","kind":"field","operator":"notEmpty","value":null}],"conjunction":"and","kind":"group"}],"conjunction":"and","kind":"group"},"showArchived":true}`, `(((true)) AND ((true)) AND (((e.config->>'description' IS NOT NULL))))`},
+		{`{"filterGroup":{"children":[{"children":[],"conjunction":"and","kind":"group"},{"children":[],"conjunction":"and","kind":"group"},{"children":[{"columnName":"description","kind":"field","operator":"notEmpty","value":null}],"conjunction":"and","kind":"group"}],"conjunction":"and","kind":"group"},"showArchived":true}`, `(((true)) AND ((true)) AND (((e.config->>'description' IS NOT NULL AND e.config->>'description' != '' AND e.config->>'description' != '[]'))))`},
 		{`{"filterGroup":{"children":[{"columnName":"numTrials","kind":"field","operator":">","value":0},{"columnName":"id","kind":"field","operator":"!=","value":0},{"columnName":"forkedFrom","kind":"field","operator":"!=","value":1}],"conjunction":"and","kind":"group"},"showArchived":true}`, `((((SELECT COUNT(*) FROM trials t WHERE e.id = t.experiment_id) > 0)) AND ((e.id != 0)) AND ((e.parent_id != 1)))`},
 		{`{"filterGroup":{"children":[{"columnName":"description","kind":"field","operator":"contains","value":"t\\set"}],"conjunction":"and","kind":"group"},"showArchived":false}`, `(((e.config->>'description' ILIKE '%t\set%'))) AND ((e.archived = false))`},
 		{`{"filterGroup":{"children":[{"columnName":"resourcePool","kind":"field","operator":"contains","value":"default"}],"conjunction":"and","kind":"group"},"showArchived":true}`, `(((e.config->'resources'->>'resource_pool' ILIKE '%default%')))`},
@@ -1489,4 +1666,75 @@ func TestExperimentSearchApiFilterParsing(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf(`SELECT * WHERE %v`, c[1]), q.String())
 	}
+}
+
+func TestDeleteExperiments(t *testing.T) {
+	var mockRM mocks.ResourceManager
+	// Need _anything_ to error to check the error flow leaves things in DELETE_FAILED and that they are delete-able
+	// still after that.
+	mockRM.On("DeleteJob", mock.Anything).Return(func(sproto.DeleteJob) sproto.DeleteJobResponse {
+		errC := make(chan error, 1)
+		errC <- errors.New("something real bad")
+		return sproto.DeleteJobResponse{Err: errC}
+	}, nil)
+
+	api, curUser, ctx := setupAPITest(t, nil, &mockRM)
+
+	var expIDs []int32
+	for i := 0; i < 3; i++ {
+		exp := createTestExp(t, api, curUser)
+		_, err := db.Bun().NewUpdate().Table("experiments").
+			Set("state = ?", model.CompletedState).
+			Where("id = ?", exp.ID).Exec(ctx)
+		require.NoError(t, err)
+		expIDs = append(expIDs, int32(exp.ID))
+	}
+
+	t.Log("if DeleteExperiment fails, all experiments become DELETE_FAILED")
+	_, err := api.DeleteExperiments(ctx, &apiv1.DeleteExperimentsRequest{ExperimentIds: expIDs})
+	require.NoError(t, err)
+
+	var success bool
+	for i := 0; i < 15; i++ {
+		var inDeleteFailed int
+		for _, expID := range expIDs {
+			e, err := api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: expID})
+			require.NoError(t, err, "expected experiment to go to DELETE_FAILED")
+			if e.Experiment.State == experimentv1.State_STATE_DELETE_FAILED {
+				inDeleteFailed++
+			}
+		}
+		if len(expIDs) == inDeleteFailed {
+			success = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	if !success {
+		t.Error("expected experiments to move to DELETE_FAILED after 15 seconds and they did not")
+	}
+
+	t.Log("and if the RM then succeeds, the experiments are then successfully deleted")
+	api.m.rm = MockRM()
+	_, err = api.DeleteExperiments(ctx, &apiv1.DeleteExperimentsRequest{ExperimentIds: expIDs})
+	require.NoError(t, err)
+
+	// Delete is async so we need to retry until it completes.
+	for i := 0; i < 15; i++ {
+		var deleted int
+		for _, expID := range expIDs {
+			e, err := api.GetExperiment(ctx, &apiv1.GetExperimentRequest{ExperimentId: expID})
+			if err != nil {
+				require.Equal(t, apiPkg.NotFoundErrs("experiment", fmt.Sprint(expID), true), err)
+				deleted++
+				continue
+			}
+			require.NotEqual(t, experimentv1.State_STATE_DELETE_FAILED, e.Experiment.State)
+		}
+		if len(expIDs) == deleted {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Error("expected experiments to delete after 15 seconds and they did not")
 }

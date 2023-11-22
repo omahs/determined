@@ -1,16 +1,17 @@
 import { Card, type TabsProps } from 'antd';
+import Breadcrumb from 'hew/Breadcrumb';
+import Glossary, { InfoRow } from 'hew/Glossary';
+import Message from 'hew/Message';
+import Pivot from 'hew/Pivot';
+import Notes from 'hew/RichTextEditor';
+import Spinner from 'hew/Spinner';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import _ from 'lodash';
 import { useObservable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { unstable_useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import InfoBox from 'components/InfoBox';
-import Breadcrumb from 'components/kit/Breadcrumb';
-import Notes from 'components/kit/Notes';
-import Pivot from 'components/kit/Pivot';
-import Spinner from 'components/kit/Spinner';
 import Link from 'components/Link';
-import Message, { MessageType } from 'components/Message';
 import MetadataCard from 'components/Metadata/MetadataCard';
 import Page, { BreadCrumbRoute } from 'components/Page';
 import PageNotFound from 'components/PageNotFound';
@@ -21,7 +22,6 @@ import { getModelVersion, patchModelVersion } from 'services/api';
 import workspaceStore from 'stores/workspaces';
 import { Metadata, ModelVersion, Note, ValueOf } from 'types';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { isAborted, isNotFound } from 'utils/service';
 import { humanReadableBytes } from 'utils/string';
 import { checkpointSize } from 'utils/workload';
@@ -168,7 +168,7 @@ const ModelVersionDetails: React.FC = () => {
     [fetchModelVersion, modelId, versionNum],
   );
 
-  const renderResource = (resource: string, size: string): React.ReactNode => {
+  const renderResource = (resource: string, size: string): React.ReactElement => {
     return (
       <div className={css.resource} key={resource}>
         <div className={css.resourceName}>{resource}</div>
@@ -178,7 +178,7 @@ const ModelVersionDetails: React.FC = () => {
     );
   };
 
-  const checkpointInfo = useMemo(() => {
+  const checkpointInfo: InfoRow[] = useMemo(() => {
     if (!modelVersion?.checkpoint) return [];
     const checkpointResources = modelVersion.checkpoint.resources || {};
     const resources = Object.keys(modelVersion.checkpoint.resources || {})
@@ -187,7 +187,8 @@ const ModelVersionDetails: React.FC = () => {
     const hasExperiment = !!modelVersion.checkpoint.experimentId;
     return [
       {
-        content: hasExperiment ? (
+        label: 'Source',
+        value: hasExperiment ? (
           <Breadcrumb>
             <Breadcrumb.Item>
               <Link path={paths.experimentDetails(modelVersion.checkpoint.experimentId || '')}>
@@ -214,16 +215,15 @@ const ModelVersionDetails: React.FC = () => {
             <Breadcrumb.Item>Task {modelVersion.checkpoint.taskId}</Breadcrumb.Item>
           </Breadcrumb>
         ),
-        label: 'Source',
       },
-      { content: modelVersion.checkpoint.uuid, label: 'Checkpoint UUID' },
+      { label: 'Checkpoint UUID', value: modelVersion.checkpoint.uuid },
       {
-        content: humanReadableBytes(checkpointSize(modelVersion.checkpoint)),
         label: 'Total Size',
+        value: humanReadableBytes(checkpointSize(modelVersion.checkpoint)),
       },
       {
-        content: resources.map((resource) => renderResource(resource.name, resource.size)),
         label: 'Code',
+        value: resources.map((resource) => renderResource(resource.name, resource.size)),
       },
     ];
   }, [modelVersion?.checkpoint]);
@@ -232,8 +232,8 @@ const ModelVersionDetails: React.FC = () => {
     if (!modelVersion?.checkpoint) return [];
     const metrics = Object.entries(modelVersion?.checkpoint?.validationMetrics?.avgMetrics || {});
     return metrics.map((metric) => ({
-      content: metric[1],
       label: metric[0],
+      value: metric[1].toString(),
     }));
   }, [modelVersion?.checkpoint]);
 
@@ -247,10 +247,10 @@ const ModelVersionDetails: React.FC = () => {
         children: (
           <div className={css.base}>
             <Card title="Model Checkpoint">
-              <InfoBox rows={checkpointInfo} separator />
+              <Glossary content={checkpointInfo} />
             </Card>
             <Card title="Validation Metrics">
-              <InfoBox rows={validationMetrics} separator />
+              <Glossary content={validationMetrics} />
             </Card>
             <MetadataCard
               disabled={modelVersion.model.archived || !canModifyModelVersion({ modelVersion })}
@@ -268,8 +268,9 @@ const ModelVersionDetails: React.FC = () => {
             <Notes
               disabled={modelVersion.model.archived || !canModifyModelVersion({ modelVersion })}
               disableTitle
-              notes={{ contents: modelVersion.notes ?? '', name: 'Notes' }}
+              docs={{ contents: modelVersion.notes ?? '', name: 'Notes' }}
               onError={handleError}
+              onPageUnloadHook={unstable_useBlocker}
               onSave={saveNotes}
             />
           </div>
@@ -293,7 +294,7 @@ const ModelVersionDetails: React.FC = () => {
     return <Message title={`Invalid Version ID ${versionNum}`} />;
   } else if (pageError && !isNotFound(pageError)) {
     const message = `Unable to fetch model ${modelId} version ${versionNum}`;
-    return <Message title={message} type={MessageType.Warning} />;
+    return <Message icon="warning" title={message} />;
   } else if (pageError && isNotFound(pageError)) {
     return <PageNotFound />;
   } else if (!modelVersion || rbacLoading) {

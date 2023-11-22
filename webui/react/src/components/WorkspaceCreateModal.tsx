@@ -1,12 +1,13 @@
 import { Divider, Switch } from 'antd';
+import Form from 'hew/Form';
+import Input from 'hew/Input';
+import InputNumber from 'hew/InputNumber';
+import { Modal } from 'hew/Modal';
+import Spinner from 'hew/Spinner';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import yaml from 'js-yaml';
 import React, { useCallback, useEffect, useId, useMemo } from 'react';
 
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import InputNumber from 'components/kit/InputNumber';
-import { Modal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
 import usePermissions from 'hooks/usePermissions';
 import { paths } from 'routes/utils';
 import { patchWorkspace } from 'services/api';
@@ -14,7 +15,6 @@ import { V1AgentUserGroup } from 'services/api-ts-sdk';
 import workspaceStore from 'stores/workspaces';
 import { Workspace } from 'types';
 import handleError, { DetError, ErrorLevel, ErrorType } from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { routeToReactUrl } from 'utils/routes';
 
@@ -37,7 +37,7 @@ interface Props {
   workspaceId?: number;
 }
 
-const CodeEditor = React.lazy(() => import('components/kit/CodeEditor'));
+const CodeEditor = React.lazy(() => import('hew/CodeEditor'));
 
 const WorkspaceCreateModalComponent: React.FC<Props> = ({ onClose, workspaceId }: Props = {}) => {
   const idPrefix = useId();

@@ -52,12 +52,10 @@ a skeleton to keep track of what is still required. A good starting template can
        def evaluate_batch(self, batch: TorchData) -> Dict[str, Any]:
            return {}
 
-To learn more about the PyTorch API, you can start by reading the trial definitions from the
-following examples:
+To learn more about the PyTorch API, you can start by reading the trial definition from the
+following example:
 
--  :download:`cifar10_pytorch.tgz </examples/cifar10_pytorch.tgz>`
 -  :download:`mnist_pytorch.tgz </examples/mnist_pytorch.tgz>`
--  :download:`fasterrcnn_coco_pytorch.tgz </examples/fasterrcnn_coco_pytorch.tgz>`
 
 For tips on debugging, see :ref:`model-debug`.
 
@@ -547,9 +545,16 @@ up on batch 2), and repeats for 2 cycles:
                ),
            )
 
-See the `PyTorch tensorboard profiler tutorial
+See the `PyTorch TensorBoard profiler tutorial
 <https://pytorch.org/tutorials/intermediate/tensorboard_profiler_tutorial.html#use-profiler-to-record-execution-events>`_
 for a complete list of accepted configurations parameters.
+
+.. note::
+
+   Though specifying batches to profile with ``profile_batch`` is optional, profiling every batch
+   may cause a large amount of data to be uploaded to Tensorboard. This may result in long rendering
+   times for Tensorboard and memory issues. For long-running experiments, it is recommended to
+   configure profiling only on desired batches.
 
 Porting Checklist
 =================

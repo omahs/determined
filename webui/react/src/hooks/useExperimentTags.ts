@@ -1,6 +1,6 @@
+import { TagAction, tagsActionHelper } from 'hew/Tags';
 import { useCallback } from 'react';
 
-import { TagAction, tagsActionHelper } from 'components/kit/Tags';
 import { patchExperiment } from 'services/api';
 
 export interface UseExperimentTagsInterface {

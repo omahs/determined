@@ -4,7 +4,7 @@ import urllib
 from typing import Any, Dict, Optional, Union
 
 from determined.common.storage.shared import _full_storage_path
-from determined.tensorboard import azure, base, gcs, s3, shared
+from determined.tensorboard import azure, base, directory, gcs, s3, shared
 
 
 def get_sync_path(cluster_id: str, experiment_id: str, trial_id: str) -> pathlib.Path:
@@ -52,9 +52,23 @@ def _shortcut_to_config(shortcut: str) -> Dict[str, Any]:
             "type": "shared_fs",
             "host_path": p.path,
         }
+    elif scheme in ["s3", "gs"]:
+        bucket = p.netloc
+        prefix = p.path.lstrip("/")
+        storage_type = {
+            "s3": "s3",
+            "gs": "gcs",
+        }[scheme]
+
+        return {
+            "type": storage_type,
+            "bucket": bucket,
+            "prefix": prefix,
+        }
     else:
-        # TODO(ilia): add gs, s3 support.
-        raise NotImplementedError("tensorboard only supports shared_fs shortcuts at the moment")
+        raise NotImplementedError(
+            "tensorboard only supports shared_fs, s3, and gs " "shortcuts at the moment"
+        )
 
 
 def build(
@@ -64,6 +78,7 @@ def build(
     checkpoint_config: Union[Dict[str, Any], str],
     container_path: Optional[str] = None,
     async_upload: bool = True,
+    sync_on_close: bool = True,
 ) -> base.TensorboardManager:
     """
     Return a tensorboard manager defined by the value of the `type` key in
@@ -99,6 +114,16 @@ def build(
             base_path,
             sync_path,
             async_upload=async_upload,
+            sync_on_close=sync_on_close,
+        )
+
+    elif type_name == "directory":
+        return directory.DirectoryTensorboardManager(
+            checkpoint_config["container_path"],
+            base_path,
+            sync_path,
+            async_upload=async_upload,
+            sync_on_close=sync_on_close,
         )
 
     elif type_name == "gcs":
@@ -108,6 +133,7 @@ def build(
             base_path,
             sync_path,
             async_upload=async_upload,
+            sync_on_close=sync_on_close,
         )
 
     elif type_name == "s3":
@@ -120,6 +146,7 @@ def build(
             base_path,
             sync_path,
             async_upload=async_upload,
+            sync_on_close=sync_on_close,
         )
 
     elif type_name == "azure":
@@ -136,6 +163,7 @@ def build(
             base_path,
             sync_path,
             async_upload=async_upload,
+            sync_on_close=sync_on_close,
         )
 
     else:

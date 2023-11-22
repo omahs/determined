@@ -9,6 +9,7 @@ import (
 
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -21,8 +22,10 @@ import (
 	"github.com/determined-ai/determined/master/internal/db"
 	expauth "github.com/determined-ai/determined/master/internal/experiment"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
+	"github.com/determined-ai/determined/master/internal/logpattern"
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task"
+	"github.com/determined-ai/determined/master/internal/webhooks"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
 	"github.com/determined-ai/determined/proto/pkg/taskv1"
@@ -76,7 +79,7 @@ func (a *apiServer) canDoActionsOnTask(
 	actions ...func(context.Context, model.User, *model.Experiment) error,
 ) error {
 	errTaskNotFound := api.NotFoundErrs("task", fmt.Sprint(taskID), true)
-	t, err := a.m.db.TaskByID(taskID)
+	t, err := db.TaskByID(ctx, taskID)
 	if errors.Is(err, db.ErrNotFound) {
 		return errTaskNotFound
 	} else if err != nil {
@@ -118,15 +121,40 @@ func (a *apiServer) canDoActionsOnTask(
 	return nil
 }
 
-func (a *apiServer) canEditAllocation(ctx context.Context, allocationID string) error {
+func (a *apiServer) canGetTaskAcceleration(ctx context.Context, taskID string) error {
+	curUser, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return err
+	}
+	isExp, exp, err := expFromTaskID(ctx, model.TaskID(taskID))
+	if err != nil {
+		return err
+	}
+	if !isExp {
+		var ok bool
+		if ok, err = canAccessNTSCTask(ctx, *curUser, model.TaskID(taskID)); err != nil {
+			return err
+		} else if !ok {
+			return api.NotFoundErrs("task", taskID, true)
+		}
+		return nil
+	}
+
+	if err = expauth.AuthZProvider.Get().CanGetExperiment(ctx, *curUser, exp); err != nil {
+		return authz.SubIfUnauthorized(err, api.NotFoundErrs("task", taskID, true))
+	}
+
+	return nil
+}
+
+func (a *apiServer) canGetAllocation(ctx context.Context, allocationID string) error {
 	curUser, _, err := grpcutil.GetUser(ctx)
 	if err != nil {
 		return err
 	}
 
 	if !strings.Contains(allocationID, ".") {
-		return status.Errorf(codes.InvalidArgument,
-			"allocationID %s does not  contain at least '.'", allocationID)
+		return status.Errorf(codes.InvalidArgument, "allocationID %s does not contain at least ','", allocationID)
 	}
 
 	taskID := model.AllocationID(allocationID).ToTaskID()
@@ -144,7 +172,40 @@ func (a *apiServer) canEditAllocation(ctx context.Context, allocationID string) 
 		return nil
 	}
 
-	if err = expauth.AuthZProvider.Get().CanGetExperiment(ctx, *curUser, exp); err != nil {
+	if err = expauth.AuthZProvider.Get().CanGetExperimentArtifacts(ctx, *curUser, exp); err != nil {
+		return authz.SubIfUnauthorized(err, api.NotFoundErrs("allocation", allocationID, true))
+	}
+
+	return nil
+}
+
+func (a *apiServer) canEditAllocation(ctx context.Context, allocationID string) error {
+	curUser, _, err := grpcutil.GetUser(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(allocationID, ".") {
+		return status.Errorf(codes.InvalidArgument,
+			"allocationID %s does not contain at least '.'", allocationID)
+	}
+
+	taskID := model.AllocationID(allocationID).ToTaskID()
+	isExp, exp, err := expFromTaskID(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if !isExp {
+		var ok bool
+		if ok, err = canAccessNTSCTask(ctx, *curUser, taskID); err != nil {
+			return err
+		} else if !ok {
+			return api.NotFoundErrs("allocation", allocationID, true)
+		}
+		return nil
+	}
+
+	if err = expauth.AuthZProvider.Get().CanGetExperimentArtifacts(ctx, *curUser, exp); err != nil {
 		return authz.SubIfUnauthorized(err, api.NotFoundErrs("allocation", allocationID, true))
 	}
 	if err = expauth.AuthZProvider.Get().CanEditExperiment(ctx, *curUser, exp); err != nil {
@@ -219,7 +280,21 @@ func (a *apiServer) GetAllocation(
 	ctx context.Context,
 	req *apiv1.GetAllocationRequest,
 ) (*apiv1.GetAllocationResponse, error) {
-	return nil, grpcutil.UnimplementedError
+	if req.AllocationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "allocation ID missing")
+	}
+
+	if err := a.canGetAllocation(ctx, req.AllocationId); err != nil {
+		return nil, err
+	}
+
+	allocation, err := task.DefaultService.GetAllocation(ctx, req.AllocationId)
+	if err != nil {
+		return nil, fmt.Errorf("querying allocation %s: %w", req.AllocationId, err)
+	}
+	return &apiv1.GetAllocationResponse{
+		Allocation: allocation.Proto(),
+	}, nil
 }
 
 func (a *apiServer) PostAllocationProxyAddress(
@@ -247,14 +322,59 @@ func (a *apiServer) GetTaskAcceleratorData(
 	ctx context.Context,
 	req *apiv1.GetTaskAcceleratorDataRequest,
 ) (*apiv1.GetTaskAcceleratorDataResponse, error) {
-	return nil, grpcutil.UnimplementedError
+	if req.TaskId == "" {
+		return nil, status.Error(codes.InvalidArgument, "task ID missing")
+	}
+
+	if err := a.canGetTaskAcceleration(ctx, req.TaskId); err != nil {
+		return nil, err
+	}
+
+	var res []model.AcceleratorData
+	err := db.Bun().NewSelect().
+		ColumnExpr("alloc_acc.*").
+		TableExpr("allocation_accelerators alloc_acc").
+		Join("LEFT JOIN allocations alloc ON alloc_acc.allocation_id = alloc.allocation_id").
+		Where("alloc.task_id = ?", req.TaskId).Scan(ctx, &res)
+	if err != nil {
+		return nil, fmt.Errorf("querying allocation accelerators: %w", err)
+	}
+
+	var accelerationData []*apiv1.AcceleratorData
+	for _, r := range res {
+		accelerationData = append(accelerationData, r.Proto())
+	}
+	return &apiv1.GetTaskAcceleratorDataResponse{AcceleratorData: accelerationData}, nil
 }
 
 func (a *apiServer) PostAllocationAcceleratorData(
 	ctx context.Context,
 	req *apiv1.PostAllocationAcceleratorDataRequest,
 ) (*apiv1.PostAllocationAcceleratorDataResponse, error) {
-	return nil, grpcutil.UnimplementedError
+	if req.AllocationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "allocation ID missing")
+	}
+
+	if err := a.canEditAllocation(ctx, req.AllocationId); err != nil {
+		return nil, err
+	}
+
+	accData := &model.AcceleratorData{
+		ContainerID:      req.AcceleratorData.ContainerId,
+		AllocationID:     model.AllocationID(req.AllocationId),
+		NodeName:         req.AcceleratorData.NodeName,
+		AcceleratorType:  req.AcceleratorData.AcceleratorType,
+		AcceleratorUuids: req.AcceleratorData.AcceleratorUuids,
+	}
+	err := task.DefaultService.SetAcceleratorData(
+		ctx,
+		*accData,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &apiv1.PostAllocationAcceleratorDataResponse{}, nil
 }
 
 // TaskLogBackend is an interface task log backends, such as elastic or postgres,
@@ -300,6 +420,78 @@ func (a *apiServer) TaskLogs(
 	})
 }
 
+func (a *apiServer) monitor(ctx context.Context, taskID model.TaskID, logs []*model.TaskLog) error {
+	isExp, exp, err := expFromTaskID(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	if !isExp {
+		return nil
+	}
+
+	policies, err := db.ActiveLogPolicies(ctx, exp.ID)
+	if err != nil {
+		return err
+	}
+
+	if err := logpattern.Monitor(ctx, taskID, logs, policies); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *apiServer) PostTaskLogs(
+	ctx context.Context, req *apiv1.PostTaskLogsRequest,
+) (*apiv1.PostTaskLogsResponse, error) {
+	if len(req.Logs) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "len logs must be greater than 0")
+	}
+	taskID := req.Logs[0].TaskId
+
+	if err := a.canDoActionsOnTask(ctx, model.TaskID(taskID),
+		expauth.AuthZProvider.Get().CanEditExperiment); err != nil {
+		return nil, err
+	}
+
+	logs := make([]*model.TaskLog, len(req.Logs))
+	for i := range req.Logs {
+		if req.Logs[i].Id != nil {
+			return nil, status.Errorf(codes.InvalidArgument,
+				"ID must be nil on logs got %d instead", *req.Logs[i].Id)
+		}
+		if req.Logs[i].TaskId != taskID {
+			// There isn't a hard reason for this requirement other than we would have to RBAC
+			// against all provided taskIDs. This usecase seems pretty unlikely.
+			return nil, status.Errorf(codes.InvalidArgument,
+				"can only post logs of a single taskID per task log request got '%s' and '%s'",
+				taskID, req.Logs[i].TaskId)
+		}
+
+		logs[i] = model.TaskLogFromProto(req.Logs[i])
+	}
+
+	if err := a.m.taskLogBackend.AddTaskLogs(logs); err != nil {
+		return nil, fmt.Errorf("adding task logs to task log backend: %w", err)
+	}
+
+	switch err := webhooks.ScanLogs(ctx, logs); {
+	case err != nil && errors.Is(err, context.Canceled):
+		return nil, err
+	case err != nil:
+		log.Errorf("scanning logs for webhook triggers: %v", err)
+	}
+
+	switch err := a.monitor(ctx, model.TaskID(taskID), logs); {
+	case err != nil && errors.Is(err, context.Canceled):
+		return nil, err
+	case err != nil:
+		log.Errorf("monitor logs against log pattern policies: %s", err)
+	}
+
+	return &apiv1.PostTaskLogsResponse{}, nil
+}
+
 func (a *apiServer) GetActiveTasksCount(
 	ctx context.Context, req *apiv1.GetActiveTasksCountRequest,
 ) (resp *apiv1.GetActiveTasksCountResponse, err error) {
@@ -312,9 +504,9 @@ func (a *apiServer) GetActiveTasksCount(
 	}
 
 	finalResp := &apiv1.GetActiveTasksCountResponse{}
-	req1 := &apiv1.GetNotebooksRequest{}
-	resp1 := &apiv1.GetNotebooksResponse{}
-	if err = a.ask(notebooksAddr, req1, &resp1); err != nil {
+
+	resp1, err := command.DefaultCmdService.GetNotebooks(&apiv1.GetNotebooksRequest{})
+	if err != nil {
 		return nil, err
 	}
 	for _, n := range resp1.Notebooks {
@@ -323,9 +515,8 @@ func (a *apiServer) GetActiveTasksCount(
 		}
 	}
 
-	req2 := &apiv1.GetTensorboardsRequest{}
-	resp2 := &apiv1.GetTensorboardsResponse{}
-	if err = a.ask(tensorboardsAddr, req2, &resp2); err != nil {
+	resp2, err := command.DefaultCmdService.GetTensorboards(&apiv1.GetTensorboardsRequest{})
+	if err != nil {
 		return nil, err
 	}
 	for _, tb := range resp2.Tensorboards {
@@ -334,9 +525,8 @@ func (a *apiServer) GetActiveTasksCount(
 		}
 	}
 
-	req3 := &apiv1.GetCommandsRequest{}
-	resp3 := &apiv1.GetCommandsResponse{}
-	if err = a.ask(commandsAddr, req3, &resp3); err != nil {
+	resp3, err := command.DefaultCmdService.GetCommands(&apiv1.GetCommandsRequest{})
+	if err != nil {
 		return nil, err
 	}
 	for _, c := range resp3.Commands {
@@ -345,9 +535,8 @@ func (a *apiServer) GetActiveTasksCount(
 		}
 	}
 
-	req4 := &apiv1.GetShellsRequest{}
-	resp4 := &apiv1.GetShellsResponse{}
-	if err = a.ask(shellsAddr, req4, &resp4); err != nil {
+	resp4, err := command.DefaultCmdService.GetShells(&apiv1.GetShellsRequest{})
+	if err != nil {
 		return nil, err
 	}
 	for _, s := range resp4.Shells {
@@ -362,7 +551,7 @@ func (a *apiServer) GetActiveTasksCount(
 func (a *apiServer) GetTasks(
 	ctx context.Context, req *apiv1.GetTasksRequest,
 ) (resp *apiv1.GetTasksResponse, err error) {
-	summary, err := a.m.rm.GetAllocationSummaries(a.m.system, sproto.GetAllocationSummaries{})
+	summary, err := a.m.rm.GetAllocationSummaries(sproto.GetAllocationSummaries{})
 	if err != nil {
 		return nil, err
 	}
@@ -379,17 +568,18 @@ func (a *apiServer) GetTasks(
 			return nil, err
 		}
 
-		var ok bool
 		if !isExp {
-			ok, err = canAccessNTSCTask(ctx, *curUser, summary[allocationID].TaskID)
+			_, err = canAccessNTSCTask(ctx, *curUser, summary[allocationID].TaskID)
 		} else {
 			err = expauth.AuthZProvider.Get().CanGetExperiment(ctx, *curUser, exp)
 		}
-		if !authz.IsPermissionDenied(err) || !ok {
-			pbAllocationIDToSummary[string(allocationID)] = allocationSummary.Proto()
+		if authz.IsPermissionDenied(err) {
+			continue
 		} else if err != nil {
 			return nil, err
 		}
+
+		pbAllocationIDToSummary[string(allocationID)] = allocationSummary.Proto()
 	}
 
 	return &apiv1.GetTasksResponse{AllocationIdToSummary: pbAllocationIDToSummary}, nil
@@ -410,7 +600,7 @@ func (a *apiServer) taskLogs(
 	var followState interface{}
 	var timeSinceLastAuth time.Time
 	fetch := func(r api.BatchRequest) (api.Batch, error) {
-		if time.Now().Sub(timeSinceLastAuth) >= recheckAuthPeriod {
+		if time.Since(timeSinceLastAuth) >= recheckAuthPeriod {
 			if err = a.canDoActionsOnTask(ctx, taskID,
 				expauth.AuthZProvider.Get().CanGetExperimentArtifacts); err != nil {
 				return nil, err
@@ -533,7 +723,7 @@ func (a *apiServer) TaskLogsFields(
 
 	var timeSinceLastAuth time.Time
 	fetch := func(lr api.BatchRequest) (api.Batch, error) {
-		if time.Now().Sub(timeSinceLastAuth) >= recheckAuthPeriod {
+		if time.Since(timeSinceLastAuth) >= recheckAuthPeriod {
 			if err := a.canDoActionsOnTask(resp.Context(), taskID,
 				expauth.AuthZProvider.Get().CanGetExperimentArtifacts); err != nil {
 				return nil, err
@@ -573,7 +763,7 @@ func (a *apiServer) isTaskTerminalFunc(
 	taskID model.TaskID, buffer time.Duration,
 ) api.TerminationCheckFn {
 	return func() (bool, error) {
-		switch task, err := a.m.db.TaskByID(taskID); {
+		switch task, err := db.TaskByID(context.TODO(), taskID); {
 		case err != nil:
 			return true, err
 		case task.EndTime != nil && task.EndTime.UTC().Add(buffer).Before(time.Now().UTC()):

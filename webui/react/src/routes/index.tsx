@@ -1,8 +1,8 @@
 import React from 'react';
 
 import Admin from 'pages/Admin';
+import Cluster from 'pages/Cluster';
 import ClusterLogs from 'pages/ClusterLogs';
-import Clusters from 'pages/Clusters';
 import Dashboard from 'pages/Dashboard';
 import DefaultRoute from 'pages/DefaultRoute';
 import Deprecated from 'pages/Deprecated';
@@ -13,7 +13,7 @@ import ModelRegistryPage from 'pages/ModelRegistryPage';
 import ModelVersionDetails from 'pages/ModelVersionDetails';
 import ProjectDetails from 'pages/ProjectDetails';
 import Reload from 'pages/Reload';
-import ResourcepoolDetail from 'pages/ResourcepoolDetail';
+import ResourcepoolDetail from 'pages/ResourcePool/ResourcepoolDetail';
 import SignIn from 'pages/SignIn';
 import SignOut from 'pages/SignOut';
 import TaskListPage from 'pages/TaskListPage';
@@ -32,7 +32,7 @@ const routeComponentMap: Record<string, React.ReactNode> = {
   cluster: <Deprecated />,
   clusterHistorical: <Deprecated />,
   clusterLogs: <ClusterLogs />,
-  clusters: <Clusters />,
+  clusters: <Cluster />,
   dashboard: <Dashboard />,
   default: <DefaultRoute />,
   experimentDetails: <ExperimentDetails />,

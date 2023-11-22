@@ -2,9 +2,9 @@ import { Table } from 'antd';
 import { SpinProps } from 'antd/es/spin';
 import { TableProps } from 'antd/es/table';
 import { SorterResult } from 'antd/es/table/interface';
-import React, { useEffect, useRef, useState } from 'react';
+import Spinner from 'hew/Spinner';
+import { useEffect, useRef, useState } from 'react';
 
-import Spinner from 'components/kit/Spinner';
 import useResize from 'hooks/useResize';
 import { TrialItem } from 'types';
 import { hasObjectKeys } from 'utils/data';
@@ -29,7 +29,7 @@ export const handleTableChange = (
   updateSettings: (s: Settings, b: boolean) => void,
 ) => {
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-  return (tablePagination: any, tableFilters: any, tableSorter: any): void => {
+  return (tablePagination: any, _tableFilters: any, tableSorter: any): void => {
     const newSettings: Settings = {
       ...settings,
       tableLimit: tablePagination.pageSize,

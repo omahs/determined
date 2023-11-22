@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	docker "github.com/docker/docker/api/types/container"
@@ -223,6 +224,14 @@ func (t TaskSpec) EnvVars() map[string]string {
 	return e
 }
 
+// LogShipperWrappedEntrypoint returns the configured Entrypoint wrapped with ship_logs.py.
+func (t *TaskSpec) LogShipperWrappedEntrypoint() []string {
+	// Prepend the entrypoint like: `ship-logs.sh ship_logs.py "$@"`.
+	shipLogsShell := filepath.Join(RunDir, taskShipLogsShell)
+	shipLogsPython := filepath.Join(RunDir, taskShipLogsPython)
+	return append([]string{shipLogsShell, shipLogsPython}, t.Entrypoint...)
+}
+
 // ToDockerSpec converts a task spec to a docker container spec.
 func (t *TaskSpec) ToDockerSpec() cproto.Spec {
 	var envVars []string
@@ -269,7 +278,7 @@ func (t *TaskSpec) ToDockerSpec() cproto.Spec {
 				User:         getUser(t.AgentUserGroup),
 				ExposedPorts: toPortSet(env.Ports()),
 				Env:          envVars,
-				Cmd:          t.Entrypoint,
+				Cmd:          t.LogShipperWrappedEntrypoint(),
 				Image:        env.Image().For(deviceType),
 				WorkingDir:   t.WorkDir,
 			},
@@ -313,27 +322,21 @@ func workDirArchive(
 func runDirHelpersArchive(aug *model.AgentUserGroup) cproto.RunArchive {
 	return wrapArchive(archive.Archive{
 		aug.OwnedArchiveItem(
-			taskLoggingSetupScript,
-			etc.MustStaticFile(etc.TaskLoggingSetupScriptResource),
-			taskLoggingSetupMode,
+			taskSetupScript,
+			etc.MustStaticFile(etc.TaskSetupScriptResource),
+			taskSetupMode,
 			tar.TypeReg,
 		),
 		aug.OwnedArchiveItem(
-			taskEnrichLogsScript,
-			etc.MustStaticFile(etc.TaskEnrichLogsResource),
-			taskEnrichLogsScriptMode,
+			taskShipLogsShell,
+			etc.MustStaticFile(etc.TaskShipLogsShellResource),
+			taskShipLogsShellMode,
 			tar.TypeReg,
 		),
 		aug.OwnedArchiveItem(
-			taskLoggingTeardownScript,
-			etc.MustStaticFile(etc.TaskLoggingTeardownScriptResource),
-			taskLoggingTeardownMode,
-			tar.TypeReg,
-		),
-		aug.OwnedArchiveItem(
-			taskSignalHandlingScript,
-			etc.MustStaticFile(etc.TaskSignalHandlingScriptResource),
-			taskSignalHandlingMode,
+			taskShipLogsPython,
+			etc.MustStaticFile(etc.TaskShipLogsPythonResource),
+			taskShipLogsPythonMode,
 			tar.TypeReg,
 		),
 		aug.OwnedArchiveItem(

@@ -1,6 +1,6 @@
-import { Map } from 'immutable';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
+import { List, Map } from 'immutable';
 import _ from 'lodash';
-import { Observable, observable, WritableObservable } from 'micro-observables';
 
 import {
   archiveWorkspace,
@@ -16,31 +16,31 @@ import { V1PostWorkspaceRequest } from 'services/api-ts-sdk';
 import { GetWorkspacesParams } from 'services/types';
 import { Workspace } from 'types';
 import handleError from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
+import { deepObservable, immutableObservable, Observable } from 'utils/observable';
 import { workspaceSorter } from 'utils/sort';
 
 import PollingStore from './polling';
 
 class WorkspaceStore extends PollingStore {
-  #loadableWorkspaces: WritableObservable<Loadable<Workspace[]>> = observable(NotLoaded);
-  #boundResourcePools: WritableObservable<Map<number, string[]>> = observable(Map());
+  #loadableWorkspaces = deepObservable<Loadable<Workspace[]>>(NotLoaded);
+  #boundResourcePools = immutableObservable<Map<number, List<string>>>(Map());
 
   public readonly workspaces = this.#loadableWorkspaces.readOnly();
 
   public readonly unarchived = this.#loadableWorkspaces.select((loadable) => {
-    return Loadable.quickMatch(loadable, NotLoaded, (workspaces) => {
+    return Loadable.flatMap(loadable, (workspaces) => {
       return Loaded(workspaces.filter((workspace) => !workspace.archived));
     });
   });
 
   public readonly pinned = this.#loadableWorkspaces.select((loadable) => {
-    return Loadable.quickMatch(loadable, NotLoaded, (workspaces) => {
+    return Loadable.flatMap(loadable, (workspaces) => {
       return Loaded(workspaces.filter((workspace) => workspace.pinned));
     });
   });
 
   public readonly mutables = this.#loadableWorkspaces.select((loadable) => {
-    return Loadable.quickMatch(loadable, NotLoaded, (workspaces) => {
+    return Loadable.flatMap(loadable, (workspaces) => {
       return Loaded(workspaces.filter((workspace) => !workspace.immutable));
     });
   });
@@ -48,8 +48,8 @@ class WorkspaceStore extends PollingStore {
   public getWorkspace(id: number | Loadable<number>): Observable<Loadable<Workspace | null>> {
     return this.workspaces.select((loadable) => {
       const loadableID = Loadable.isLoadable(id) ? id : Loaded(id);
-      return Loadable.quickMatch(loadableID, NotLoaded, (wid) =>
-        Loadable.quickMatch(loadable, NotLoaded, (workspaces) => {
+      return Loadable.flatMap(loadableID, (wid) =>
+        Loadable.flatMap(loadable, (workspaces) => {
           const workspace = workspaces.find((workspace) => workspace.id === wid);
           return workspace ? Loaded(workspace) : Loaded(null);
         }),
@@ -127,12 +127,11 @@ class WorkspaceStore extends PollingStore {
   }
 
   public readonly boundResourcePools = (workspaceId: number) =>
-    this.#boundResourcePools.select((map) => map.get(workspaceId));
+    this.#boundResourcePools.select((map) => map.get(workspaceId)?.toJS());
 
-  public fetchAvailableResourcePools(workspaceId: number) {
-    return getAvailableResourcePools({ workspaceId }).then((response) => {
-      this.#boundResourcePools.update((map) => map.set(workspaceId, response));
-    });
+  public async fetchAvailableResourcePools(workspaceId: number) {
+    const response = await getAvailableResourcePools({ workspaceId });
+    this.#boundResourcePools.update((map) => map.set(workspaceId, List(response)));
   }
 
   public fetch(signal?: AbortSignal, force = false): () => void {

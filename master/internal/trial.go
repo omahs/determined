@@ -12,12 +12,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/master/internal/experiment"
+	"github.com/determined-ai/determined/master/internal/logpattern"
 	"github.com/determined-ai/determined/master/internal/prom"
 	"github.com/determined-ai/determined/master/internal/rm"
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task"
-	"github.com/determined-ai/determined/master/pkg/actor"
+
+	"github.com/determined-ai/determined/master/internal/task/tasklogger"
 	"github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/mathx"
 	"github.com/determined-ai/determined/master/pkg/model"
@@ -44,7 +48,7 @@ var nonRetryableErrors = []*regexp.Regexp{
 
 type trialExitCallback func(model.RequestID, *model.ExitedReason)
 
-// A trial is a task actor which is responsible for handling:
+// A trial is a struct which is responsible for handling:
 //   - messages from the resource manager,
 //   - messages from the experiment,
 //   - messages from the trial container(s), and
@@ -70,8 +74,6 @@ type trial struct {
 	db     db.DB
 	rm     rm.ResourceManager
 	syslog *logrus.Entry
-	system *actor.System
-	parent *actor.Ref
 
 	// Fields that are essentially configuration for the trial.
 	config              expconf.ExperimentConfig
@@ -82,7 +84,7 @@ type trial struct {
 	// state is the current state of the trial. It's patched by experiment changes and kill trial.
 	state model.State
 	// searcher encapsulates the searcher state of the trial.
-	searcher trialSearcherState
+	searcher experiment.TrialSearcherState
 	// restarts is a failure count, it increments when the trial fails and we retry it.
 	restarts int
 	// runID is a count of how many times the task container(s) have stopped and restarted, which
@@ -108,17 +110,16 @@ func newTrial(
 	jobSubmissionTime time.Time,
 	experimentID int,
 	initialState model.State,
-	searcher trialSearcherState,
+	searcher experiment.TrialSearcherState,
 	rm rm.ResourceManager,
-	db db.DB,
+	pgDB db.DB,
 	config expconf.ExperimentConfig,
 	warmStartCheckpoint *model.Checkpoint,
 	taskSpec *tasks.TaskSpec,
 	generatedKeys ssh.PrivateAndPublicKeys,
 	restored bool,
 	id *int,
-	system *actor.System,
-	parent *actor.Ref,
+	continueFromTrialID *int,
 	exitCallback trialExitCallback,
 ) (t *trial, err error) {
 	t = &trial{
@@ -130,12 +131,10 @@ func newTrial(
 		experimentID:      experimentID,
 		state:             initialState,
 		searcher:          searcher,
-		parent:            parent,
 
-		db:     db,
+		db:     pgDB,
 		rm:     rm,
 		syslog: logrus.WithField("component", "trial"),
-		system: system,
 
 		config:              config,
 		taskSpec:            taskSpec,
@@ -150,13 +149,19 @@ func newTrial(
 
 		exitCallback: exitCallback,
 	}
-	if id != nil {
+	switch {
+	case id != nil:
 		t.id = *id
 		t.idSet = true
 		if err := t.recover(); err != nil {
 			return nil, fmt.Errorf("recovering trial in prestart: %w", err)
 		}
-	} else {
+	case continueFromTrialID != nil:
+		if err := t.continueSetup(continueFromTrialID); err != nil {
+			return nil, fmt.Errorf("continue trial in prestart: %w", err)
+		}
+
+	default:
 		if err := t.create(); err != nil {
 			return nil, fmt.Errorf("persisting trial in prestart: %w", err)
 		}
@@ -166,6 +171,7 @@ func newTrial(
 		"trial-id":     t.id,
 		"trial-run-id": t.runID,
 	})
+	t.syslog = t.syslog.WithFields(t.logCtx.Fields())
 
 	err = t.maybeAllocateTask()
 	if err != nil {
@@ -218,7 +224,7 @@ func (t *trial) PatchState(req model.StateWithReason) error {
 	return t.patchState(req)
 }
 
-func (t *trial) PatchSearcherState(req trialSearcherState) error {
+func (t *trial) PatchSearcherState(req experiment.TrialSearcherState) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -254,13 +260,13 @@ func (t *trial) PatchRP(rp string) {
 	}
 }
 
-func (t *trial) SetUserInitiatedEarlyExit(req userInitiatedEarlyExit) error {
+func (t *trial) SetUserInitiatedEarlyExit(req experiment.UserInitiatedEarlyTrialExit) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	switch req.reason {
+	switch req.Reason {
 	case model.InvalidHP, model.InitInvalidHP:
-		t.userInitiatedExit = &req.reason
+		t.userInitiatedExit = &req.Reason
 		// After a short time, force us to clean up if we're still handling messages.
 		t.wg.Go(func(ctx context.Context) {
 			tmr := time.NewTimer(InvalidHPKillDelay)
@@ -280,9 +286,9 @@ func (t *trial) SetUserInitiatedEarlyExit(req userInitiatedEarlyExit) error {
 		})
 		return nil
 	case model.UserRequestedStop, model.Errored:
-		return fmt.Errorf("should not report special exit reason %s to the master", req.reason)
+		return fmt.Errorf("should not report special exit reason %s to the master", req.Reason)
 	default:
-		return fmt.Errorf("unhandled early exit reason: %s", req.reason)
+		return fmt.Errorf("unhandled early exit reason: %s", req.Reason)
 	}
 }
 
@@ -311,7 +317,7 @@ func (t *trial) create() error {
 	return nil
 }
 
-// recover recovers the trial minimal (hopefully to stay) state for a trial actor.
+// recover recovers the trial minimal (hopefully to stay) state for a trial.
 // Separately, the experiment stores and recovers our searcher state.
 func (t *trial) recover() error {
 	runID, restarts, err := t.db.TrialRunIDAndRestarts(t.id)
@@ -320,6 +326,39 @@ func (t *trial) recover() error {
 	}
 	t.runID = runID
 	t.restarts = restarts
+	return nil
+}
+
+// / continueSetup sets trial state up so that it will continue training.
+func (t *trial) continueSetup(continueFromTrialID *int) error {
+	if continueFromTrialID == nil {
+		return fmt.Errorf("continueFromTrialID is nil trial %+v", t)
+	}
+
+	t.id = *continueFromTrialID
+	t.idSet = true
+
+	if err := t.recover(); err != nil {
+		return fmt.Errorf("recovering trial state: %w", err)
+	}
+
+	trialIDTaskIDs, err := db.TrialTaskIDsByTrialID(context.TODO(), t.id)
+	if err != nil {
+		return fmt.Errorf("getting previous task IDs for trial: %w", err)
+	}
+
+	t.taskID = model.TaskID(fmt.Sprintf("%s-%d", t.taskID, len(trialIDTaskIDs)))
+
+	err = t.addTask()
+	if err != nil {
+		return err
+	}
+	if _, err := db.Bun().
+		NewInsert().
+		Model(&model.TrialTaskID{TrialID: t.id, TaskID: t.taskID}).
+		Exec(context.TODO()); err != nil {
+		return fmt.Errorf("adding trial ID task ID relationship: %w", err)
+	}
 	return nil
 }
 
@@ -339,6 +378,11 @@ func (t *trial) maybeAllocateTask() error {
 	name := fmt.Sprintf("Trial %d (Experiment %d)", t.id, t.experimentID)
 	t.syslog.Info("decided to allocate trial")
 
+	blockedNodes, err := logpattern.GetBlockedNodes(context.TODO(), t.taskID)
+	if err != nil {
+		return err
+	}
+
 	restoredAllocation, err := t.maybeRestoreAllocation()
 	if err != nil {
 		t.syslog.WithError(err).Warn("failed to restore trial allocation")
@@ -356,7 +400,6 @@ func (t *trial) maybeAllocateTask() error {
 			RequestTime:       time.Now().UTC(),
 			IsUserVisible:     true,
 			Name:              name,
-			Group:             t.parent,
 			SlotsNeeded:       t.config.Resources().SlotsPerTrial(),
 			ResourcePool:      t.config.Resources().ResourcePool(),
 			FittingRequirements: sproto.FittingRequirements{
@@ -367,12 +410,14 @@ func (t *trial) maybeAllocateTask() error {
 			Restore:     true,
 			ProxyPorts: sproto.NewProxyPortConfig(
 				tasks.TrialSpecProxyPorts(t.taskSpec, t.config), t.taskID),
+
+			BlockedNodes: blockedNodes,
 		}
 		t.syslog.
 			WithField("allocation-id", ar.AllocationID).
 			Infof("starting restored trial allocation")
 		err = task.DefaultService.StartAllocation(
-			t.logCtx, ar, t.db, t.rm, specifier, t.system,
+			t.logCtx, ar, t.db, t.rm, specifier,
 			t.AllocationExitedCallback,
 		)
 		if err != nil {
@@ -399,7 +444,6 @@ func (t *trial) maybeAllocateTask() error {
 		JobSubmissionTime: t.jobSubmissionTime,
 		IsUserVisible:     true,
 		Name:              name,
-		Group:             t.parent,
 
 		SlotsNeeded:  t.config.Resources().SlotsPerTrial(),
 		ResourcePool: t.config.Resources().ResourcePool(),
@@ -409,6 +453,8 @@ func (t *trial) maybeAllocateTask() error {
 
 		Preemptible: true,
 		ProxyPorts:  sproto.NewProxyPortConfig(tasks.TrialSpecProxyPorts(t.taskSpec, t.config), t.taskID),
+
+		BlockedNodes: blockedNodes,
 	}
 
 	t.syslog.
@@ -417,7 +463,7 @@ func (t *trial) maybeAllocateTask() error {
 
 	prom.AssociateJobExperiment(t.jobID, strconv.Itoa(t.experimentID), t.config.Labels())
 	err = task.DefaultService.StartAllocation(
-		t.logCtx, ar, t.db, t.rm, specifier, t.system,
+		t.logCtx, ar, t.db, t.rm, specifier,
 		t.AllocationExitedCallback,
 	)
 	if err != nil {
@@ -476,10 +522,12 @@ func (t *trial) AllocationExitedCallback(exit *task.AllocationExited) {
 
 	err := t.handleAllocationExit(exit)
 	if err != nil {
-		t.syslog.WithError(err).Error("handling allocation exit")
+		t.syslog.WithError(err).Error("fatal error handling allocation exit, trial may appear hung")
 	}
 }
 
+// handleAllocationExit must either transition the trial to any terminal state or request a new allocation
+// so we can try again to complete the trial; anything else will cause the trial to hang.
 func (t *trial) handleAllocationExit(exit *task.AllocationExited) error {
 	if exit.Err != nil {
 		t.syslog.WithError(exit.Err).Error("trial allocation failed")
@@ -537,12 +585,42 @@ func (t *trial) handleAllocationExit(exit *task.AllocationExited) error {
 			WithError(exit.Err).
 			Errorf("trial encountered transient system error")
 	case exit.Err != nil && !sproto.IsTransientSystemError(exit.Err):
+		// First check against log_pattern_policies retries.
+		notRetries, err := logpattern.ShouldRetry(context.TODO(), t.taskID)
+		if err != nil {
+			return t.transition(model.StateWithReason{
+				State:               model.ErrorState,
+				InformationalReason: fmt.Sprintln("getting if the trial should retry due to log_pattern_policies: %w", err),
+			})
+		}
+
+		if len(notRetries) > 0 {
+			for _, l := range logpattern.TaskLogsFromDontRetryTriggers(t.taskID, notRetries) {
+				tasklogger.Insert(l)
+			}
+
+			exitReason := "trial failed and not retrying due to logs matching a don't retry policy" +
+				" check trial logs for more info"
+			t.syslog.
+				WithError(exit.Err).
+				Errorf(exitReason)
+
+			return t.transition(model.StateWithReason{
+				State:               model.ErrorState,
+				InformationalReason: exitReason,
+			})
+		}
+
+		// If we don't have a log_pattern_policy preventing us from retrying go to normal max_restarts.
 		t.syslog.
 			WithError(exit.Err).
 			Errorf("trial failed (restart %d/%d)", t.restarts, t.config.MaxRestarts())
 		t.restarts++
 		if err := t.db.UpdateTrialRestarts(t.id, t.restarts); err != nil {
-			return err
+			return t.transition(model.StateWithReason{
+				State:               model.ErrorState,
+				InformationalReason: err.Error(),
+			})
 		}
 		if t.restarts > t.config.MaxRestarts() {
 			return t.transition(model.StateWithReason{
@@ -550,6 +628,23 @@ func (t *trial) handleAllocationExit(exit *task.AllocationExited) error {
 				InformationalReason: "trial exceeded max restarts",
 			})
 		}
+
+		blockedNodes, err := logpattern.GetBlockedNodes(context.TODO(), t.taskID)
+		if err != nil {
+			return t.transition(model.StateWithReason{
+				State:               model.ErrorState,
+				InformationalReason: err.Error(),
+			})
+		}
+		if len(blockedNodes) > 0 {
+			if err := t.checkResourcePoolRemainingCapacity(); err != nil {
+				return t.transition(model.StateWithReason{
+					State:               model.ErrorState,
+					InformationalReason: err.Error(),
+				})
+			}
+		}
+
 	case exit.UserRequestedStop:
 		return t.transition(model.StateWithReason{
 			State:               model.CompletedState,
@@ -564,7 +659,14 @@ func (t *trial) handleAllocationExit(exit *task.AllocationExited) error {
 	}
 
 	// Maybe reschedule.
-	return errors.Wrap(t.maybeAllocateTask(), "failed to reschedule trial")
+	err := t.maybeAllocateTask()
+	if err != nil {
+		return t.transition(model.StateWithReason{
+			State:               model.CompletedState,
+			InformationalReason: "failed to reschedule trial",
+		})
+	}
+	return nil
 }
 
 // patchState decide if the state patch is valid. If so, we'll transition the trial.
@@ -595,7 +697,7 @@ func (t *trial) transition(s model.StateWithReason) error {
 		t.syslog.Infof("trial changed from state %s to %s", t.state, s.State)
 		if t.idSet {
 			if err := t.db.UpdateTrial(t.id, s.State); err != nil {
-				return errors.Wrap(err, "updating trial with end state")
+				return fmt.Errorf("updating trial with end state (%s, %s): %w", s.State, s.InformationalReason, err)
 			}
 		}
 		t.state = s.State
@@ -664,7 +766,7 @@ func (t *trial) maybeRestoreAllocation() (*model.Allocation, error) {
 		Where("end_time IS NULL").
 		Where("state != ?", model.AllocationStateTerminated)
 
-	if t.rm.IsReattachableOnlyAfterStarted(t.system) {
+	if t.rm.IsReattachableOnlyAfterStarted() {
 		selectQuery.Where("start_time IS NOT NULL")
 	}
 
@@ -698,4 +800,34 @@ func (t *trial) maybeRestoreAllocation() (*model.Allocation, error) {
 			len(allocations),
 		)
 	}
+}
+
+func (t *trial) checkResourcePoolRemainingCapacity() error {
+	launchWarnings, err := t.rm.ValidateResourcePoolAvailability(
+		&sproto.ValidateResourcePoolAvailabilityRequest{
+			Name:   t.config.Resources().ResourcePool(),
+			Slots:  t.config.Resources().SlotsPerTrial(),
+			TaskID: &t.taskID,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("checking resource availability: %v", err.Error())
+	}
+	if len(launchWarnings) > 0 {
+		msg := fmt.Sprintf(
+			"task ID %v slots requested exceeds %v resource pool capacity",
+			t.taskID,
+			t.config.Resources().ResourcePool(),
+		)
+		if config.GetMasterConfig().LaunchError {
+			logrus.Error(msg)
+			return t.transition(model.StateWithReason{
+				State:               model.ErrorState,
+				InformationalReason: msg,
+			})
+		}
+		logrus.Warn(msg)
+	}
+
+	return nil
 }

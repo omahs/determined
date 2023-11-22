@@ -1,9 +1,10 @@
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import useConfirm from 'hew/useConfirm';
 import React from 'react';
 
 import css from 'components/ActionDropdown/ActionDropdown.module.scss';
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
 import usePermissions from 'hooks/usePermissions';
 import { paths } from 'routes/utils';
 import { killTask } from 'services/api';
@@ -12,7 +13,6 @@ import handleError, { ErrorLevel, ErrorType } from 'utils/error';
 import { capitalize } from 'utils/string';
 import { isTaskKillable } from 'utils/task';
 
-import useConfirm from './kit/useConfirm';
 import Link from './Link';
 
 interface Props {

@@ -1,18 +1,20 @@
 import { Space } from 'antd';
+import Button from 'hew/Button';
+import Card from 'hew/Card';
+import Column from 'hew/Column';
+import Message from 'hew/Message';
+import { useModal } from 'hew/Modal';
+import Row from 'hew/Row';
+import Section from 'hew/Section';
+import Select, { Option } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import Toggle from 'hew/Toggle';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GridListRadioGroup, { GridListView } from 'components/GridListRadioGroup';
-import Button from 'components/kit/Button';
-import Card from 'components/kit/Card';
-import { Column, Columns } from 'components/kit/Columns';
-import Empty from 'components/kit/Empty';
-import { useModal } from 'components/kit/Modal';
-import Select, { Option } from 'components/kit/Select';
-import Spinner from 'components/kit/Spinner';
-import Toggle from 'components/kit/Toggle';
 import Link from 'components/Link';
-import Message, { MessageType } from 'components/Message';
 import Page from 'components/Page';
 import InteractiveTable, {
   ColumnDef,
@@ -35,7 +37,6 @@ import { getWorkspaces } from 'services/api';
 import { V1GetWorkspacesRequestSortBy } from 'services/api-ts-sdk';
 import userStore from 'stores/users';
 import { Workspace } from 'types';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { validateDetApiEnum } from 'utils/service';
 
@@ -130,7 +131,7 @@ const WorkspaceList: React.FC = () => {
 
   const prevWhose = usePrevious(settings.whose, undefined);
   useEffect(() => {
-    if (settings.whose === prevWhose || !settings.whose || Loadable.isLoading(loadableUsers))
+    if (settings.whose === prevWhose || !settings.whose || Loadable.isNotLoaded(loadableUsers))
       return;
 
     switch (settings.whose) {
@@ -149,7 +150,7 @@ const WorkspaceList: React.FC = () => {
   }, [currentUser, loadableUsers, prevWhose, settings.whose, updateSettings, users]);
 
   const columns = useMemo(() => {
-    if (Loadable.isLoading(loadableUsers)) return [];
+    if (Loadable.isNotLoaded(loadableUsers)) return [];
 
     const workspaceNameRenderer = (value: string, record: Workspace) => (
       <Link path={paths.workspaceDetails(record.id)}>{value}</Link>
@@ -288,7 +289,7 @@ const WorkspaceList: React.FC = () => {
             containerRef={pageRef}
             ContextMenu={actionDropdown}
             dataSource={workspaces}
-            loading={isLoading || Loadable.isLoading(loadableUsers)}
+            loading={isLoading || Loadable.isNotLoaded(loadableUsers)}
             pagination={getFullPaginationConfig(
               {
                 limit: settings.tableLimit,
@@ -326,7 +327,7 @@ const WorkspaceList: React.FC = () => {
   }, [canceler]);
 
   if (pageError) {
-    return <Message title="Unable to fetch workspaces" type={MessageType.Warning} />;
+    return <Message icon="warning" title="Unable to fetch workspaces" />;
   }
 
   return (
@@ -345,40 +346,42 @@ const WorkspaceList: React.FC = () => {
         </Button>
       }
       title="Workspaces">
-      <Columns page>
-        <Column>
-          <Select value={settings.whose} width={180} onSelect={handleWhoseSelect}>
-            <Option value={WhoseWorkspaces.All}>All Workspaces</Option>
-            <Option value={WhoseWorkspaces.Mine}>My Workspaces</Option>
-            <Option value={WhoseWorkspaces.Others}>Others&apos; Workspaces</Option>
-          </Select>
-        </Column>
-        <Column align="right">
-          <Space wrap>
-            <Toggle
-              checked={settings.archived}
-              label="Show Archived"
-              onChange={switchShowArchived}
-            />
-            <Select value={settings.sortKey} width={170} onSelect={handleSortSelect}>
-              <Option value={V1GetWorkspacesRequestSortBy.NAME}>Alphabetical</Option>
-              <Option value={V1GetWorkspacesRequestSortBy.ID}>Newest to Oldest</Option>
+      <Section>
+        <Row wrap>
+          <Column>
+            <Select value={settings.whose} width={180} onSelect={handleWhoseSelect}>
+              <Option value={WhoseWorkspaces.All}>All Workspaces</Option>
+              <Option value={WhoseWorkspaces.Mine}>My Workspaces</Option>
+              <Option value={WhoseWorkspaces.Others}>Others&apos; Workspaces</Option>
             </Select>
-            {settings && <GridListRadioGroup value={settings.view} onChange={handleViewChange} />}
-          </Space>
-        </Column>
-      </Columns>
+          </Column>
+          <Column align="right">
+            <Space wrap>
+              <Toggle
+                checked={settings.archived}
+                label="Show Archived"
+                onChange={switchShowArchived}
+              />
+              <Select value={settings.sortKey} width={170} onSelect={handleSortSelect}>
+                <Option value={V1GetWorkspacesRequestSortBy.NAME}>Alphabetical</Option>
+                <Option value={V1GetWorkspacesRequestSortBy.ID}>Newest to Oldest</Option>
+              </Select>
+              {settings && <GridListRadioGroup value={settings.view} onChange={handleViewChange} />}
+            </Space>
+          </Column>
+        </Row>
+      </Section>
       <Spinner spinning={isLoading}>
         {workspaces.length !== 0 ? (
           workspacesList
         ) : settings.whose === WhoseWorkspaces.All && settings.archived && !isLoading ? (
-          <Empty
+          <Message
             description="Create a workspace to keep track of related projects and experiments."
             icon="workspaces"
             title="No Workspaces"
           />
         ) : (
-          <Message title="No workspaces matching the current filters" type={MessageType.Empty} />
+          <Message icon="warning" title="No workspaces matching the current filters" />
         )}
       </Spinner>
       <WorkspaceCreateModal.Component />

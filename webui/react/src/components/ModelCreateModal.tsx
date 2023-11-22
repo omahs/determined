@@ -1,12 +1,14 @@
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import Button from 'hew/Button';
+import Form from 'hew/Form';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import { Modal } from 'hew/Modal';
+import Select from 'hew/Select';
+import { useToast } from 'hew/Toast';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useId, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import { Modal } from 'components/kit/Modal';
-import Select from 'components/kit/Select';
 import Link from 'components/Link';
 import { ModalCloseReason } from 'hooks/useModal/useModal';
 import usePermissions from 'hooks/usePermissions';
@@ -14,9 +16,7 @@ import { paths } from 'routes/utils';
 import { postModel } from 'services/api';
 import workspaceStore from 'stores/workspaces';
 import { Metadata } from 'types';
-import { notification } from 'utils/dialogApi';
 import handleError, { DetError, ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 
 import css from './ModelCreateModal.module.scss';
 
@@ -41,12 +41,13 @@ interface Props {
 const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
   const idPrefix = useId();
   const { canCreateModelWorkspace } = usePermissions();
+  const { openToast } = useToast();
   const [isDetailExpanded, setIsDetailExpanded] = useState<boolean>(false);
   const loadableWorkspaces = useObservable(workspaceStore.workspaces);
   const isWorkspace = workspaceId !== undefined;
   const workspaces = Loadable.match(loadableWorkspaces, {
+    _: () => [],
     Loaded: (ws) => ws.filter(({ id }) => canCreateModelWorkspace({ workspaceId: id })),
-    NotLoaded: () => [],
   });
   const [form] = Form.useForm<FormInputs>();
   const disableWorkspaceModelCreation = isWorkspace
@@ -72,16 +73,11 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
         workspaceId,
       });
       if (!response?.id) return;
-
-      notification.open({
-        btn: null,
-        description: (
-          <div className={css.toast}>
-            <p>{`"${modelName}"`} created</p>
-            <Link path={paths.modelDetails(response.name)}>View Model</Link>
-          </div>
-        ),
-        message: '',
+      openToast({
+        description: `${modelName} has been created`,
+        link: <Link path={paths.modelDetails(response.name)}>View Model</Link>,
+        severity: 'Info',
+        title: 'Model Created',
       });
     } catch (e) {
       if (e instanceof DetError) {
@@ -171,6 +167,7 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
                       if (metadataKeySet.size !== metadataKeys.length) {
                         return await Promise.reject(new Error('No dupelicate keys'));
                       }
+                      return await Promise.resolve();
                     },
                   },
                 ]}>
@@ -190,14 +187,29 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
                         <Form.Item initialValue="" {...restField} name={[name, 'value']}>
                           <Input placeholder="Value" size="small" />
                         </Form.Item>
-                        <MinusCircleOutlined onClick={() => remove(name)} />
+                        <Button
+                          icon={
+                            <Icon
+                              name="minus-circle"
+                              showTooltip
+                              size="small"
+                              title="Remove metadata"
+                            />
+                          }
+                          type="text"
+                          onClick={() => remove(name)}
+                        />
                       </div>
                     ))}
                     <div className={css.formError}>
                       <Form.ErrorList errors={errors} />
                     </div>
                     <Form.Item>
-                      <Button block icon={<PlusOutlined />} type="dashed" onClick={() => add()}>
+                      <Button
+                        block
+                        icon={<Icon decorative name="add" size="tiny" />}
+                        type="dashed"
+                        onClick={() => add()}>
                         Add metadata
                       </Button>
                     </Form.Item>
@@ -218,6 +230,7 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
                       if (tags && tagSet.size !== tags.length) {
                         return await Promise.reject(new Error('No dupelicate tags'));
                       }
+                      return await Promise.resolve();
                     },
                   },
                 ]}>
@@ -235,7 +248,18 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
                             ]}>
                             <Input placeholder="Tag" size="small" type="text" />
                           </Form.Item>
-                          <MinusCircleOutlined onClick={() => remove(name)} />
+                          <Button
+                            icon={
+                              <Icon
+                                name="minus-circle"
+                                showTooltip
+                                size="small"
+                                title="Remove tag"
+                              />
+                            }
+                            type="text"
+                            onClick={() => remove(name)}
+                          />
                         </div>
                       ))}
                     </div>
@@ -243,7 +267,11 @@ const ModelCreateModal = ({ onClose, workspaceId }: Props): JSX.Element => {
                       <Form.ErrorList errors={errors} />
                     </div>
                     <Form.Item>
-                      <Button block icon={<PlusOutlined />} type="dashed" onClick={() => add()}>
+                      <Button
+                        block
+                        icon={<Icon decorative name="add" size="tiny" />}
+                        type="dashed"
+                        onClick={() => add()}>
                         Add tag
                       </Button>
                     </Form.Item>

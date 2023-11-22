@@ -17,7 +17,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task/allgather"
 	"github.com/determined-ai/determined/master/internal/task/preemptible"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	detLogger "github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/tasks"
@@ -50,13 +49,12 @@ func (as *allocationService) StartAllocation(
 	db db.DB,
 	rm rm.ResourceManager,
 	specifier tasks.TaskSpecifier,
-	system *actor.System,
 	onExit func(*AllocationExited),
 ) error {
 	as.mu.Lock()
 	defer as.mu.Unlock()
 
-	ref, err := newAllocation(logCtx, req, db, rm, specifier, system)
+	ref, err := newAllocation(logCtx, req, db, rm, specifier)
 	if err != nil {
 		return err
 	}
@@ -64,9 +62,7 @@ func (as *allocationService) StartAllocation(
 
 	go func() {
 		_ = ref.awaitTermination()
-		if err := ref.Cleanup(); err != nil {
-			syslog.WithError(err).Error("cleaning up allocation")
-		}
+		ref.Cleanup()
 
 		as.mu.Lock()
 		delete(as.allocations, req.AllocationID)
@@ -138,6 +134,29 @@ func (as *allocationService) SetProxyAddress(
 		return err
 	}
 	return ref.SetProxyAddress(ctx, addr)
+}
+
+// SetAcceleratorData sets the accleration data of the allocation.
+func (as *allocationService) SetAcceleratorData(
+	ctx context.Context,
+	accData model.AcceleratorData,
+) error {
+	if err := AddAllocationAcceleratorData(ctx, accData); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SetAcceleratorData sets the accleration data of the allocation.
+func (as *allocationService) GetAllocation(
+	ctx context.Context,
+	allocationID string,
+) (*model.Allocation, error) {
+	allocation, err := getAllocation(ctx, allocationID)
+	if err != nil {
+		return nil, err
+	}
+	return allocation, nil
 }
 
 // WatchRendezvous returns a watcher for the caller to wait for rendezvous to complete. When a
@@ -257,6 +276,7 @@ func (as *allocationService) WatchPreemption(
 	_, err := as.waitForRestore(context.TODO(), id)
 	if err != nil {
 		// HACK: Swallow the error since contexts with an instant timeout still expect a status.
+		//nolint: nilerr
 		return false, nil
 	}
 

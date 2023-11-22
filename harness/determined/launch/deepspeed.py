@@ -27,6 +27,8 @@ from determined.common.api import certs
 hostfile_path = None
 deepspeed_version = version.parse(deepspeed.__version__)
 
+logger = logging.getLogger("determined.launch.deepspeed")
+
 
 def is_using_cuda() -> bool:
     val = os.getenv("CUDA_VISIBLE_DEVICES")
@@ -157,7 +159,7 @@ def filter_env_vars(env: Mapping[str, str]) -> Dict[str, str]:
     def should_keep(k: str, v: str) -> bool:
         if not any(x.match(k) for x in excludes):
             return True
-        logging.debug(
+        logger.debug(
             f"Excluding environment variable {k}={v} from training script environment, "
             "since it is likely unsafe to share between workers."
         )
@@ -174,9 +176,30 @@ def create_deepspeed_env_file() -> None:
             # since values may contain spaces and quotes.  shlex.quote was removed from the
             # deepspeed launcher in 0.6.2 so we add it here for this version onwards.
             if deepspeed_version >= version.parse("0.6.2"):
-                f.write(f"{k}={shlex.quote(v)}\n")
+                line = f"{k}={shlex.quote(v)}"
             else:
-                f.write(f"{k}={v}\n")
+                line = f"{k}={v}"
+
+            # By default, IFS is set to a space, a tab, and a newline character.
+            # Therefore, the IFS environment variable will be written as:
+            #
+            # IFS='
+            # '
+            #
+            # The single quote on its own line will cause the
+            # "key, val = var.split('=', maxsplit=1)" in
+            # "deepspeed/launcher/runner.py" to fail with the error:
+            #
+            # ValueError: not enough values to unpack (expected 2, got 1)
+            #
+            # Therefore, avoid writing any environment variables containing a
+            # newline character.
+            if "\n" not in line and "\r" not in line:
+                f.write(f"{line}\n")
+            else:
+                logger.warning(
+                    f"Excluding environment variable {k} because it contains a newline character."
+                )
 
 
 def create_run_command(master_address: str, hostfile_path: Optional[str]) -> List[str]:
@@ -278,7 +301,7 @@ def main(script: List[str]) -> int:
         # spun up by pdsh.
         pid_server_cmd = create_pid_server_cmd(info.allocation_id, len(info.slot_ids))
 
-        logging.debug(
+        logger.debug(
             f"Non-chief [{info.container_rank}] training process launch "
             f"command: {run_sshd_command}."
         )
@@ -307,7 +330,7 @@ def main(script: List[str]) -> int:
 
     harness_cmd = script
 
-    logging.debug(f"chief worker calling deepspeed with args: {cmd[1:]} ...")
+    logger.debug(f"chief worker calling deepspeed with args: {cmd[1:]} ...")
 
     full_cmd = pid_server_cmd + cmd + pid_client_cmd + log_redirect_cmd + harness_cmd
 

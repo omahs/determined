@@ -1,13 +1,9 @@
+import LogViewer, { FetchConfig, FetchDirection, FetchType } from 'hew/LogViewer/LogViewer';
+import LogViewerSelect, { Filters } from 'hew/LogViewer/LogViewerSelect';
+import { Settings, settingsConfigForTask } from 'hew/LogViewer/LogViewerSelect.settings';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import LogViewer, {
-  FetchConfig,
-  FetchDirection,
-  FetchType,
-} from 'components/kit/LogViewer/LogViewer';
-import LogViewerSelect, { Filters } from 'components/kit/LogViewer/LogViewerSelect';
-import { Settings, settingsConfigForTask } from 'components/kit/LogViewer/LogViewerSelect.settings';
 import Page from 'components/Page';
 import { commandTypeToLabel } from 'constants/states';
 import { useSettings } from 'hooks/useSettings';

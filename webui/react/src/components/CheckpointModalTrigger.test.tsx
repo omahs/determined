@@ -1,14 +1,14 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
+import { ConfirmationProvider } from 'hew/useConfirm';
 import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
 import CheckpointModalTrigger from 'components/CheckpointModalTrigger';
-import { UIProvider } from 'components/kit/Theme';
+import { ThemeProvider } from 'components/ThemeProvider';
 import authStore from 'stores/auth';
 import { generateTestExperimentData } from 'utils/tests/generateTestData';
-
-import { ConfirmationProvider } from './kit/useConfirm';
 
 const TEST_MODAL_TITLE = 'Checkpoint Modal Test';
 const REGISTER_CHECKPOINT_TEXT = 'Register Checkpoint';
@@ -40,10 +40,12 @@ const ModalTrigger: React.FC = () => {
 const setup = async () => {
   render(
     <BrowserRouter>
-      <UIProvider>
-        <ConfirmationProvider>
-          <ModalTrigger />
-        </ConfirmationProvider>
+      <UIProvider theme={DefaultTheme.Light}>
+        <ThemeProvider>
+          <ConfirmationProvider>
+            <ModalTrigger />
+          </ConfirmationProvider>
+        </ThemeProvider>
       </UIProvider>
     </BrowserRouter>,
   );

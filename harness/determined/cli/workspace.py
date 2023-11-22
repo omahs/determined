@@ -10,6 +10,7 @@ from determined.cli.user import AGENT_USER_GROUP_ARGS
 from determined.common import api, util
 from determined.common.api import authentication, bindings, errors
 from determined.common.declarative_argparse import Arg, Cmd
+from determined.common.experimental import workspace
 
 PROJECT_HEADERS = ["ID", "Name", "Description", "# Experiments", "# Active Experiments"]
 WORKSPACE_HEADERS = [
@@ -30,7 +31,7 @@ workspace_arg: Arg = Arg("-w", "--workspace-name", type=str, help="workspace nam
 def get_workspace_id_from_args(args: Namespace) -> Optional[int]:
     workspace_id = None
     if args.workspace_name:
-        workspace = cli.workspace.workspace_by_name(cli.setup_session(args), args.workspace_name)
+        workspace = api.workspace_by_name(cli.setup_session(args), args.workspace_name)
         if workspace.archived:
             raise ArgumentError(None, f'Workspace "{args.workspace_name}" is archived.')
         workspace_id = workspace.id
@@ -73,15 +74,6 @@ def render_workspaces(
     render.tabulate_or_csv(headers, values, False)
 
 
-def workspace_by_name(sess: api.Session, name: str) -> bindings.v1Workspace:
-    assert name, "workspace name cannot be empty"
-    w = bindings.get_GetWorkspaces(sess, nameCaseSensitive=name).workspaces
-    assert len(w) <= 1, "workspace name is assumed to be unique."
-    if len(w) == 0:
-        raise cli.not_found_errs("workspace", name, sess)
-    return bindings.get_GetWorkspace(sess, id=w[0].id).workspace
-
-
 @authentication.required
 def list_workspaces(args: Namespace) -> None:
     sess = cli.setup_session(args)
@@ -111,39 +103,34 @@ def list_workspaces(args: Namespace) -> None:
 @authentication.required
 def list_workspace_projects(args: Namespace) -> None:
     sess = cli.setup_session(args)
-    w = workspace_by_name(sess, args.workspace_name)
-    orderArg = bindings.v1OrderBy[args.order_by.upper()]
-    sortArg = bindings.v1GetWorkspaceProjectsRequestSortBy[args.sort_by.upper()]
-    internal_offset = args.offset if ("offset" in args and args.offset) else 0
-    limit = args.limit if "limit" in args else 200
-    all_projects: List[bindings.v1Project] = []
+    all_projects = workspace.Workspace(
+        session=sess, workspace_name=args.workspace_name
+    ).list_projects()
 
-    while True:
-        projects = bindings.get_GetWorkspaceProjects(
-            sess,
-            id=w.id,
-            limit=limit,
-            offset=internal_offset,
-            orderBy=orderArg,
-            sortBy=sortArg,
-        ).projects
-        all_projects += projects
-        internal_offset += len(projects)
-        if ("offset" in args and args.offset) or len(projects) < limit:
-            break
+    sort_key = args.sort_by
+    sort_order = args.order_by
+    offset = args.offset or 0  # No passed offset is interpreted as a 0 offset
+    limit = args.limit
+
+    # TODO: Remove typechecking suppression when mypy is upgraded to 1.4.0
+    all_projects.sort(
+        key=lambda p: getattr(p, sort_key),  # type: ignore
+        reverse=sort_order == "desc",
+    )
+    projects = all_projects[offset : offset + limit]
 
     if args.json:
-        determined.cli.render.print_json([p.to_json() for p in all_projects])
+        determined.cli.render.print_json([render.project_to_json(p) for p in projects])
     else:
         values = [
             [
                 p.id,
                 p.name,
                 p.description,
-                p.numExperiments,
-                p.numActiveExperiments,
+                p.n_experiments,
+                p.n_active_experiments,
             ]
-            for p in all_projects
+            for p in projects
         ]
         render.tabulate_or_csv(PROJECT_HEADERS, values, False)
 
@@ -151,7 +138,7 @@ def list_workspace_projects(args: Namespace) -> None:
 @authentication.required
 def list_pools(args: Namespace) -> None:
     session = cli.setup_session(args)
-    w = workspace_by_name(session, args.workspace_name)
+    w = api.workspace_by_name(session, args.workspace_name)
     resp = bindings.get_ListRPsBoundToWorkspace(session, workspaceId=w.id)
     pools_str = ""
     if resp.resourcePools:
@@ -211,7 +198,7 @@ def create_workspace(args: Namespace) -> None:
 @authentication.required
 def describe_workspace(args: Namespace) -> None:
     sess = cli.setup_session(args)
-    w = workspace_by_name(sess, args.workspace_name)
+    w = api.workspace_by_name(sess, args.workspace_name)
     if args.json:
         determined.cli.render.print_json(w.to_json())
     else:
@@ -219,13 +206,15 @@ def describe_workspace(args: Namespace) -> None:
         print("\nAssociated Projects")
         vars(args)["order_by"] = "asc"
         vars(args)["sort_by"] = "id"
+        vars(args)["offset"] = 0
+        vars(args)["limit"] = 200
         list_workspace_projects(args)
 
 
 @authentication.required
 def delete_workspace(args: Namespace) -> None:
     sess = cli.setup_session(args)
-    w = workspace_by_name(sess, args.workspace_name)
+    w = api.workspace_by_name(sess, args.workspace_name)
     if args.yes or render.yes_or_no(
         'Deleting workspace "' + args.workspace_name + '" will result \n'
         "in the unrecoverable deletion of all associated projects, experiments,\n"
@@ -256,7 +245,7 @@ def delete_workspace(args: Namespace) -> None:
 @authentication.required
 def archive_workspace(args: Namespace) -> None:
     sess = cli.setup_session(args)
-    current = workspace_by_name(sess, args.workspace_name)
+    current = api.workspace_by_name(sess, args.workspace_name)
     bindings.post_ArchiveWorkspace(sess, id=current.id)
     print(f"Successfully archived workspace {args.workspace_name}.")
 
@@ -264,7 +253,7 @@ def archive_workspace(args: Namespace) -> None:
 @authentication.required
 def unarchive_workspace(args: Namespace) -> None:
     sess = cli.setup_session(args)
-    current = workspace_by_name(sess, args.workspace_name)
+    current = api.workspace_by_name(sess, args.workspace_name)
     bindings.post_UnarchiveWorkspace(sess, id=current.id)
     print(f"Successfully un-archived workspace {args.workspace_name}.")
 
@@ -274,7 +263,7 @@ def edit_workspace(args: Namespace) -> None:
     checkpoint_storage = _parse_checkpoint_storage_args(args)
 
     sess = cli.setup_session(args)
-    current = workspace_by_name(sess, args.workspace_name)
+    current = api.workspace_by_name(sess, args.workspace_name)
     agent_user_group = _parse_agent_user_group_args(args)
     updated = bindings.v1PatchWorkspace(
         name=args.name,

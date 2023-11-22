@@ -15,7 +15,7 @@ import pexpect
 import pytest
 from pexpect import spawn
 
-from determined.common import api, constants, yaml
+from determined.common import api, constants, util
 from determined.common.api import authentication, bindings, certs, errors
 from determined.experimental import Determined
 from tests import api_utils, command
@@ -24,7 +24,6 @@ from tests import experiment as exp
 from tests.filetree import FileTree
 
 EXPECT_TIMEOUT = 5
-ADMIN_CREDENTIALS = authentication.Credentials("admin", "")
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +40,7 @@ def clean_auth() -> Iterator[None]:
 
 @pytest.fixture()
 def login_admin() -> None:
-    a_username, a_password = ADMIN_CREDENTIALS
+    a_username, a_password = conf.ADMIN_CREDENTIALS
     child = det_spawn(["user", "login", a_username])
     child.setecho(True)
     expected = f"Password for user '{a_username}':"
@@ -58,6 +57,13 @@ def logged_in_user(credentials: authentication.Credentials) -> Generator:
     api_utils.configure_token_store(credentials)
     yield
     log_out_user()
+
+
+@pytest.mark.e2e_cpu
+def test_logged_in_user() -> None:
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
+        output = det_run(["user", "whoami"])
+        assert f"You are logged in as user '{conf.ADMIN_CREDENTIALS.username}'" in output
 
 
 def get_random_string() -> str:
@@ -268,7 +274,7 @@ def test_activate_deactivate(clean_auth: None, login_admin: None) -> None:
     log_out_user()
 
     # login admin again.
-    api_utils.configure_token_store(ADMIN_CREDENTIALS)
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
 
     # Deactivate user.
     activate_deactivate_user(False, creds.username)
@@ -283,7 +289,7 @@ def test_activate_deactivate(clean_auth: None, login_admin: None) -> None:
     api_utils.configure_token_store(creds)
 
     # SDK testing for activating and deactivating.
-    api_utils.configure_token_store(ADMIN_CREDENTIALS)
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
     det_obj = Determined(master=conf.make_master_url())
     user = det_obj.get_user_by_name(user_name=creds.username)
     user.deactivate()
@@ -308,7 +314,7 @@ def test_change_password(clean_auth: None, login_admin: None) -> None:
     log_out_user()
 
     # login admin
-    api_utils.configure_token_store(ADMIN_CREDENTIALS)
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
 
     new_password = get_random_string()
     assert change_user_password(creds.username, new_password) == 0
@@ -383,7 +389,7 @@ def test_experiment_creation_and_listing(clean_auth: None, login_admin: None) ->
         assert (experiment_id1, creds1.username) in output
         assert (experiment_id2, creds2.username) in output
 
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         # Clean up.
         delete_experiments(experiment_id1, experiment_id2)
 
@@ -440,9 +446,9 @@ def test_login_with_environment_variables(clean_auth: None, login_admin: None) -
         assert child.exitstatus == 0
 
         # Can still override with -u.
-        with logged_in_user(ADMIN_CREDENTIALS):
-            child = det_spawn(["-u", ADMIN_CREDENTIALS.username, "user", "whoami"])
-            child.expect(ADMIN_CREDENTIALS.username)
+        with logged_in_user(conf.ADMIN_CREDENTIALS):
+            child = det_spawn(["-u", conf.ADMIN_CREDENTIALS.username, "user", "whoami"])
+            child.expect(conf.ADMIN_CREDENTIALS.username)
             child.read()
             child.wait()
             assert child.exitstatus == 0
@@ -475,12 +481,14 @@ def test_auth_inside_shell(clean_auth: None, login_admin: None) -> None:
         check_whoami(creds.username)
 
         # log in as admin
-        child.sendline(f"det user login {ADMIN_CREDENTIALS.username}")
-        child.expect(f"Password for user '{ADMIN_CREDENTIALS.username}'", timeout=EXPECT_TIMEOUT)
-        child.sendline(ADMIN_CREDENTIALS.password)
+        child.sendline(f"det user login {conf.ADMIN_CREDENTIALS.username}")
+        child.expect(
+            f"Password for user '{conf.ADMIN_CREDENTIALS.username}'", timeout=EXPECT_TIMEOUT
+        )
+        child.sendline(conf.ADMIN_CREDENTIALS.password)
 
         # check that whoami responds with the new user
-        check_whoami(ADMIN_CREDENTIALS.username)
+        check_whoami(conf.ADMIN_CREDENTIALS.username)
 
         # log out
         child.sendline("det user logout")
@@ -725,7 +733,7 @@ def test_tensorboard_creation_and_listing(clean_auth: None, login_admin: None) -
 
     kill_tensorboards(tensorboard_id1, tensorboard_id2)
 
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         delete_experiments(experiment_id1, experiment_id2)
 
 
@@ -804,7 +812,7 @@ def test_link_with_agent_user(clean_auth: None, login_admin: None) -> None:
     expected_output = "someuser:200:somegroup:300"
     check_link_with_agent_output(user, expected_output)
 
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         user_sdk = create_linked_user_sdk(210, "anyuser", 310, "anygroup")
         expected_output = "anyuser:210:anygroup:310"
         check_link_with_agent_output(user_sdk, expected_output)
@@ -862,7 +870,7 @@ def test_non_root_experiment(clean_auth: None, login_admin: None, tmp_path: path
             model_def_content = f.read()
 
         with open(conf.fixtures_path("no_op/single-one-short-step.yaml")) as f:
-            config = yaml.safe_load(f)
+            config = util.yaml_safe_load(f)
 
         # Use a user-owned path to ensure shared_fs uses the container_path and not host_path.
         with non_tmp_shared_fs_path() as host_path:
@@ -876,7 +884,7 @@ def test_non_root_experiment(clean_auth: None, login_admin: None, tmp_path: path
                 tmp_path,
                 {
                     "startup-hook.sh": "det --version || exit 77",
-                    "const.yaml": yaml.dump(config),  # type: ignore
+                    "const.yaml": util.yaml_safe_dump(config),
                     "model_def.py": model_def_content,
                 },
             ) as tree:
@@ -1071,3 +1079,89 @@ def test_logout_all(clean_auth: None, login_admin: None) -> None:
     )
     # Change Determined password back to "".
     change_user_password(constants.DEFAULT_DETERMINED_USER, "")
+
+
+@pytest.mark.e2e_cpu
+def test_user_edit(clean_auth: None, login_admin: None) -> None:
+    u_patch = api_utils.create_test_user(False)
+    original_name = u_patch.username
+
+    master_url = conf.make_master_url()
+    certs.cli_cert = certs.default_load(master_url)
+    authentication.cli_auth = authentication.Authentication(
+        master_url, requested_user=original_name, password=""
+    )
+    sess = api.Session(master_url, original_name, authentication.cli_auth, certs.cli_cert)
+
+    current_user = _fetch_user_by_username(sess, original_name)
+
+    # Log out.
+    log_out_user()
+
+    # login admin again.
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
+
+    new_display_name = get_random_string()
+    new_username = get_random_string()
+
+    assert current_user is not None and current_user.id
+    command = [
+        "user",
+        "edit",
+        original_name,
+        "--display-name",
+        new_display_name,
+        "--username",
+        new_username,
+        "--active=true",
+        "--remote=false",
+        "--admin=true",
+    ]
+
+    child = det_spawn(command)
+    child.wait()
+    child.close()
+    assert child.status == 0
+
+    modded_user = bindings.get_GetUser(sess, userId=current_user.id).user
+    assert modded_user is not None
+    assert modded_user.displayName == new_display_name
+    assert modded_user.username == new_username
+    assert modded_user.active
+    assert not modded_user.remote
+    assert modded_user.admin
+
+
+@pytest.mark.e2e_cpu
+def test_user_edit_no_fields(clean_auth: None, login_admin: None) -> None:
+    u_patch = api_utils.create_test_user(False)
+    original_name = u_patch.username
+
+    master_url = conf.make_master_url()
+    certs.cli_cert = certs.default_load(master_url)
+    authentication.cli_auth = authentication.Authentication(
+        master_url, requested_user=original_name, password=""
+    )
+    sess = api.Session(master_url, original_name, authentication.cli_auth, certs.cli_cert)
+
+    current_user = _fetch_user_by_username(sess, original_name)
+
+    # Log out.
+    log_out_user()
+
+    # login admin again.
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
+
+    assert current_user is not None and current_user.id
+    command = [
+        "user",
+        "edit",
+        original_name,
+    ]
+
+    # No edited field should result in error
+    child = det_spawn(command)
+    assert "No field provided" in str(child.read())
+    child.wait()
+    child.close()
+    assert child.status != 0

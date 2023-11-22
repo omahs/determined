@@ -1,16 +1,16 @@
 import { Space } from 'antd';
 import dayjs from 'dayjs';
+import Button from 'hew/Button';
+import { SyncProvider } from 'hew/LineChart/SyncProvider';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import Button from 'components/kit/Button';
 import Section from 'components/Section';
-import { SyncProvider } from 'components/UPlot/SyncProvider';
 import { useSettings } from 'hooks/useSettings';
 import { getResourceAllocationAggregated } from 'services/api';
 import { V1ResourceAllocationAggregatedResponse } from 'services/api-ts-sdk';
 import userStore from 'stores/users';
 import handleError from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
 import css from './ClusterHistoricalUsage.module.scss';
@@ -129,11 +129,14 @@ const ClusterHistoricalUsage: React.FC = () => {
         </Space>
         <Section
           bodyBorder
-          loading={Loadable.isLoading(chartSeries)}
+          loading={Loadable.isNotLoaded(chartSeries)}
           title="Compute Hours Allocated">
           {Loadable.match(chartSeries, {
+            Failed: () => null, // TODO inform user if chart fails to load
             Loaded: (series) => (
               <ClusterHistoricalUsageChart
+                chartKey={filters.afterDate.unix() + filters.beforeDate.unix()}
+                dateRange={[filters.afterDate.unix(), filters.beforeDate.unix()]}
                 groupBy={series.groupedBy}
                 hoursByLabel={series.hoursTotal}
                 time={series.time}
@@ -144,14 +147,19 @@ const ClusterHistoricalUsage: React.FC = () => {
         </Section>
         <Section
           bodyBorder
-          loading={Loadable.isLoading(Loadable.all([loadableUsers, chartSeries]))}
+          loading={Loadable.isNotLoaded(Loadable.all([loadableUsers, chartSeries]))}
           title="Compute Hours by User">
           {Loadable.match(chartSeries, {
+            Failed: () => null, // TODO inform user if chart fails to load
             Loaded: (series) => (
               <ClusterHistoricalUsageChart
+                chartKey={filters.afterDate.unix() + filters.beforeDate.unix()}
+                dateRange={[filters.afterDate.unix(), filters.beforeDate.unix()]}
                 groupBy={series.groupedBy}
-                hoursByLabel={series.hoursByUsername}
-                hoursTotal={series?.hoursTotal?.total}
+                hoursByLabel={{
+                  ...series.hoursByUsername,
+                  total: series?.hoursTotal?.total,
+                }}
                 time={series.time}
               />
             ),
@@ -160,14 +168,19 @@ const ClusterHistoricalUsage: React.FC = () => {
         </Section>
         <Section
           bodyBorder
-          loading={Loadable.isLoading(chartSeries)}
+          loading={Loadable.isNotLoaded(chartSeries)}
           title="Compute Hours by Label">
           {Loadable.match(chartSeries, {
+            Failed: () => null, // TODO inform user if chart fails to load
             Loaded: (series) => (
               <ClusterHistoricalUsageChart
+                chartKey={filters.afterDate.unix() + filters.beforeDate.unix()}
+                dateRange={[filters.afterDate.unix(), filters.beforeDate.unix()]}
                 groupBy={series.groupedBy}
-                hoursByLabel={series.hoursByExperimentLabel}
-                hoursTotal={series?.hoursTotal?.total}
+                hoursByLabel={{
+                  ...series.hoursByExperimentLabel,
+                  total: series?.hoursTotal?.total,
+                }}
                 time={series.time}
               />
             ),
@@ -176,14 +189,19 @@ const ClusterHistoricalUsage: React.FC = () => {
         </Section>
         <Section
           bodyBorder
-          loading={Loadable.isLoading(chartSeries)}
+          loading={Loadable.isNotLoaded(chartSeries)}
           title="Compute Hours by Resource Pool">
           {Loadable.match(chartSeries, {
+            Failed: () => null, // TODO inform user if chart fails to load
             Loaded: (series) => (
               <ClusterHistoricalUsageChart
+                chartKey={filters.afterDate.unix() + filters.beforeDate.unix()}
+                dateRange={[filters.afterDate.unix(), filters.beforeDate.unix()]}
                 groupBy={series.groupedBy}
-                hoursByLabel={series.hoursByResourcePool}
-                hoursTotal={series?.hoursTotal?.total}
+                hoursByLabel={{
+                  ...series.hoursByResourcePool,
+                  total: series?.hoursTotal?.total,
+                }}
                 time={series.time}
               />
             ),

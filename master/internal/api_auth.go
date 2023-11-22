@@ -59,6 +59,10 @@ func (a *apiServer) Login(
 		return nil, err
 	}
 
+	if userModel.Remote { // We can't return a more specific error for informational leak reasons.
+		return nil, grpcutil.ErrInvalidCredentials
+	}
+
 	var hashedPassword string
 	if req.IsHashed {
 		hashedPassword = req.Password
@@ -168,4 +172,31 @@ func processProxyAuthentication(c echo.Context) (done bool, err error) {
 			ctx, *user, spec.WorkspaceID)
 	}
 	return err != nil, authz.SubIfUnauthorized(err, serviceNotFoundErr)
+}
+
+// processAuthWithRedirect is an auth middleware that redirects the requests
+// to login page for a set of given paths in case of authentication errors.
+func processAuthWithRedirect(redirectPaths []string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Request().RequestURI
+			shouldRedirect := false
+
+			for _, p := range redirectPaths {
+				if strings.HasPrefix(path, p) {
+					shouldRedirect = true
+					break
+				}
+			}
+
+			err := user.GetService().ProcessAuthentication(next)(c)
+
+			// If there's an authentication error and we should redirect, then do so
+			if err != nil && shouldRedirect {
+				return redirectToLogin(c)
+			}
+
+			return err
+		}
+	}
 }

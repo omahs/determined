@@ -189,3 +189,7 @@ export const IOFilterFormSet = t.type({
   filterGroup: IOFormGroup,
   showArchived: t.boolean,
 });
+
+export type PatchFunc<T> = (arg: T) => T | undefined;
+
+export type MatchFunc<T> = (arg: T) => boolean;

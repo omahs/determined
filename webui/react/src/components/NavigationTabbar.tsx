@@ -1,13 +1,14 @@
+import Avatar from 'hew/Avatar';
+import Icon, { IconName } from 'hew/Icon';
+import { useModal } from 'hew/Modal';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import ActionSheet, { ActionItem } from 'components/ActionSheet';
-import DynamicIcon from 'components/DynamicIcon';
-import Icon, { IconName } from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
 import Link, { Props as LinkProps } from 'components/Link';
+import useUI from 'components/ThemeProvider';
 import UserSettings from 'components/UserSettings';
 import usePermissions from 'hooks/usePermissions';
 import { handlePath, paths } from 'routes/utils';
@@ -16,7 +17,6 @@ import clusterStore from 'stores/cluster';
 import determinedStore, { BrandingType } from 'stores/determinedInfo';
 import userStore from 'stores/users';
 import workspaceStore from 'stores/workspaces';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { AnyMouseEvent, routeToReactUrl } from 'utils/routes';
 
@@ -95,11 +95,12 @@ const NavigationTabbar: React.FC = () => {
   const workspaceActions = Loadable.quickMatch(
     loadablePinnedWorkspaces,
     [{ icon: <Spinner spinning />, label: 'Loading...' }],
+    [{ icon: <Spinner spinning />, label: 'Could not load workspaces' }], // TODO use proper icon here
     (workspaces) =>
       workspaces.map(
         (workspace) =>
           ({
-            icon: <DynamicIcon name={workspace.name} size={24} style={{ color: 'black' }} />,
+            icon: <Avatar palette="muted" square text={workspace.name} />,
             label: workspace.name,
             onClick: (e: AnyMouseEvent) =>
               handlePathUpdate(e, paths.workspaceDetails(workspace.id)),
@@ -109,7 +110,11 @@ const NavigationTabbar: React.FC = () => {
 
   if (canCreateWorkspace) {
     workspaceActions.push({
-      icon: <Icon name="add-small" size="large" title="Create Workspace" />,
+      icon: (
+        <div className={css.newWorkspaceIcon}>
+          <Icon decorative name="add" size="tiny" />
+        </div>
+      ),
       label: 'New Workspace',
       onClick: WorkspaceCreateModal.open,
     });

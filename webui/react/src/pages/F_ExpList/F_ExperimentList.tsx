@@ -1,6 +1,13 @@
 import { CompactSelection, GridSelection, Rectangle } from '@hpe.com/glide-data-grid';
 import { Space } from 'antd';
 import { isLeft } from 'fp-ts/lib/Either';
+import Column from 'hew/Column';
+import Message from 'hew/Message';
+import Pagination from 'hew/Pagination';
+import Row from 'hew/Row';
+import { useTheme } from 'hew/Theme';
+import { notification } from 'hew/Toast';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import { observable, useObservable } from 'micro-observables';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -12,10 +19,6 @@ import {
   FormGroup,
   IOFilterFormSet,
 } from 'components/FilterForm/components/type';
-import { Column, Columns } from 'components/kit/Columns';
-import Empty from 'components/kit/Empty';
-import Pagination from 'components/kit/Pagination';
-import { getCssVar } from 'components/kit/Theme';
 import { useGlasbey } from 'hooks/useGlasbey';
 import useMobile from 'hooks/useMobile';
 import usePolling from 'hooks/usePolling';
@@ -34,7 +37,6 @@ import {
   RunState,
 } from 'types';
 import handleError from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 
 import ComparisonView from './ComparisonView';
 import css from './F_ExperimentList.module.scss';
@@ -61,6 +63,12 @@ import TableActionBar from './glide-table/TableActionBar';
 interface Props {
   project: Project;
 }
+
+type SelectionType = 'add' | 'add-all' | 'remove' | 'remove-all' | 'set';
+export type HandleSelectionChangeType = (
+  selectionType: SelectionType,
+  range: [number, number],
+) => void;
 
 const makeSortString = (sorts: ValidSort[]): string =>
   sorts.map((s) => `${s.column}=${s.direction}`).join(',');
@@ -119,8 +127,8 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const filtersString = useObservable(formStore.asJsonString);
   const loadableFormset = useObservable(formStore.formset);
   const rootFilterChildren: Array<FormGroup | FormField> = Loadable.match(loadableFormset, {
+    _: () => [],
     Loaded: (formset: FilterFormSet) => formset.filterGroup.children,
-    NotLoaded: () => [],
   });
   const isMobile = useMobile();
 
@@ -139,6 +147,8 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     },
     [updateSettings],
   );
+
+  const { getThemeVar } = useTheme();
 
   const handlePinnedColumnsCountChange = useCallback(
     (newCount: number) => updateSettings({ pinnedColumnsCount: newCount }),
@@ -185,7 +195,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   const colorMap = useGlasbey(settings.selectedExperiments);
   const { height: containerHeight, width: containerWidth } = useResize(contentRef);
   const height =
-    containerHeight - 2 * parseInt(getCssVar('--theme-stroke-width')) - (isPagedView ? 40 : 0);
+    containerHeight - 2 * parseInt(getThemeVar('strokeWidth')) - (isPagedView ? 40 : 0);
   const [scrollPositionSetCount] = useState(observable(0));
 
   const selectedExperimentIds: Set<number> = useMemo(() => {
@@ -284,7 +294,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
   }, [isLoadingSettings]);
 
   const fetchExperiments = useCallback(async (): Promise<void> => {
-    if (isLoadingSettings || Loadable.isLoading(loadableFormset)) return;
+    if (isLoadingSettings || Loadable.isNotLoaded(loadableFormset)) return;
     try {
       const tableOffset = Math.max((page - 0.5) * PAGE_SIZE, 0);
       const response = await searchExperiments(
@@ -417,71 +427,6 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     await fetchExperiments();
   }, [fetchExperiments, setSelectAll, setSelection]);
 
-  const handleActionSuccess = useCallback(
-    (action: ExperimentAction, successfulIds: number[]) => {
-      const idSet = new Set(successfulIds);
-      const updateExperiment = (updated: Partial<ExperimentItem>) => {
-        setExperiments((prev) =>
-          prev.map((expLoadable) =>
-            Loadable.map(expLoadable, (experiment) =>
-              idSet.has(experiment.experiment.id)
-                ? { ...experiment, experiment: { ...experiment.experiment, ...updated } }
-                : experiment,
-            ),
-          ),
-        );
-      };
-      switch (action) {
-        case ExperimentAction.Activate:
-          updateExperiment({ state: RunState.Active });
-          break;
-        case ExperimentAction.Archive:
-          updateExperiment({ archived: true });
-          break;
-        case ExperimentAction.Cancel:
-          updateExperiment({ state: RunState.StoppingCanceled });
-          break;
-        case ExperimentAction.Kill:
-          updateExperiment({ state: RunState.StoppingKilled });
-          break;
-        case ExperimentAction.Pause:
-          updateExperiment({ state: RunState.Paused });
-          break;
-        case ExperimentAction.Unarchive:
-          updateExperiment({ archived: false });
-          break;
-        case ExperimentAction.Move:
-        case ExperimentAction.Delete:
-          setExperiments((prev) =>
-            prev.filter((expLoadable) =>
-              Loadable.match(expLoadable, {
-                Loaded: (experiment) => !idSet.has(experiment.experiment.id),
-                NotLoaded: () => true,
-              }),
-            ),
-          );
-          break;
-        // Exhaustive cases to ignore.
-        case ExperimentAction.CompareTrials:
-        case ExperimentAction.ContinueTrial:
-        case ExperimentAction.DownloadCode:
-        case ExperimentAction.Edit:
-        case ExperimentAction.Fork:
-        case ExperimentAction.HyperparameterSearch:
-        case ExperimentAction.OpenTensorBoard:
-        case ExperimentAction.SwitchPin:
-        case ExperimentAction.ViewLogs:
-          break;
-      }
-    },
-    [setExperiments],
-  );
-
-  const handleContextMenuComplete = useCallback(
-    (action: ExperimentAction, id: number) => handleActionSuccess(action, [id]),
-    [handleActionSuccess],
-  );
-
   const rowRangeToIds = useCallback(
     (range: [number, number]) => {
       return Loadable.filterNotLoaded(experiments.slice(range[0], range[1])).map(
@@ -491,11 +436,8 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
     [experiments],
   );
 
-  const handleSelectionChange = useCallback(
-    (
-      selectionType: 'add' | 'add-all' | 'remove' | 'remove-all' | 'set',
-      range: [number, number],
-    ) => {
+  const handleSelectionChange: HandleSelectionChangeType = useCallback(
+    (selectionType: SelectionType, range: [number, number]) => {
       const totalCount = Loadable.getOrElse(0, total);
       if (!totalCount) return;
 
@@ -573,6 +515,69 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
       total,
       updateSettings,
     ],
+  );
+
+  const handleActionSuccess = useCallback(
+    (action: ExperimentAction, successfulIds: number[], data?: Partial<ExperimentItem>): void => {
+      const idSet = new Set(successfulIds);
+      const updateExperiment = (updated: Partial<ExperimentItem>) => {
+        setExperiments((prev) =>
+          prev.map((expLoadable) =>
+            Loadable.map(expLoadable, (experiment) =>
+              idSet.has(experiment.experiment.id)
+                ? { ...experiment, experiment: { ...experiment.experiment, ...updated } }
+                : experiment,
+            ),
+          ),
+        );
+      };
+      switch (action) {
+        case ExperimentAction.Activate:
+          updateExperiment({ state: RunState.Active });
+          break;
+        case ExperimentAction.Archive:
+          updateExperiment({ archived: true });
+          break;
+        case ExperimentAction.Cancel:
+          updateExperiment({ state: RunState.StoppingCanceled });
+          break;
+        case ExperimentAction.Kill:
+          updateExperiment({ state: RunState.StoppingKilled });
+          break;
+        case ExperimentAction.Pause:
+          updateExperiment({ state: RunState.Paused });
+          break;
+        case ExperimentAction.Unarchive:
+          updateExperiment({ archived: false });
+          break;
+        case ExperimentAction.Edit:
+          if (data) updateExperiment(data);
+          notification.success({ message: 'Experiment updated successfully' });
+          break;
+        case ExperimentAction.Move:
+        case ExperimentAction.Delete:
+          setExperiments((prev) =>
+            prev.filter((expLoadable) =>
+              Loadable.match(expLoadable, {
+                _: () => true,
+                Loaded: (experiment) => !idSet.has(experiment.experiment.id),
+              }),
+            ),
+          );
+          break;
+        // Exhaustive cases to ignore.
+        default:
+          break;
+      }
+      handleSelectionChange('remove-all', [0, selectedExperimentIds.size]);
+    },
+    [handleSelectionChange, selectedExperimentIds],
+  );
+
+  const handleContextMenuComplete = useCallback(
+    (action: ExperimentAction, id: number, data?: Partial<ExperimentItem>) =>
+      handleActionSuccess(action, [id], data),
+    [handleActionSuccess],
   );
 
   const handleVisibleColumnChange = useCallback(
@@ -766,7 +771,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
           numFilters === 0 ? (
             <NoExperiments />
           ) : (
-            <Empty description="No results matching your filters" icon="search" />
+            <Message description="No results matching your filters" icon="search" />
           )
         ) : error ? (
           <Error />
@@ -813,7 +818,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
               />
             </ComparisonView>
             {showPagination && (
-              <Columns>
+              <Row>
                 <Column align="right">
                   <Pagination
                     current={page + 1}
@@ -823,7 +828,7 @@ const F_ExperimentList: React.FC<Props> = ({ project }) => {
                     onChange={onPageChange}
                   />
                 </Column>
-              </Columns>
+              </Row>
             )}
           </Space>
         )}

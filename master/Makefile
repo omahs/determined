@@ -2,7 +2,7 @@
 SHELL := bash
 GENERATED := packaging/LICENSE
 GENERATION_INPUTS = ../schemas/gen.py $(shell find ./pkg/schemas/ -name 'zgen_*.go' -prune -o -name '*.go' -print) $(shell find ../schemas/expconf -name '*.json')
-MOCK_GENERATION_INPUTS = ./internal/sproto/task.go ./internal/db/database.go ./internal/command/authz_iface.go ./go.mod ./go.sum ./internal/rm/resource_manager_iface.go ./internal/task/allocation_service_iface.go
+MOCK_GENERATION_INPUTS = ./internal/sproto/task.go ./internal/db/database.go ./internal/command/authz_iface.go ../go.mod ../go.sum ./internal/rm/resource_manager_iface.go ./internal/task/allocation_service_iface.go
 GORELEASER = goreleaser
 
 export VERSION := $(shell cat ../VERSION)
@@ -54,24 +54,25 @@ build/schema_gen.stamp: $(GENERATION_INPUTS)
 	mkdir -p build
 	touch $@
 
-build/mock_gen.stamp: $(MOCK_GENERATION_INPUTS)
-	mockery --name=DB --dir=internal/db --output internal/mocks --filename db.go
-	mockery --name=Resources --dir=internal/sproto --output internal/mocks --filename resources.go
-	mockery --name=UserAuthZ --dir=internal/user --output internal/mocks --filename user_authz_iface.go
-	mockery --name=WorkspaceAuthZ --dir=internal/workspace --output internal/mocks --filename workspace_authz_iface.go
-	mockery --name=ProjectAuthZ --dir=internal/project --output internal/mocks --filename project_authz_iface.go
-	mockery --name=ExperimentAuthZ --dir=internal/experiment --output internal/mocks --filename authz_experiment_iface.go
-	mockery --name=NSCAuthZ --dir=internal/command --output internal/mocks --filename nsc_authz_iface.go
-	mockery --name=ModelAuthZ --dir=internal/model --output internal/mocks --filename authz_model_iface.go
-	mockery --name=PodInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename pod_iface.go     
-	mockery --name=EventInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename event_iface.go 
-	mockery --name=NodeInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename node_iface.go 
-	mockery --name=ResourceManager --dir=internal/rm --output internal/mocks --filename rm.go
-	mockery --name=AllocationService --dir=internal/task --output internal/mocks/allocationmocks --filename allocation_service.go --outpkg allocationmocks
-	mockery --name=ResourceManagerAuthZ --dir=internal/rm --output internal/mocks --filename rm_authz_iface.go
+.PHONY: mocks
+mocks: build/mock_gen.stamp
 
-	# fmt once since the mocks are not generated formatted.
-	goimports -l -local github.com/determined-ai -w ./internal/mocks ./internal/mocks/allocationmocks
+build/mock_gen.stamp: $(MOCK_GENERATION_INPUTS)
+	mockery --quiet --name=DB --dir=internal/db --output internal/mocks --filename db.go
+	mockery --quiet --name=Resources --dir=internal/sproto --output internal/mocks --filename resources.go
+	mockery --quiet --name=UserAuthZ --dir=internal/user --output internal/mocks --filename user_authz_iface.go
+	mockery --quiet --name=WorkspaceAuthZ --dir=internal/workspace --output internal/mocks --filename workspace_authz_iface.go
+	mockery --quiet --name=ProjectAuthZ --dir=internal/project --output internal/mocks --filename project_authz_iface.go
+	mockery --quiet --name=ExperimentAuthZ --dir=internal/experiment --output internal/mocks --filename authz_experiment_iface.go
+	mockery --quiet --name=NSCAuthZ --dir=internal/command --output internal/mocks --filename nsc_authz_iface.go
+	mockery --quiet --name=ModelAuthZ --dir=internal/model --output internal/mocks --filename authz_model_iface.go
+	mockery --quiet --name=PodInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename pod_iface.go
+	mockery --quiet --name=EventInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename event_iface.go
+	mockery --quiet --name=NodeInterface --srcpkg=k8s.io/client-go/kubernetes/typed/core/v1 --output internal/mocks --filename node_iface.go
+	mockery --quiet --name=ResourceManager --dir=internal/rm --output internal/mocks --filename rm.go
+	mockery --quiet --name=AllocationService --dir=internal/task --output internal/mocks/allocationmocks --filename allocation_service.go --outpkg allocationmocks
+	mockery --quiet --name=ResourceManagerAuthZ --dir=internal/rm --output internal/mocks --filename rm_authz_iface.go
+
 	mkdir -p build
 	touch $@
 
@@ -80,7 +81,6 @@ check-gen: force-gen gen build/mock_gen.stamp
 	# Checking that committed, generated code is up-to-date by ensuring that
 	# git reports the files as unchanged after forcibly regenerating the files:
 	test -z "$(shell git status --porcelain '**/zgen*')"
-	test -z "$(shell git status --porcelain './internal/mocks/*')"
 
 .PHONY: get-deps
 get-deps:
@@ -112,7 +112,7 @@ build-race: gen
 .PHONY: check
 check: check-gen
 	go mod tidy
-	git diff --quiet go.mod go.sum
+	git diff --quiet ../go.mod ../go.sum
 	golangci-lint --build-tags integration run --timeout 10m
 
 .PHONY: check-all
@@ -141,14 +141,14 @@ fmt:
 
 .PHONY: test
 test: build/mock_gen.stamp
-	gotestsum --junitfile test.junit.xml -- -short -coverprofile=coverage.out -covermode count -cover ./...
+	gotestsum --junitfile test.junit.xml -- -race -short -coverprofile=coverage.out -covermode atomic -cover ./...
 
 .PHONY: test-intg
 test-intg: export DET_INTEGRATION_POSTGRES_URL ?= postgres://postgres:postgres@localhost:5432/determined?sslmode=disable
 test-intg: export DET_INTEGRATION_ES_HOST ?= localhost
 test-intg: export DET_INTEGRATION_ES_PORT ?= 9200
 test-intg: build/mock_gen.stamp
-	gotestsum --junitfile test-intg.junit.xml -- -tags=integration -coverprofile=coverage.out -covermode count -cover ./...
+	gotestsum --junitfile test-intg.junit.xml -- -tags=integration -race -coverprofile=coverage.out -covermode atomic -cover ./...
 
 .PHONY: pre-package
 pre-package:

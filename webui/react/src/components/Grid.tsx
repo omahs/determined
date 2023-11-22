@@ -1,6 +1,6 @@
+import { ShirtSize } from 'hew/Theme';
 import React from 'react';
 
-import { ShirtSize } from 'components/kit/Theme';
 import { ValueOf } from 'types';
 import { isNumber } from 'utils/data';
 

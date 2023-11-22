@@ -1,9 +1,9 @@
+import { Modal } from 'hew/Modal';
+import { useToast } from 'hew/Toast';
 import React, { useCallback, useState } from 'react';
 
-import { Modal } from 'components/kit/Modal';
 import { removeRolesFromGroup, removeRolesFromUser } from 'services/api';
 import { UserOrGroupWithRoleInfo } from 'types';
-import { message } from 'utils/dialogApi';
 import handleError, { DetError, ErrorLevel, ErrorType } from 'utils/error';
 import { isUserWithRoleInfo } from 'utils/user';
 
@@ -25,7 +25,7 @@ const WorkspaceMemberRemoveComponent: React.FC<Props> = ({
   userOrGroupId,
 }: Props) => {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-
+  const { openToast } = useToast();
   const handleSubmit = useCallback(async () => {
     try {
       setIsDeleting(true);
@@ -33,7 +33,7 @@ const WorkspaceMemberRemoveComponent: React.FC<Props> = ({
         ? await removeRolesFromUser({ roleIds, scopeWorkspaceId, userId: userOrGroupId })
         : await removeRolesFromGroup({ groupId: userOrGroupId, roleIds, scopeWorkspaceId });
       onClose?.();
-      message.success(`${name} removed from workspace`);
+      openToast({ severity: 'Confirm', title: `${name} removed from workspace` });
     } catch (e) {
       setIsDeleting(false);
       if (e instanceof DetError) {
@@ -54,7 +54,7 @@ const WorkspaceMemberRemoveComponent: React.FC<Props> = ({
         });
       }
     }
-  }, [name, roleIds, scopeWorkspaceId, userOrGroup, userOrGroupId, onClose]);
+  }, [name, roleIds, scopeWorkspaceId, userOrGroup, userOrGroupId, onClose, openToast]);
 
   return (
     <Modal

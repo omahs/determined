@@ -1,6 +1,6 @@
+import Button from 'hew/Button';
 import React, { CSSProperties, MouseEvent, useCallback } from 'react';
 
-import Button from 'components/kit/Button';
 import { handlePath, linkPath } from 'routes/utils';
 import { AnyMouseEventHandler, windowOpenFeatures } from 'utils/routes';
 

@@ -1,23 +1,24 @@
-import { Alert, Space, Typography } from 'antd';
+import { Space, Typography } from 'antd';
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Glossary, { InfoRow } from 'hew/Glossary';
+import Icon from 'hew/Icon';
+import Message from 'hew/Message';
+import { useModal } from 'hew/Modal';
+import Nameplate from 'hew/Nameplate';
+import Spinner from 'hew/Spinner';
+import Tags, { tagsActionHelper } from 'hew/Tags';
 import React, { useCallback, useMemo } from 'react';
 
 import DeleteModelModal from 'components/DeleteModelModal';
-import InfoBox, { InfoRow } from 'components/InfoBox';
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
-import Tags, { tagsActionHelper } from 'components/kit/Tags';
-import Avatar from 'components/kit/UserAvatar';
 import ModelEditModal from 'components/ModelEditModal';
 import ModelMoveModal from 'components/ModelMoveModal';
 import TimeAgo from 'components/TimeAgo';
+import Avatar from 'components/UserAvatar';
 import usePermissions from 'hooks/usePermissions';
 import userStore from 'stores/users';
 import { ModelItem, Workspace } from 'types';
 import { formatDatetime } from 'utils/datetime';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { getDisplayName } from 'utils/user';
 
@@ -45,7 +46,6 @@ const ModelHeader: React.FC<Props> = ({
   onUpdateTags,
 }: Props) => {
   const loadableUsers = useObservable(userStore.getUsers());
-  const users = Loadable.getOrElse([], loadableUsers);
   const deleteModelModal = useModal(DeleteModelModal);
   const modelMoveModal = useModal(ModelMoveModal);
   const modelEditModal = useModal(ModelEditModal);
@@ -54,26 +54,32 @@ const ModelHeader: React.FC<Props> = ({
   const canModifyModelFlag = canModifyModel({ model });
 
   const infoRows: InfoRow[] = useMemo(() => {
-    const user = users.find((user) => user.id === model.userId);
-
     return [
       {
-        content: (
-          <Space>
-            <Spinner conditionalRender spinning={Loadable.isLoading(loadableUsers)}>
-              <>
-                <Avatar user={user} />
-                {`${getDisplayName(user)} on
-                ${formatDatetime(model.creationTime, { format: 'MMM D, YYYY' })}`}
-              </>
-            </Spinner>
-          </Space>
-        ),
         label: 'Created by',
+        value: (
+          <Spinner data={loadableUsers}>
+            {(users) => {
+              const user = users.find((user) => user.id === model.userId);
+              return (
+                <Space>
+                  <Nameplate
+                    alias={getDisplayName(user)}
+                    compact
+                    icon={<Avatar user={user} />}
+                    name={user?.username ?? 'Unavailable'}
+                  />{' '}
+                  on {formatDatetime(model.creationTime, { format: 'MMM D, YYYY' })}
+                </Space>
+              );
+            }}
+          </Spinner>
+        ),
       },
-      { content: <TimeAgo datetime={new Date(model.lastUpdatedTime)} />, label: 'Updated' },
+      { label: 'Updated', value: <TimeAgo datetime={new Date(model.lastUpdatedTime)} /> },
       {
-        content: (
+        label: 'Description',
+        value: (
           <div>
             {(model.description ?? '') || (
               <Typography.Text disabled={model.archived || !canModifyModelFlag}>
@@ -82,10 +88,10 @@ const ModelHeader: React.FC<Props> = ({
             )}
           </div>
         ),
-        label: 'Description',
       },
       {
-        content: (
+        label: 'Tags',
+        value: (
           <Tags
             disabled={model.archived || !canModifyModelFlag}
             ghost={false}
@@ -93,10 +99,9 @@ const ModelHeader: React.FC<Props> = ({
             onAction={tagsActionHelper(model.labels ?? [], onUpdateTags)}
           />
         ),
-        label: 'Tags',
       },
     ] as InfoRow[];
-  }, [canModifyModelFlag, loadableUsers, model, onUpdateTags, users]);
+  }, [canModifyModelFlag, loadableUsers, model, onUpdateTags]);
 
   const menu = useMemo(() => {
     const menuItems: MenuItem[] = [
@@ -146,12 +151,7 @@ const ModelHeader: React.FC<Props> = ({
   return (
     <header className={css.base}>
       {model.archived && (
-        <Alert
-          message="This model has been archived and is now read-only."
-          showIcon
-          style={{ marginTop: 8 }}
-          type="warning"
-        />
+        <Message icon="warning" title="This model has been archived and is now read-only." />
       )}
       <div className={css.headerContent}>
         <div className={css.mainRow}>
@@ -171,7 +171,7 @@ const ModelHeader: React.FC<Props> = ({
             </Dropdown>
           </Space>
         </div>
-        <InfoBox rows={infoRows} separator={false} />
+        <Glossary content={infoRows} />
       </div>
       <deleteModelModal.Component model={model} />
       <modelMoveModal.Component model={model} />

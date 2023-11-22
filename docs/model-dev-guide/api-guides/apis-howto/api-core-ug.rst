@@ -9,7 +9,12 @@
 .. meta::
    :description: Learn how to use the flexible Core API to train any deep learning model. This user guide walks you through plugging in your existing training code to get up and running.
 
-This guide will help you get up and running with the Core API.
+Learn how to adapt model training code to use the Core API.
+
+.. note::
+
+   You can also visit the :ref:`api-core-ug-basic` that shows you how to get started with the Core
+   API by performing a simple exercise--incrementing an integer.
 
 +------------------------------------------------------------------+
 | Visit the API reference                                          |
@@ -317,19 +322,13 @@ To perform a hyperparameter search, we'll update our script to define the hyperp
 settings we want to use for our experiment. More specifically, we'll need to define the following
 settings in our experiment configuration file:
 
--  ``name:`` ``adaptive_asha`` (name of our searcher. For all options, visit :doc:`Search Methods
-   </model-dev-guide/hyperparameter/search-methods/overview>`.
-
+-  ``name:`` ``adaptive_asha`` (name of our searcher. For all options, visit :ref:`search-methods`.
 -  ``metric``: ``test_loss``
-
 -  ``smaller_is_better``: ``True`` (This is equivalent to minimization vs. maximization of
    objective.)
-
 -  ``max_trials``: 500 (This is the maximum number of trials the searcher should run.)
-
 -  ``max_length``: 20 epochs (The max length of a trial. For more information, visit Adaptive ASHA
-   in the :doc:`Experiment Configuration Reference
-   </reference/training/experiment-config-reference>`.
+   in the :ref:`Experiment Configuration Reference <experiment-configuration>`.
 
 In addition, we also need to define the hyperparameters themselves. Adaptive ASHA will pick values
 between the ``minval`` and ``maxval`` for each hyperparameter for each trial.
@@ -508,6 +507,52 @@ In the Determined WebUI, go to the **Cluster** pane.
 
 You should be able to see multiple slots active corresponding to the value you set for
 ``slots_per_trial`` you set in ``distributed.yaml``, as well as logs appearing from multiple ranks.
+
+***********
+ Profiling
+***********
+
+Profiling with native profilers such as can be configured as usual. If running on a Determined
+cluster, the profiling log output path can be configured for automatic upload to the Determined
+Tensorboard UI.
+
+The following snippet initializes the PyTorch Profiler. It will profile GPU and CPU activities,
+skipping batch 1, warming up on batch 2, profiling batches 3 and 4, then repeating the cycle. Result
+files will be uploaded to the experiment's TensorBoard path and can be viewed under the "PyTorch
+Profiler" tab in the Determined Tensorboard UI.
+
+See `PyTorch Profiler <https://github.com/pytorch/kineto/tree/master/tb_plugin>`_ documentation for
+details.
+
+.. code:: python
+
+   import torch
+   import determined as det
+
+
+   with det.core.init() as core_context:
+       ...
+       profiler = torch.profiler.profile(
+           on_trace_ready=torch.profiler.tensorboard_trace_handler(
+               str(core_context.train.get_tensorboard_path())
+           ),
+           activities=[
+               torch.profiler.ProfilerActivity.CPU,
+               torch.profiler.ProfilerActivity.CUDA,
+           ],
+           schedule=torch.profiler.schedule(wait=1, warmup=1, active=2),
+       )
+
+   # Step the profiler on each train batch call.
+   train_batch(...)
+   with profiler:
+       profiler.step()
+
+.. note::
+
+   While specifying batches to profile with profile_batch is optional, profiling every batch can
+   generate a large amount of data, causing long rendering times and potential memory issues in
+   TensorBoard. For long-running experiments, it's advised to profile only specific batches.
 
 ************
  Next Steps

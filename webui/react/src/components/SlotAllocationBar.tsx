@@ -1,14 +1,15 @@
+import Progress from 'hew/Progress';
+import { ShirtSize, useTheme } from 'hew/Theme';
+import Tooltip from 'hew/Tooltip';
 import React, { useMemo } from 'react';
 
 import Badge from 'components/Badge';
-import Bar from 'components/Bar';
 import { ConditionalWrapper } from 'components/ConditionalWrapper';
-import { getStateColorCssVar, ShirtSize } from 'components/kit/Theme';
-import Tooltip from 'components/kit/Tooltip';
 import { resourceStateToLabel } from 'constants/states';
 import { paths } from 'routes/utils';
 import { V1ResourcePoolType } from 'services/api-ts-sdk';
 import { ResourceState, SlotState } from 'types';
+import { getStateColorThemeVar } from 'utils/color';
 import { routeToReactUrl } from 'utils/routes';
 import { floatToPercent } from 'utils/string';
 
@@ -16,7 +17,6 @@ import { BadgeType } from './Badge';
 import css from './SlotAllocation.module.scss';
 
 export interface Props {
-  barOnly?: boolean;
   className?: string;
   footer?: AllocationBarFooterProps;
   hideHeader?: boolean;
@@ -72,12 +72,13 @@ const SlotAllocationBar: React.FC<Props> = ({
   hideHeader,
   footer,
   isAux,
+  size,
   title,
   poolName,
   poolType,
   slotsPotential,
-  ...barProps
 }: Props) => {
+  const { getThemeVar } = useTheme();
   const stateTallies = useMemo(() => {
     const tally: Record<ResourceState, number> = {
       [ResourceState.Assigned]: 0,
@@ -111,40 +112,49 @@ const SlotAllocationBar: React.FC<Props> = ({
           : 1;
       const parts = {
         free: {
-          color: getStateColorCssVar(SlotState.Free),
+          color: getThemeVar(getStateColorThemeVar(SlotState.Free)),
           percent: freePerc,
         },
         running: {
-          color: getStateColorCssVar(SlotState.Running),
+          color: getThemeVar(getStateColorThemeVar(SlotState.Running)),
           percent: 1 - freePerc,
         },
       };
       return [parts.running, parts.free];
     }
-    const slotsAvaiablePer =
+    const slotsAvailablePer =
       slotsPotential && slotsPotential > totalSlots ? totalSlots / slotsPotential : 1;
     const parts = {
       free: {
-        color: getStateColorCssVar(SlotState.Free),
-        percent: totalSlots < 1 ? 0 : (freeSlots / totalSlots) * slotsAvaiablePer,
+        color: getThemeVar(getStateColorThemeVar(SlotState.Free)),
+        percent: totalSlots < 1 ? 0 : (freeSlots / totalSlots) * slotsAvailablePer,
       },
       pending: {
-        color: getStateColorCssVar(SlotState.Pending),
-        percent: totalSlots < 1 ? 0 : (pendingSlots / totalSlots) * slotsAvaiablePer,
+        color: getThemeVar(getStateColorThemeVar(SlotState.Pending)),
+        percent: totalSlots < 1 ? 0 : (pendingSlots / totalSlots) * slotsAvailablePer,
       },
       potential: {
         bordered: true,
-        color: getStateColorCssVar(SlotState.Potential),
-        percent: 1 - slotsAvaiablePer,
+        color: getThemeVar(getStateColorThemeVar(SlotState.Potential)),
+        percent: 1 - slotsAvailablePer,
       },
       running: {
-        color: getStateColorCssVar(SlotState.Running),
-        percent: totalSlots < 1 ? 0 : (stateTallies.RUNNING / totalSlots) * slotsAvaiablePer,
+        color: getThemeVar(getStateColorThemeVar(SlotState.Running)),
+        percent: totalSlots < 1 ? 0 : (stateTallies.RUNNING / totalSlots) * slotsAvailablePer,
       },
     };
 
     return [parts.running, parts.pending, parts.free, parts.potential];
-  }, [totalSlots, stateTallies, pendingSlots, freeSlots, slotsPotential, footer, isAux]);
+  }, [
+    getThemeVar,
+    totalSlots,
+    stateTallies,
+    pendingSlots,
+    freeSlots,
+    slotsPotential,
+    footer,
+    isAux,
+  ]);
 
   const totalSlotsNum = useMemo(() => {
     return slotsPotential || totalSlots;
@@ -218,7 +228,7 @@ const SlotAllocationBar: React.FC<Props> = ({
         </div>
       );
     }
-    return !isAux && <span>{`${freeSlots} ${freeSlots > 1 ? 'Slots' : 'Slot'} Free`}</span>;
+    return !isAux && <span>{`${freeSlots} ${freeSlots === 1 ? 'Slot' : 'Slots'} Free`}</span>;
   };
 
   const renderLegend = () => (
@@ -262,7 +272,7 @@ const SlotAllocationBar: React.FC<Props> = ({
           )
         }>
         <div className={css.bar}>
-          <Bar {...barProps} inline parts={barParts} />
+          <Progress flat parts={barParts} size={size} />
         </div>
       </ConditionalWrapper>
       {footer && (

@@ -1,15 +1,15 @@
+import Spinner from 'hew/Spinner';
+import { useInitApi } from 'hew/Toast';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useEffect } from 'react';
 
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
+import useUI from 'components/ThemeProvider';
 import clusterStore from 'stores/cluster';
 import determinedStore, { BrandingType } from 'stores/determinedInfo';
 import permissionStore from 'stores/permissions';
 import userStore from 'stores/users';
 import { ResourceType } from 'types';
 import { updateFaviconType } from 'utils/browser';
-import { useInitApi } from 'utils/dialogApi';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
 import css from './Navigation.module.scss';
@@ -29,7 +29,12 @@ const Navigation: React.FC<Props> = ({ children }) => {
 
   useEffect(() => {
     updateFaviconType(
-      Loadable.quickMatch(clusterOverview, false, (o) => o[ResourceType.ALL].allocation !== 0),
+      Loadable.quickMatch(
+        clusterOverview,
+        false,
+        false,
+        (o) => o[ResourceType.ALL].allocation !== 0,
+      ),
       info.branding || BrandingType.Determined,
     );
   }, [clusterOverview, info]);

@@ -3,11 +3,10 @@ package agentrm
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/determined-ai/determined/master/internal/rm/tasklist"
-
 	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/check"
 	"github.com/determined-ai/determined/master/pkg/mathx"
 	"github.com/determined-ai/determined/master/pkg/model"
@@ -35,6 +34,8 @@ type groupState struct {
 	presubscribedSlots int
 	// offered is the number of slots that were offered to the group for scheduling.
 	offered int
+	// registeredTime is the time when the group was created.
+	registeredTime time.Time
 
 	// reqs contains the contents of both pendingReqs and allocatedReqs.
 	reqs          []*sproto.AllocateRequest
@@ -42,13 +43,9 @@ type groupState struct {
 	allocatedReqs []*sproto.AllocateRequest
 }
 
-func (g groupState) String() string {
-	address := ""
-	if g.Handler != nil {
-		address = fmt.Sprint("", g.Handler.Address())
-	}
-	return fmt.Sprintf("Group %s: disabled %v, slotDemand %v, activeSlots %v, offered %v",
-		address, g.disabled, g.slotDemand, g.activeSlots, g.offered)
+func (g *groupState) String() string {
+	return fmt.Sprintf("Group %s: disabled %v, slotDemand %v, activeSlots %v, offered %v, registeredTime %v",
+		g.JobID, g.disabled, g.slotDemand, g.activeSlots, g.offered, g.registeredTime)
 }
 
 func (f *fairShare) Schedule(rp *resourcePool) ([]*sproto.AllocateRequest, []model.AllocationID) {
@@ -83,8 +80,8 @@ func (f *fairShare) JobQInfo(rp *resourcePool) map[model.JobID]*sproto.RMJobInfo
 
 func fairshareSchedule(
 	taskList *tasklist.TaskList,
-	groups map[*actor.Ref]*tasklist.Group,
-	agents map[*actor.Ref]*agentState,
+	groups map[model.JobID]*tasklist.Group,
+	agents map[agentID]*agentState,
 	fittingMethod SoftConstraint,
 	allowHeterogeneousAgentFits bool,
 ) ([]*sproto.AllocateRequest, []model.AllocationID) {
@@ -119,7 +116,9 @@ func fairshareSchedule(
 	// not schedule any tasks and therefore not make progress. Slot offers and
 	// reclaiming slots should be rethought in scheduler v2.
 	capacity := totalCapacity(agents)
-	groupStates := calculateGroupStates(taskList, groups, capacity)
+	groupStates := calculateGroupStates(
+		taskList, groups, capacity, agents, fittingMethod, allowHeterogeneousAgentFits,
+	)
 
 	allocateSlotOffers(groupStates, capacity)
 	toAllocate, toRelease := assignTasks(
@@ -134,7 +133,7 @@ func fairshareSchedule(
 	return allToAllocate, allToRelease
 }
 
-func totalCapacity(agents map[*actor.Ref]*agentState) int {
+func totalCapacity(agents map[agentID]*agentState) int {
 	result := 0
 
 	for _, agent := range agents {
@@ -145,7 +144,12 @@ func totalCapacity(agents map[*actor.Ref]*agentState) int {
 }
 
 func calculateGroupStates(
-	taskList *tasklist.TaskList, groups map[*actor.Ref]*tasklist.Group, capacity int,
+	taskList *tasklist.TaskList,
+	groups map[model.JobID]*tasklist.Group,
+	capacity int,
+	agents map[agentID]*agentState,
+	fittingMethod SoftConstraint,
+	allowHeterogeneousAgentFits bool,
 ) []*groupState {
 	// Group all tasks by their respective task group and calculate the slot demand of each group.
 	// Demand is calculated by summing the slots needed for each schedulable task.
@@ -156,12 +160,29 @@ func calculateGroupStates(
 		if req.SlotsNeeded == 0 || req.SlotsNeeded > capacity {
 			continue
 		}
-		group := groups[req.Group]
+
+		// Remove any tasks that cannot be scheduled from consideration.
+		// This is more than a performance optimization. This is needed to
+		// prevent tasks that will fail a hard constraint from "wasting" offered slots
+		// and potentially preventing progress from being made.
+		if taskList.Allocation(req.AllocationID) == nil {
+			if fits := findFits(
+				req,
+				agents,
+				fittingMethod,
+				allowHeterogeneousAgentFits,
+			); len(fits) == 0 {
+				continue
+			}
+		}
+
+		group := groups[req.JobID]
 		state, ok := groupMapping[group]
 		if !ok {
 			state = &groupState{
-				Group:    group,
-				disabled: false,
+				Group:          group,
+				disabled:       false,
+				registeredTime: req.JobSubmissionTime,
 			}
 			states = append(states, state)
 			groupMapping[group] = state
@@ -256,13 +277,14 @@ func allocateSlotOffers(states []*groupState, capacity int) {
 		if first.slotDemand != second.slotDemand {
 			return first.slotDemand < second.slotDemand
 		}
-		return first.Handler.RegisteredTime().Before(second.Handler.RegisteredTime())
+		return first.registeredTime.Before(second.registeredTime)
 	})
 
 	byTime := make([]*groupState, len(states))
 	copy(byTime, states)
 	sort.Slice(byTime, func(i, j int) bool {
-		return states[i].Handler.RegisteredTime().After(states[j].Handler.RegisteredTime())
+		first, second := states[i], states[j]
+		return first.registeredTime.After(second.registeredTime)
 	})
 
 	// To avoid any precision issues that could arise from weights of widely differing magnitudes, we
@@ -336,7 +358,7 @@ func calculateSmallestAllocatableTask(state *groupState) (smallest *sproto.Alloc
 }
 
 func assignTasks(
-	agents map[*actor.Ref]*agentState, states []*groupState, fittingMethod SoftConstraint,
+	agents map[agentID]*agentState, states []*groupState, fittingMethod SoftConstraint,
 	allowHetergenousAgentFits bool,
 ) ([]*sproto.AllocateRequest, []model.AllocationID) {
 	toAllocate := make([]*sproto.AllocateRequest, 0)

@@ -1,6 +1,6 @@
+import { Modal } from 'hew/Modal';
 import React, { useCallback } from 'react';
 
-import { Modal } from 'components/kit/Modal';
 import { setProjectNotes } from 'services/api';
 import { Project } from 'types';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';
@@ -20,7 +20,7 @@ const ProjectNoteDeleteModalComponent: React.FC<Props> = ({
     if (!project?.id) return;
     try {
       await setProjectNotes({
-        notes: project.notes.filter((note, idx) => idx !== pageNumber),
+        notes: project.notes.filter((_note, idx) => idx !== pageNumber),
         projectId: project.id,
       });
     } catch (e) {

@@ -1,17 +1,25 @@
+import { TRAINING_SERIES_COLOR, VALIDATION_SERIES_COLOR } from 'hew/LineChart';
+import { makeToast } from 'hew/Toast';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import _ from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Serie, TRAINING_SERIES_COLOR, VALIDATION_SERIES_COLOR } from 'components/kit/LineChart';
-import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
 import { terminalRunStates } from 'constants/states';
 import useMetricNames from 'hooks/useMetricNames';
 import usePolling from 'hooks/usePolling';
 import usePrevious from 'hooks/usePrevious';
 import { timeSeries } from 'services/api';
-import { Metric, MetricContainer, MetricType, RunState, Scale, TrialDetails } from 'types';
-import { message } from 'utils/dialogApi';
+import {
+  Metric,
+  MetricContainer,
+  MetricType,
+  RunState,
+  Scale,
+  Serie,
+  TrialDetails,
+  XAxisDomain,
+} from 'types';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { metricToKey } from 'utils/metric';
 
 type MetricName = string;
@@ -72,12 +80,12 @@ const summarizedMetricToSeries = (
     if (rawBatchEpochMap[metricKey]) data[XAxisDomain.Epochs] = rawBatchEpochMap[metricKey];
 
     const series: Serie = {
-      color:
-        metric.group === MetricType.Validation ? VALIDATION_SERIES_COLOR : TRAINING_SERIES_COLOR,
       data,
-      metricType: metric.group,
-      name: metric.name,
+      name: `${metric.group}.${metric.name}`,
     };
+    if (metric.group === MetricType.Validation) series.color = VALIDATION_SERIES_COLOR;
+    if (metric.group === MetricType.Training) series.color = TRAINING_SERIES_COLOR;
+
     trialData[metricToKey(metric)] = series;
   });
   const xAxisOptions = Object.values(XAxisDomain);
@@ -135,7 +143,7 @@ export const useTrialMetrics = (trials: (TrialDetails | undefined)[]): TrialMetr
   const fetchTrialSummary = useCallback(async () => {
     // If the trial ids have not changed then we do not need to
     // show the loading state again.
-    if (!_.isEqual(previousTrials, trials)) setLoadableData(NotLoaded);
+    if (!_.isEqual(_.map(previousTrials, 'id'), _.map(trials, 'id'))) setLoadableData(NotLoaded);
 
     if (trials.length === 0) {
       // If there are no trials selected then
@@ -175,7 +183,7 @@ export const useTrialMetrics = (trials: (TrialDetails | undefined)[]): TrialMetr
           setMetricHasData(metricsHaveData);
         }
       } catch (e) {
-        message.error('Error fetching metrics');
+        makeToast({ severity: 'Error', title: 'Error fetching metrics' });
       }
     }
   }, [loadableMetrics, metrics, selectedMetrics, trials, previousTrials]);

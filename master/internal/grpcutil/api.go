@@ -20,40 +20,49 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
+	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/model"
 	proto "github.com/determined-ai/determined/proto/pkg/apiv1"
 )
 
 const jsonPretty = "application/json+pretty"
 
-// NewGRPCServer creates a Determined gRPC service.
-func NewGRPCServer(db *db.PgDB, srv proto.DeterminedServer, enablePrometheus bool,
-	extConfig *model.ExternalSessions,
-) *grpc.Server {
+var (
+	grpcLogger   = logrus.New()
+	grpcLogEntry = logrus.NewEntry(grpcLogger)
+)
+
+func init() {
 	// In go-grpc, the INFO log level is used primarily for debugging
 	// purposes, so omit INFO messages from the master log.
-	logger := logrus.New()
-	logger.SetLevel(logrus.WarnLevel)
+	grpcLogger.SetLevel(logrus.WarnLevel)
+	// only do this once, in init, to avoid race conditions with tests
+	grpclogrus.ReplaceGrpcLogger(grpcLogEntry)
+}
 
-	logEntry := logrus.NewEntry(logger)
-	grpclogrus.ReplaceGrpcLogger(logEntry)
+// NewGRPCServer creates a Determined gRPC service.
+func NewGRPCServer(db *db.PgDB, srv proto.DeterminedServer, enablePrometheus bool,
+	extConfig *model.ExternalSessions, logStore *logger.LogBuffer,
+) *grpc.Server {
+	grpcLogger.AddHook(logStore)
 
 	opts := []grpclogrus.Option{
 		grpclogrus.WithLevels(grpcCodeToLogrusLevel),
 	}
 
 	streamInterceptors := []grpc.StreamServerInterceptor{
-		grpclogrus.StreamServerInterceptor(logEntry, opts...),
+		grpclogrus.StreamServerInterceptor(grpcLogEntry, opts...),
 		grpcrecovery.StreamServerInterceptor(),
 		streamAuthInterceptor(db, extConfig),
 	}
 
 	unaryInterceptors := []grpc.UnaryServerInterceptor{
-		grpclogrus.UnaryServerInterceptor(logEntry, opts...),
+		grpclogrus.UnaryServerInterceptor(grpcLogEntry, opts...),
 		grpcrecovery.UnaryServerInterceptor(grpcrecovery.WithRecoveryHandler(
 			func(p interface{}) (err error) {
-				logEntry.Error(string(debug.Stack()))
+				grpcLogEntry.Errorf(`caught panic in an API request "%s"\n%s`, p, string(debug.Stack()))
 				return status.Errorf(codes.Internal, "%s", p)
 			},
 		)),
@@ -112,9 +121,10 @@ func RegisterHTTPProxy(ctx context.Context, e *echo.Echo, port int, cert *tls.Ce
 	if err != nil {
 		return err
 	}
+	extConfig := config.GetMasterConfig().InternalConfig.ExternalSessions
 	handler := func(c echo.Context) error {
 		request := c.Request()
-		if cookie, err := c.Cookie("det_jwt"); err == nil {
+		if cookie, err := c.Cookie("det_jwt"); extConfig.Enabled() && err == nil {
 			request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cookie.Value))
 		}
 		if c.Request().Header.Get("Authorization") == "" {

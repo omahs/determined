@@ -1,10 +1,11 @@
 import type { TabsProps } from 'antd';
+import Message from 'hew/Message';
+import Pivot from 'hew/Pivot';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import React, { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import Pivot from 'components/kit/Pivot';
-import Spinner from 'components/kit/Spinner';
-import Message, { MessageType } from 'components/Message';
 import Page from 'components/Page';
 import RoutePagination from 'components/RoutePagination';
 import TrialLogPreview from 'components/TrialLogPreview';
@@ -23,7 +24,6 @@ import workspaceStore from 'stores/workspaces';
 import { ApiState, ExperimentBase, TrialDetails, ValueOf, Workspace } from 'types';
 import handleError, { ErrorType } from 'utils/error';
 import { isSingleTrialExperiment } from 'utils/experiment';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { isAborted, isNotFound } from 'utils/service';
 
@@ -208,9 +208,7 @@ const TrialDetailsComp: React.FC = () => {
 
   if (trialDetails.error !== undefined && !isNotFound(trialDetails.error)) {
     const message = `Unable to fetch Trial ${trialId}`;
-    return (
-      <Message message={trialDetails.error.message} title={message} type={MessageType.Warning} />
-    );
+    return <Message description={trialDetails.error.message} icon="warning" title={message} />;
   }
 
   if (!trial || !experiment) {

@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/determined-ai/determined/master/internal/rm/actorrm"
+	"github.com/determined-ai/determined/master/internal/job/jobservice"
+	"github.com/determined-ai/determined/master/internal/rm/rmevents"
 	"github.com/determined-ai/determined/master/internal/sproto"
 
 	"github.com/stretchr/testify/mock"
@@ -25,9 +26,10 @@ import (
 	authz2 "github.com/determined-ai/determined/master/internal/authz"
 	"github.com/determined-ai/determined/master/internal/config"
 	"github.com/determined-ai/determined/master/internal/db"
+	"github.com/determined-ai/determined/master/internal/grpcutil"
+	"github.com/determined-ai/determined/master/internal/logpattern"
 	"github.com/determined-ai/determined/master/internal/mocks"
 	"github.com/determined-ai/determined/master/internal/user"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/etc"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
@@ -39,39 +41,67 @@ import (
 var (
 	thePgDB   *db.PgDB
 	authzUser *mocks.UserAuthZ
-	system    *actor.System
-	mockRM    *actorrm.ResourceManager
 )
 
+// MockRM returns a mock resource manager that basically returns OK on every call. We should update this to an
+// RM that makes sure callers uphold expected invariants (release, kill not called before allocate, release not
+// called twice for the same resource, etc).
+func MockRM() *mocks.ResourceManager {
+	var mockRM mocks.ResourceManager
+	mockRM.On("DeleteJob", mock.Anything).Return(func(sproto.DeleteJob) sproto.DeleteJobResponse {
+		return sproto.EmptyDeleteJobResponse()
+	}, nil)
+	mockRM.On("ResolveResourcePool", mock.Anything, mock.Anything, mock.Anything).Return(
+		func(name string, _, _ int) string {
+			return name
+		},
+		nil,
+	)
+	mockRM.On("ValidateResources", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockRM.On("TaskContainerDefaults", mock.Anything, mock.Anything).Return(
+		func(name string, def model.TaskContainerDefaultsConfig) model.TaskContainerDefaultsConfig {
+			return def
+		},
+		nil,
+	)
+	mockRM.On("ValidateResourcePoolAvailability", mock.Anything).Return(nil, nil)
+	mockRM.On("SetGroupMaxSlots", mock.Anything).Return()
+	mockRM.On("SetGroupWeight", mock.Anything).Return(nil)
+	mockRM.On("Allocate", mock.Anything).Return(func(msg sproto.AllocateRequest) *sproto.ResourcesSubscription {
+		return rmevents.Subscribe(msg.AllocationID)
+	}, nil)
+	return &mockRM
+}
+
 // pgdb can be nil to use the singleton database for testing.
-func setupAPITest(t *testing.T, pgdb *db.PgDB) (*apiServer, model.User, context.Context) {
+func setupAPITest(t *testing.T, pgdb *db.PgDB,
+	altMockRM ...*mocks.ResourceManager,
+) (*apiServer, model.User, context.Context) {
+	mockRM := MockRM()
+	if len(altMockRM) == 1 {
+		mockRM = altMockRM[0]
+	}
+
 	if pgdb == nil {
 		if thePgDB == nil {
 			thePgDB = db.MustResolveTestPostgres(t)
 			db.MustMigrateTestPostgres(t, thePgDB, "file://../static/migrations")
 			require.NoError(t, etc.SetRootPath("../static/srv"))
 
-			system = actor.NewSystem("mock")
-			ref, _ := system.ActorOf(sproto.K8sRMAddr, actor.ActorFunc(
-				func(context *actor.Context) error {
-					switch context.Message().(type) {
-					case sproto.DeleteJob:
-						context.Respond(sproto.EmptyDeleteJobResponse())
-					}
-					return nil
-				}))
-			mockRM = actorrm.Wrap(ref)
+			l, err := logpattern.New(context.TODO())
+			require.NoError(t, err)
+			logpattern.SetDefault(l)
 		}
 		pgdb = thePgDB
 	} else {
 		// After a custom db is provided, we need to reinitialize the pgdb singleton.
 		thePgDB = nil
 	}
+	jobservice.SetDefaultService(mockRM)
 
 	api := &apiServer{
 		m: &Master{
 			trialLogBackend: pgdb,
-			system:          system,
 			db:              pgdb,
 			taskLogBackend:  pgdb,
 			rm:              mockRM,
@@ -89,14 +119,164 @@ func setupAPITest(t *testing.T, pgdb *db.PgDB) (*apiServer, model.User, context.
 	}
 	config.GetMasterConfig().Security.AuthZ = config.AuthZConfig{Type: "basic"}
 
-	userModel, err := user.ByUsername(context.TODO(), "admin")
-	require.NoError(t, err, "Couldn't get admin user")
-	resp, err := api.Login(context.TODO(), &apiv1.LoginRequest{Username: "admin"})
+	username := uuid.New().String()
+	newUserModel := &model.User{
+		Username:     username,
+		PasswordHash: null.NewString("", false),
+		Active:       true,
+		Admin:        true,
+	}
+	_, err := user.Add(context.TODO(), newUserModel, nil)
+	require.NoError(t, err, "Couldn't create admin user")
+	resp, err := api.Login(context.TODO(), &apiv1.LoginRequest{Username: username})
 	require.NoError(t, err, "Couldn't login")
+	userModel, err := user.ByUsername(context.TODO(), username)
+	require.NoError(t, err, "Couldn't get admin user")
 	ctx := metadata.NewIncomingContext(context.TODO(),
 		metadata.Pairs("x-user-token", fmt.Sprintf("Bearer %s", resp.Token)))
 
 	return api, *userModel, ctx
+}
+
+func fetchUserIds(ctx context.Context, t *testing.T, api *apiServer, req *apiv1.GetUsersRequest) []model.UserID {
+	resp, err := api.GetUsers(ctx, req)
+	require.NoError(t, err)
+	var ids []model.UserID
+	for _, u := range resp.Users {
+		ids = append(ids, model.UserID(u.Id))
+	}
+	return ids
+}
+
+func TestLoginRemote(t *testing.T) {
+	api, _, ctx := setupAPITest(t, nil)
+
+	t.Run("created with remote", func(t *testing.T) {
+		username := uuid.New().String()
+		resp, err := api.PostUser(ctx, &apiv1.PostUserRequest{
+			User: &userv1.User{
+				Username: username,
+				Remote:   true,
+				Active:   true,
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+		})
+		require.ErrorIs(t, err, grpcutil.ErrInvalidCredentials)
+
+		// Can't change password while they are remote.
+		_, err = api.PatchUser(ctx, &apiv1.PatchUserRequest{
+			UserId: resp.User.Id,
+			User: &userv1.PatchUser{
+				Password: ptrs.Ptr("pass"),
+			},
+		})
+		require.ErrorContains(t, err, "Cannot set password")
+
+		// Changing back to unremote means we can login with blank password.
+		_, err = api.PatchUser(ctx, &apiv1.PatchUserRequest{
+			UserId: resp.User.Id,
+			User: &userv1.PatchUser{
+				Remote: ptrs.Ptr(false),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("created with remote changed with password", func(t *testing.T) {
+		username := uuid.New().String()
+		resp, err := api.PostUser(ctx, &apiv1.PostUserRequest{
+			User: &userv1.User{
+				Username: username,
+				Remote:   true,
+				Active:   true,
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.PatchUser(ctx, &apiv1.PatchUserRequest{
+			UserId: resp.User.Id,
+			User: &userv1.PatchUser{
+				Remote:   ptrs.Ptr(false),
+				Password: ptrs.Ptr("testpassword"),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+			Password: "testpassword",
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("created without remote", func(t *testing.T) {
+		username := uuid.New().String()
+		resp, err := api.PostUser(ctx, &apiv1.PostUserRequest{
+			User: &userv1.User{
+				Username: username,
+				Active:   true,
+			},
+			Password: "testpassword",
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+			Password: "testpassword",
+		})
+		require.NoError(t, err)
+
+		// Cannot login when we switch to remote.
+		_, err = api.PatchUser(ctx, &apiv1.PatchUserRequest{
+			UserId: resp.User.Id,
+			User: &userv1.PatchUser{
+				Remote: ptrs.Ptr(true),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+		})
+		require.ErrorIs(t, err, grpcutil.ErrInvalidCredentials)
+
+		// We set the password to the unloginable hash.
+		var expectedUser model.User
+		err = db.Bun().NewSelect().Model(&expectedUser).
+			Where("username = ?", username).
+			Scan(ctx, &expectedUser)
+		require.NoError(t, err)
+		require.Equal(t, model.NoPasswordLogin, expectedUser.PasswordHash)
+
+		// Changing back to unremote unsets password to blank.
+		_, err = api.PatchUser(ctx, &apiv1.PatchUserRequest{
+			UserId: resp.User.Id,
+			User: &userv1.PatchUser{
+				Remote: ptrs.Ptr(true),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+			Password: "testpassword",
+		})
+		require.ErrorIs(t, err, grpcutil.ErrInvalidCredentials)
+
+		_, err = api.Login(ctx, &apiv1.LoginRequest{
+			Username: username,
+		})
+		require.ErrorIs(t, err, grpcutil.ErrInvalidCredentials)
+	})
 }
 
 func TestGetUsersRemote(t *testing.T) {
@@ -130,6 +310,59 @@ func TestGetUsersRemote(t *testing.T) {
 		} else if model.UserID(u.Id) == nonRemoteUser {
 			require.False(t, u.Remote)
 		}
+	}
+}
+
+func TestFilterUser(t *testing.T) {
+	api, _, ctx := setupAPITest(t, nil)
+	userID1, _ := user.Add(ctx,
+		&model.User{
+			Username: uuid.New().String(),
+			Active:   false,
+			Admin:    false,
+		},
+		nil,
+	)
+	userID2, _ := user.Add(ctx,
+		&model.User{
+			Username: uuid.New().String(),
+			Active:   true,
+			Admin:    false,
+		},
+		nil,
+	)
+	userID3, _ := user.Add(ctx,
+		&model.User{
+			Username: uuid.New().String(),
+			Active:   true,
+			Admin:    true,
+		},
+		nil,
+	)
+	userID4, _ := user.Add(ctx,
+		&model.User{
+			Username: uuid.New().String(),
+			Active:   false,
+			Admin:    true,
+		},
+		nil,
+	)
+
+	userIds := fetchUserIds(ctx, t, api, &apiv1.GetUsersRequest{})
+	for _, u := range []model.UserID{userID1, userID2, userID3, userID4} {
+		require.Contains(t, userIds, u, fmt.Sprintf("userIds: %v, expected user id: %d", userIds, u))
+	}
+	userIds = fetchUserIds(ctx, t, api, &apiv1.GetUsersRequest{Admin: ptrs.Ptr(true)})
+	for _, u := range []model.UserID{userID3, userID4} {
+		require.Contains(t, userIds, u, fmt.Sprintf("userIds: %v, expected user id: %d", userIds, u))
+	}
+	userIds = fetchUserIds(ctx, t, api, &apiv1.GetUsersRequest{Active: ptrs.Ptr(true)})
+	for _, u := range []model.UserID{userID2, userID3} {
+		require.Contains(t, userIds, u, fmt.Sprintf("userIds: %v, expected user id: %d", userIds, u))
+	}
+	userIds = fetchUserIds(ctx, t, api, &apiv1.GetUsersRequest{Active: ptrs.Ptr(true), Admin: ptrs.Ptr(true)})
+	for _, u := range []model.UserID{userID3} {
+		require.Contains(t, userIds, u, fmt.Sprintf("userIds: %v, expected user id: %d", userIds, u))
 	}
 }
 
@@ -232,6 +465,32 @@ func TestPatchUser(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestPatchUsers(t *testing.T) {
+	// currently activate/deactivate only
+	api, _, ctx := setupAPITest(t, nil)
+	userID, err := user.Add(ctx,
+		&model.User{
+			Username: uuid.New().String(),
+			Active:   false,
+		},
+		nil,
+	)
+	require.NoError(t, err)
+
+	resp, err := api.PatchUsers(ctx, &apiv1.PatchUsersRequest{
+		Activate: true,
+		UserIds:  []int32{int32(userID)},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "", resp.Results[0].Error)
+
+	resp2, err := api.GetUser(ctx, &apiv1.GetUserRequest{
+		UserId: int32(userID),
+	})
+	require.NoError(t, err)
+	require.Equal(t, resp2.User.Active, true)
+}
+
 func TestRenameUserThenReuseName(t *testing.T) {
 	username := uuid.New().String()
 	api, _, ctx := setupAPITest(t, nil)
@@ -270,8 +529,9 @@ func TestRenameUserThenReuseName(t *testing.T) {
 // pgdb can be nil to use the singleton database for testing.
 func setupUserAuthzTest(
 	t *testing.T, pgdb *db.PgDB,
+	altMockRM ...*mocks.ResourceManager,
 ) (*apiServer, *mocks.UserAuthZ, model.User, context.Context) {
-	api, curUser, ctx := setupAPITest(t, pgdb)
+	api, curUser, ctx := setupAPITest(t, pgdb, altMockRM...)
 
 	if authzUser == nil {
 		authzUser = &mocks.UserAuthZ{}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import useUI from 'components/kit/Theme';
+import useUI from 'components/ThemeProvider';
 import { V1GetTrialProfilerAvailableSeriesResponse } from 'services/api-ts-sdk';
 import { detApi } from 'services/apiConfig';
 import { readStream } from 'services/utils';

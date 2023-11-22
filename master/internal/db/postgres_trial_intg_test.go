@@ -5,6 +5,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -828,6 +830,27 @@ func TestLatestMetricID(t *testing.T) {
 	}
 }
 
+func TestTrialByTaskID(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, etc.SetRootPath(RootFromDB))
+	db := MustResolveTestPostgres(t)
+	MustMigrateTestPostgres(t, db, MigrationsFromDB)
+
+	user := RequireMockUser(t, db)
+	exp := RequireMockExperiment(t, db, user)
+	trial, task := RequireMockTrial(t, db, exp)
+
+	expected, err := TrialByID(ctx, trial.ID)
+	require.NoError(t, err)
+
+	actual, err := TrialByTaskID(ctx, task.TaskID)
+	require.NoError(t, err)
+	require.Equal(t, expected, actual)
+
+	_, err = TrialByTaskID(ctx, model.TaskID("taskIDnotFound"))
+	require.ErrorIs(t, err, sql.ErrNoRows)
+}
+
 func TestProtoGetTrial(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, etc.SetRootPath(RootFromDB))
@@ -1260,7 +1283,7 @@ func TestConcurrentMetricUpdate(t *testing.T) {
 		return &tr
 	}
 
-	batchNum := 0
+	var batchNum atomic.Int64
 
 	writeToTrial := func(tr *model.Trial, tx *sqlx.Tx) {
 		coinFlip := func() bool {
@@ -1269,12 +1292,12 @@ func TestConcurrentMetricUpdate(t *testing.T) {
 		}
 		t.Logf("writing to trial %d", tr.ID)
 
-		batchNum++
+		batchNum.Add(1)
 		metrics, err := structpb.NewStruct(map[string]any{"loss": 10})
 		require.NoError(t, err)
 		trialMetrics := &trialv1.TrialMetrics{
 			TrialId:        int32(tr.ID),
-			StepsCompleted: int32(batchNum),
+			StepsCompleted: int32(batchNum.Load()),
 			Metrics:        &commonv1.Metrics{AvgMetrics: metrics},
 		}
 		if coinFlip() {

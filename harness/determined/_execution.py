@@ -11,6 +11,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 import determined as det
 from determined import constants, core, gpu, load
 
+logger = logging.getLogger("determined")
+
 
 class InvalidHP(Exception):
     def __init__(self, msg: str = "...") -> None:
@@ -23,7 +25,7 @@ class InvalidHP(Exception):
 
 
 def _get_gpus(limit_gpus: Optional[int]) -> Tuple[bool, List[str], List[int]]:
-    gpus = gpu.get_gpus()
+    gpus, _ = gpu.get_gpus()
 
     if limit_gpus is not None:
         gpus = gpus[:limit_gpus]
@@ -145,7 +147,7 @@ def _make_local_execution_exp_config(
         # This codepath is used by checkpoint loading, where we do not want to emit any warnings,
         # so only warn if we are explicitly in --local --test mode.
         if test_mode and not managed_training:
-            logging.info(
+            logger.info(
                 f"'{key}' configuration key is not supported by local test mode and will be ignored"
             )
         del input_config[key]
@@ -240,7 +242,7 @@ def _load_trial_for_checkpoint_export(
     trial_cls_spec: str,
     config: Dict[str, Any],
     hparams: Dict[str, Any],
-) -> Tuple[Type[det.Trial], det.TrialContext]:
+) -> Tuple[Type[det.LegacyTrial], det.TrialContext]:
     with _local_execution_manager(context_dir):
         trial_class = load.trial_class_from_entrypoint(trial_cls_spec)
         core_context, env = _make_local_execution_env(

@@ -1,8 +1,8 @@
+import Button from 'hew/Button';
+import Dropdown from 'hew/Dropdown';
+import Icon from 'hew/Icon';
 import React, { useEffect, useRef, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Dropdown from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
 import useResize from 'hooks/useResize';
 
 import css from './ResponsiveFilters.module.scss';

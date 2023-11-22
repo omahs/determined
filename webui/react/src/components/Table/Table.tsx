@@ -1,20 +1,19 @@
 import { Space, Typography } from 'antd';
+import Avatar from 'hew/Avatar';
+import Icon from 'hew/Icon';
+import Spinner from 'hew/Spinner';
+import { StateOfUnion } from 'hew/Theme';
+import Tooltip from 'hew/Tooltip';
 import React from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
 import { ConditionalWrapper } from 'components/ConditionalWrapper';
-import DynamicIcon from 'components/DynamicIcon';
 import ExperimentIcons from 'components/ExperimentIcons';
 import HumanReadableNumber from 'components/HumanReadableNumber';
-import Icon from 'components/kit/Icon';
-import Spinner from 'components/kit/Spinner';
-import { StateOfUnion } from 'components/kit/Theme';
-import Tooltip from 'components/kit/Tooltip';
-import UserAvatar from 'components/kit/UserAvatar';
 import Link from 'components/Link';
-import ProgressBar from 'components/ProgressBar';
 import TimeAgo from 'components/TimeAgo';
 import TimeDuration from 'components/TimeDuration';
+import UserAvatar from 'components/UserAvatar';
 import { OMITTED_STR } from 'constants/accessControl';
 import { commandTypeToLabel } from 'constants/states';
 import { paths } from 'routes/utils';
@@ -110,7 +109,7 @@ export const HumanReadableNumberRenderer = (num: number): React.ReactNode => {
 };
 
 export const relativeTimeRenderer = (date: Date): React.ReactNode => {
-  return <TimeAgo className={css.timeAgo} datetime={date} />;
+  return <TimeAgo datetime={date} />;
 };
 
 export const stateRenderer: Renderer<{ state: StateOfUnion }> = (_, record) => (
@@ -161,7 +160,7 @@ export const taskTypeRenderer: TaskRenderer = (_, record) => (
   </Tooltip>
 );
 
-export const taskNameRenderer: TaskRenderer = (id, record) => (
+export const taskNameRenderer: TaskRenderer = (_id, record) => (
   <div>
     <ConditionalWrapper
       condition={canBeOpened(record)}
@@ -192,7 +191,7 @@ export const taskWorkspaceRenderer = (
               ? paths.projectDetails(workspaceId)
               : paths.workspaceDetails(workspaceId)
           }>
-          <DynamicIcon name={workspace?.name} size={24} />
+          <Avatar palette="muted" square text={workspace?.name ?? ''} />
         </Link>
       </div>
     </Tooltip>
@@ -221,12 +220,6 @@ export const experimentNameRenderer = (
   </Typography.Text>
 );
 
-export const experimentProgressRenderer: ExperimentRenderer = (_, record) => {
-  return typeof record.progress !== 'undefined' ? (
-    <ProgressBar percent={record.progress * 100} state={record.state} />
-  ) : null;
-};
-
 /* Model Table Column Renderers */
 
 export const modelNameRenderer = (value: string, record: ModelItem): React.ReactNode => (
@@ -245,7 +238,7 @@ export const modelVersionNameRenderer = (value: string, record: ModelVersion): R
 );
 
 export const modelVersionNumberRenderer = (
-  value: string,
+  _value: string,
   record: ModelVersion,
 ): React.ReactNode => (
   <Link

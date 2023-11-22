@@ -20,7 +20,6 @@ import (
 	"github.com/determined-ai/determined/master/internal/proxy"
 	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/internal/task/tasklogger"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/device"
@@ -40,7 +39,7 @@ func TestRestoreFailed(t *testing.T) {
 	db, _, id, q, exitFuture := requireStarted(t)
 	defer requireKilled(t, db, id, q, exitFuture)
 
-	q.Put(&sproto.ResourcesFailure{
+	q.Put(&sproto.ResourcesFailureError{
 		FailureType: sproto.RestoreError,
 		ErrMsg:      "things weren't there",
 	})
@@ -400,7 +399,6 @@ func TestStartError(t *testing.T) {
 		pgDB,
 		&rm,
 		mockTaskSpecifier{},
-		actor.NewSystem(uuid.NewString()),
 		func(ae *AllocationExited) {},
 	)
 	require.ErrorContains(t, err, expectedErr.Error())
@@ -431,7 +429,7 @@ func TestRestore(t *testing.T) {
 
 func requireDeps(t *testing.T) *db.PgDB {
 	tasklogger.SetDefaultLogger(tasklogger.New(&nullWriter{}))
-	portregistry.InitPortRegistry()
+	portregistry.InitPortRegistry(nil)
 	require.NoError(t, etc.SetRootPath("../static/srv"))
 	return db.MustSetupTestPostgres(t)
 }
@@ -453,9 +451,9 @@ func requireStarted(t *testing.T, opts ...func(*sproto.AllocateRequest)) (
 	q := queue.New[sproto.ResourcesEvent]()
 	sub := sproto.NewAllocationSubscription(q, func() { subClosed.Store(true) })
 
-	rm.On("Allocate", mock.Anything, mock.Anything).Return(sub, nil)
-	rm.On("Release", mock.Anything, mock.Anything).Return().Run(func(args mock.Arguments) {
-		msg := args[1].(sproto.ResourcesReleased)
+	rm.On("Allocate", mock.Anything).Return(sub, nil)
+	rm.On("Release", mock.Anything).Return().Run(func(args mock.Arguments) {
+		msg := args[0].(sproto.ResourcesReleased)
 		if msg.ResourcesID == nil {
 			q.Put(sproto.ResourcesReleasedEvent{})
 		}
@@ -472,7 +470,6 @@ func requireStarted(t *testing.T, opts ...func(*sproto.AllocateRequest)) (
 		pgDB,
 		&rm,
 		mockTaskSpecifier{},
-		actor.NewSystem(uuid.NewString()),
 		func(ae *AllocationExited) { exitFuture.Store(ae) },
 	)
 	require.NoError(t, err)
@@ -528,7 +525,7 @@ func requireAssignedMany(
 	for i := 0; i < numResources; i++ {
 		rID := sproto.ResourcesID(cproto.NewID())
 		var r mocks.Resources
-		r.On("Start", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		r.On("Start", mock.Anything, mock.Anything, mock.Anything).
 			Return(nil).Times(1)
 		r.On("Summary").Return(sproto.ResourcesSummary{
 			AllocationID:  id,
@@ -536,12 +533,12 @@ func requireAssignedMany(
 			ResourcesType: sproto.ResourcesTypeDockerContainer,
 			AgentDevices:  map[aproto.ID][]device.Device{stubAgentName: nil},
 		})
-		r.On("Kill", mock.Anything, mock.Anything).Return().Run(func(_ mock.Arguments) {
+		r.On("Kill", mock.Anything).Return().Run(func(_ mock.Arguments) {
 			q.Put(&sproto.ResourcesStateChanged{
 				ResourcesID:    rID,
 				ResourcesState: sproto.Terminated,
 				ResourcesStopped: &sproto.ResourcesStopped{
-					Failure: &sproto.ResourcesFailure{
+					Failure: &sproto.ResourcesFailureError{
 						FailureType: sproto.TaskError,
 						ErrMsg:      "exit code 137",
 						ExitCode:    ptrs.Ptr(sproto.ExitCode(137)),

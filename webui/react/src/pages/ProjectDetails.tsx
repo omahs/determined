@@ -1,11 +1,12 @@
 import type { TabsProps } from 'antd';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import DynamicTabs from 'components/DynamicTabs';
-import Spinner from 'components/kit/Spinner';
-import Message, { MessageType } from 'components/Message';
 import Page, { BreadCrumbRoute } from 'components/Page';
 import PageNotFound from 'components/PageNotFound';
 import { useProjectActionMenu } from 'components/ProjectActionDropdown';
@@ -17,7 +18,6 @@ import { getProject, postUserActivity } from 'services/api';
 import { V1ActivityType, V1EntityType } from 'services/api-ts-sdk';
 import workspaceStore from 'stores/workspaces';
 import { Project } from 'types';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { routeToReactUrl } from 'utils/routes';
 import { isNotFound } from 'utils/service';
@@ -132,7 +132,7 @@ const ProjectDetails: React.FC = () => {
     return <Message title={`Invalid Project ID ${projectId}`} />;
   } else if (pageError && !isNotFound(pageError)) {
     const message = `Unable to fetch Project ${projectId}`;
-    return <Message title={message} type={MessageType.Warning} />;
+    return <Message icon="warning" title={message} />;
   } else if (
     (!permissions.loading &&
       project &&

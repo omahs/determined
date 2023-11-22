@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import Button from 'hew/Button';
+import { useModal } from 'hew/Modal';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 import React, { useCallback, useEffect } from 'react';
 
-import Button from 'components/kit/Button';
-import { useModal } from 'components/kit/Modal';
-import { UIProvider } from 'components/kit/Theme';
 import { setUserPassword as mockSetUserPassword } from 'services/api';
 import { V1LoginRequest } from 'services/api-ts-sdk';
 import authStore from 'stores/auth';
@@ -82,7 +82,7 @@ const Container: React.FC = () => {
 
 const setup = async () => {
   const view = render(
-    <UIProvider>
+    <UIProvider theme={DefaultTheme.Light}>
       <Container />
     </UIProvider>,
   );

@@ -1,8 +1,7 @@
-import { Alert } from 'antd';
+import Message from 'hew/Message';
+import Pivot, { PivotProps } from 'hew/Pivot';
 import React, { useMemo } from 'react';
 
-import Message from 'components/kit/internal/Message';
-import Pivot, { TabItem } from 'components/kit/Pivot';
 import SplitPane from 'components/SplitPane';
 import useScrollbarWidth from 'hooks/useScrollbarWidth';
 import { TrialsComparisonTable } from 'pages/ExperimentDetails/TrialsComparisonModal';
@@ -51,7 +50,7 @@ const ComparisonView: React.FC<Props> = ({
 
   const metricData = useTrialMetrics(trials);
 
-  const tabs: TabItem[] = useMemo(() => {
+  const tabs: PivotProps['items'] = useMemo(() => {
     return [
       {
         children: (
@@ -91,14 +90,15 @@ const ComparisonView: React.FC<Props> = ({
       open={open}
       onChange={onWidthChange}>
       {open && !hasPinnedColumns ? (
-        <Message title='Pin columns to see them in "Compare View"' />
+        <Message icon="info" title='Pin columns to see them in "Compare View"' />
       ) : (
         children
       )}
       {selectedExperiments.length === 0 ? (
-        <Alert
+        <Message
           description="Select experiments you would like to compare."
-          message="No experiments selected."
+          icon="warning"
+          title="No experiments selected."
         />
       ) : (
         <Pivot items={tabs} />

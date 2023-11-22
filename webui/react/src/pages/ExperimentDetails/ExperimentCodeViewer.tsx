@@ -1,21 +1,20 @@
+import Icon from 'hew/Icon';
+import Spinner from 'hew/Spinner';
+import { Failed, Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
+import { TreeNode } from 'hew/utils/types';
 import yaml from 'js-yaml';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { ErrorMessage, LoadableOrError } from 'components/kit/CodeEditor';
-import Icon from 'components/kit/Icon';
-import { TreeNode } from 'components/kit/internal/types';
-import Spinner from 'components/kit/Spinner';
 import { paths } from 'routes/utils';
 import { getExperimentFileFromTree, getExperimentFileTree } from 'services/api';
 import { V1FileNode } from 'services/api-ts-sdk';
 import { ExperimentBase, RawJson } from 'types';
 import handleError, { ErrorType } from 'utils/error';
 import { isSingleTrialExperiment } from 'utils/experiment';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 
 import css from './ExperimentCodeViewer.module.scss';
 
-const CodeEditor = React.lazy(() => import('components/kit/CodeEditor'));
+const CodeEditor = React.lazy(() => import('hew/CodeEditor'));
 
 const configIcon = <Icon name="settings" title="settings" />;
 
@@ -31,7 +30,7 @@ const ExperimentCodeViewer: React.FC<Props> = ({
   selectedFilePath,
 }: Props) => {
   const [expFiles, setExpFiles] = useState<Loadable<TreeNode[]>>(NotLoaded);
-  const [fileContent, setFileContent] = useState<LoadableOrError<string>>(NotLoaded);
+  const [fileContent, setFileContent] = useState<Loadable<string>>(NotLoaded);
 
   const submittedConfig = useMemo(() => {
     if (!experiment.originalConfig) return;
@@ -92,7 +91,7 @@ const ExperimentCodeViewer: React.FC<Props> = ({
           path: filePath,
         });
         if (!file) {
-          setFileContent(ErrorMessage('File has no content.'));
+          setFileContent(Failed(new Error('File has no content.')));
         } else {
           setFileContent(Loaded(file));
         }
@@ -103,7 +102,7 @@ const ExperimentCodeViewer: React.FC<Props> = ({
           silent: false,
           type: ErrorType.Api,
         });
-        setFileContent(ErrorMessage('Unable to fetch file.'));
+        setFileContent(Failed(new Error('Unable to fetch file.')));
         return;
       }
     })();

@@ -3,16 +3,14 @@ from typing import Any, Callable, Dict, Generator, List, NamedTuple, Optional, T
 
 import pytest
 
-from determined import cli
-from determined.cli.user_groups import group_name_to_group_id, usernames_to_user_ids
 from determined.common import api
 from determined.common.api import authentication, bindings, errors
-from tests import api_utils, utils
-from tests.api_utils import configure_token_store, create_test_user, determined_test_session
+from tests import api_utils
+from tests import config as conf
 from tests.cluster.test_workspace_org import setup_workspaces
 
 from .test_groups import det_cmd, det_cmd_expect_error, det_cmd_json
-from .test_users import ADMIN_CREDENTIALS, get_random_string, logged_in_user
+from .test_users import logged_in_user
 
 
 def roles_not_implemented() -> bool:
@@ -23,7 +21,7 @@ def rbac_disabled() -> bool:
     if roles_not_implemented():
         return True
     try:
-        return not bindings.get_GetMaster(determined_test_session()).rbacEnabled
+        return not bindings.get_GetMaster(api_utils.determined_test_session()).rbacEnabled
     except (errors.APIException, errors.MasterNotFoundException):
         return True
 
@@ -32,7 +30,7 @@ def strict_q_control_disabled() -> bool:
     if roles_not_implemented() or rbac_disabled():
         return True
     try:
-        return not bindings.get_GetMaster(determined_test_session()).strictJobQueueControl
+        return not bindings.get_GetMaster(api_utils.determined_test_session()).strictJobQueueControl
     except (errors.APIException, errors.MasterNotFoundException):
         return True
 
@@ -59,18 +57,18 @@ def create_users_with_gloabl_roles(user_roles: List[List[str]]) -> List[authenti
     user_roles: list of roles to assign to each user, one entry per user.
     """
     user_creds: List[authentication.Credentials] = []
-    with logged_in_user(ADMIN_CREDENTIALS):
-        for roles in user_roles:
-            user = bindings.v1User(username=api_utils.get_random_string(), admin=False, active=True)
-            creds = api_utils.create_test_user(True, user=user)
-            for role in roles:
-                cli.rbac.assign_role(
-                    utils.CliArgsMock(
-                        username_to_assign=creds.username,
-                        role_name=role,
-                    )
-                )
-            user_creds.append(creds)
+    sess = api_utils.determined_test_session(admin=True)
+    for roles in user_roles:
+        user = bindings.v1User(username=api_utils.get_random_string(), admin=False, active=True)
+        creds = api_utils.create_test_user(True, user=user)
+        for role in roles:
+            api_utils.assign_user_role(
+                session=sess,
+                user=creds.username,
+                role=role,
+                workspace=None,
+            )
+        user_creds.append(creds)
     return user_creds
 
 
@@ -102,20 +100,20 @@ def create_workspaces_with_users(
         ]
     ]
     """
-    configure_token_store(ADMIN_CREDENTIALS)
+    sess = api_utils.determined_test_session(admin=True)
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
     rid_to_creds: Dict[int, authentication.Credentials] = {}
     with setup_workspaces(count=len(assignments_list)) as workspaces:
         for workspace, user_list in zip(workspaces, assignments_list):
             for rid, roles in user_list:
                 if rid not in rid_to_creds:
-                    rid_to_creds[rid] = create_test_user()
+                    rid_to_creds[rid] = api_utils.create_test_user()
                 for role in roles:
-                    cli.rbac.assign_role(
-                        utils.CliArgsMock(
-                            username_to_assign=rid_to_creds[rid].username,
-                            workspace_name=workspace.name,
-                            role_name=role,
-                        )
+                    api_utils.assign_user_role(
+                        session=sess,
+                        user=rid_to_creds[rid].username,
+                        role=role,
+                        workspace=workspace.name,
                     )
         yield workspaces, rid_to_creds
 
@@ -140,7 +138,7 @@ def test_user_role_setup() -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
 def test_rbac_permission_assignment() -> None:
-    api_utils.configure_token_store(ADMIN_CREDENTIALS)
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
     test_user_creds = api_utils.create_test_user()
 
     # User has no permissions.
@@ -150,8 +148,8 @@ def test_rbac_permission_assignment() -> None:
         assert json_out["roles"] == []
         assert json_out["assignments"] == []
 
-    group_name = get_random_string()
-    with logged_in_user(ADMIN_CREDENTIALS):
+    group_name = api_utils.get_random_string()
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         # Assign user to role directly.
         det_cmd(
             [
@@ -232,7 +230,7 @@ def test_rbac_permission_assignment() -> None:
         assert editor_assignment[0]["scopeCluster"]
 
     # Remove from the group.
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         det_cmd(["user-group", "remove-user", group_name, test_user_creds.username], check=True)
 
     # User doesn't have any group roles assigned.
@@ -247,7 +245,7 @@ def test_rbac_permission_assignment() -> None:
         assert len([role for role in json_out["roles"] if role["name"] == "Editor"]) == 0
 
     # Remove user assignments.
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         # Assign user to role directly.
         det_cmd(
             [
@@ -283,8 +281,8 @@ def test_rbac_permission_assignment() -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
 def test_rbac_permission_assignment_errors() -> None:
-    api_utils.configure_token_store(ADMIN_CREDENTIALS)
-    with logged_in_user(ADMIN_CREDENTIALS):
+    api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         # Specifying args incorrectly.
         det_cmd_expect_error(["rbac", "assign-role", "Viewer"], "must provide exactly one of")
         det_cmd_expect_error(["rbac", "unassign-role", "Viewer"], "must provide exactly one of")
@@ -376,7 +374,7 @@ def test_rbac_permission_assignment_errors() -> None:
         )
 
         test_user_creds = api_utils.create_test_user()
-        group_name = get_random_string()
+        group_name = api_utils.get_random_string()
         det_cmd(["user-group", "create", group_name], check=True)
         det_cmd(["rbac", "assign-role", "Viewer", "--group-name-to-assign", group_name], check=True)
         det_cmd(
@@ -429,7 +427,7 @@ def test_rbac_permission_assignment_errors() -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
 def test_rbac_list_roles() -> None:
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         det_cmd(["rbac", "list-roles"], check=True)
         all_roles = det_cmd_json(["rbac", "list-roles", "--json"])["roles"]
 
@@ -457,9 +455,9 @@ def test_rbac_list_roles() -> None:
         assert json_out["pagination"]["offset"] == 1
 
         # Set up group/user to test with.
-        api_utils.configure_token_store(ADMIN_CREDENTIALS)
+        api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
         test_user_creds = api_utils.create_test_user()
-        group_name = get_random_string()
+        group_name = api_utils.get_random_string()
         det_cmd(
             ["user-group", "create", group_name, "--add-user", test_user_creds.username], check=True
         )
@@ -549,16 +547,16 @@ def test_rbac_list_roles() -> None:
 @pytest.mark.e2e_cpu_rbac
 @pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
 def test_rbac_describe_role() -> None:
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         # Role doesn't exist.
         det_cmd_expect_error(
             ["rbac", "describe-role", "roleDoesntExist"], "could not find role name"
         )
 
         # Role is assigned to our group and user.
-        api_utils.configure_token_store(ADMIN_CREDENTIALS)
+        api_utils.configure_token_store(conf.ADMIN_CREDENTIALS)
         test_user_creds = api_utils.create_test_user()
-        group_name = get_random_string()
+        group_name = api_utils.get_random_string()
 
         det_cmd(["user-group", "create", group_name], check=True)
         det_cmd(["rbac", "assign-role", "Viewer", "--group-name-to-assign", group_name], check=True)
@@ -575,9 +573,9 @@ def test_rbac_describe_role() -> None:
             check=True,
         )
 
-        sess = api_utils.determined_test_session(ADMIN_CREDENTIALS)
-        user_id = usernames_to_user_ids(sess, [test_user_creds.username])[0]
-        group_id = group_name_to_group_id(sess, group_name)
+        sess = api_utils.determined_test_session(conf.ADMIN_CREDENTIALS)
+        user_id = api.usernames_to_user_ids(sess, [test_user_creds.username])[0]
+        group_id = api.group_name_to_group_id(sess, group_name)
 
         det_cmd(
             ["rbac", "assign-role", "Viewer", "--username-to-assign", test_user_creds.username],
@@ -622,12 +620,10 @@ def test_rbac_describe_role() -> None:
 @pytest.mark.skipif(roles_not_implemented(), reason="ee is required for this test")
 def test_group_access() -> None:
     # create relevant workspace and project, with group having access
-    group_name = get_random_string()
-    workspace_name = get_random_string()
-    project_name = get_random_string()
-    with logged_in_user(ADMIN_CREDENTIALS):
+    group_name = api_utils.get_random_string()
+    workspace_name = api_utils.get_random_string()
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         det_cmd(["workspace", "create", workspace_name], check=True)
-        det_cmd(["project", "create", workspace_name, project_name], check=True)
         det_cmd(["user-group", "create", group_name], check=True)
         det_cmd(
             ["rbac", "assign-role", "WorkspaceAdmin", "-w", workspace_name, "-g", group_name],
@@ -635,18 +631,16 @@ def test_group_access() -> None:
         )
 
     # create test user which cannot access workspace
-    creds1 = api_utils.create_test_user(True)
+    creds1 = api_utils.create_test_user()
     with logged_in_user(creds1):
         det_cmd_expect_error(
-            ["workspace", "describe", workspace_name], "Did not find a workspace with name"
+            ["workspace", "describe", workspace_name], "Failed to describe workspace"
         )
 
     # add user to group
-    with logged_in_user(ADMIN_CREDENTIALS):
+    with logged_in_user(conf.ADMIN_CREDENTIALS):
         det_cmd(["user-group", "add-user", group_name, creds1.username], check=True)
 
     # with user now in group, access possible
     with logged_in_user(creds1):
         det_cmd(["workspace", "describe", workspace_name], check=True)
-        # test code from https://github.com/determined-ai/determined/pull/6503
-        det_cmd(["project", "list-experiments", workspace_name, project_name], check=True)

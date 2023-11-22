@@ -1,6 +1,6 @@
+import { Modal } from 'hew/Modal';
 import React from 'react';
 
-import { Modal } from 'components/kit/Modal';
 import { UNMANAGED_EXPERIMENT_ANNOTATION_MESSAGE } from 'constant';
 import { ExperimentAction } from 'types';
 import handleError from 'utils/error';
@@ -12,8 +12,6 @@ interface Props {
   onConfirm: () => Promise<void>;
   onClose?: () => void;
 }
-
-export const CONFIRM_BUTTON_LABEL = 'Confirm';
 
 const DANGEROUS_BATCH_ACTIONS: ExperimentAction[] = [
   ExperimentAction.Cancel,
@@ -39,7 +37,7 @@ const BatchActionConfirmModalComponent: React.FC<Props> = ({
       submit={{
         handleError,
         handler: onConfirm,
-        text: batchAction === ExperimentAction.Cancel ? CONFIRM_BUTTON_LABEL : batchAction,
+        text: batchAction,
       }}
       title={`Confirm Batch ${batchAction}`}
       onClose={onClose}>

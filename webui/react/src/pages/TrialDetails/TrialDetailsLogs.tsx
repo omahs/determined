@@ -1,19 +1,12 @@
+import CodeSample from 'hew/CodeSample';
+import LogViewer, { FetchConfig, FetchDirection, FetchType } from 'hew/LogViewer/LogViewer';
+import LogViewerSelect, { Filters } from 'hew/LogViewer/LogViewerSelect';
+import { Settings, settingsConfigForTrial } from 'hew/LogViewer/LogViewerSelect.settings';
+import Spinner from 'hew/Spinner';
+import useConfirm from 'hew/useConfirm';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import ClipboardButton from 'components/kit/ClipboardButton';
-import LogViewer, {
-  FetchConfig,
-  FetchDirection,
-  FetchType,
-} from 'components/kit/LogViewer/LogViewer';
-import LogViewerSelect, { Filters } from 'components/kit/LogViewer/LogViewerSelect';
-import {
-  Settings,
-  settingsConfigForTrial,
-} from 'components/kit/LogViewer/LogViewerSelect.settings';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
-import useConfirm from 'components/kit/useConfirm';
+import useUI from 'components/ThemeProvider';
 import { useSettings } from 'hooks/useSettings';
 import { serverAddress } from 'routes/utils';
 import { detApi } from 'services/apiConfig';
@@ -98,10 +91,7 @@ const TrialDetailsLogs: React.FC<Props> = ({ experiment, trial }: Props) => {
       content: (
         <div className={css.downloadConfirm}>
           <p>We recommend using the Determined CLI to download trial logs:</p>
-          <div className={css.code}>
-            <code className={css.codeSample}>{code}</code>
-            <ClipboardButton getContent={() => code} />
-          </div>
+          <CodeSample text={code} />
         </div>
       ),
       okText: 'Proceed to Download',

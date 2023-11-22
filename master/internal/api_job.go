@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 
+	"github.com/determined-ai/determined/master/internal/api"
 	"github.com/determined-ai/determined/master/internal/job/jobservice"
 
 	"github.com/determined-ai/determined/master/internal/authz"
@@ -16,7 +17,7 @@ import (
 func (a *apiServer) GetJobs(
 	ctx context.Context, req *apiv1.GetJobsRequest,
 ) (resp *apiv1.GetJobsResponse, err error) {
-	jobs, err := jobservice.Default.GetJobs(
+	jobs, err := jobservice.DefaultService.GetJobs(
 		req.ResourcePool,
 		req.OrderBy == apiv1.OrderBy_ORDER_BY_DESC,
 		req.States,
@@ -40,14 +41,14 @@ func (a *apiServer) GetJobs(
 		req.Limit = 100
 	}
 
-	return resp, a.paginate(&resp.Pagination, &resp.Jobs, req.Offset, req.Limit)
+	return resp, api.Paginate(&resp.Pagination, &resp.Jobs, req.Offset, req.Limit)
 }
 
 // GetJobsV2 retrieves a list of jobs for a resource pool.
 func (a *apiServer) GetJobsV2(
 	ctx context.Context, req *apiv1.GetJobsV2Request,
 ) (resp *apiv1.GetJobsV2Response, err error) {
-	jobs, err := jobservice.Default.GetJobs(
+	jobs, err := jobservice.DefaultService.GetJobs(
 		req.ResourcePool,
 		req.OrderBy == apiv1.OrderBy_ORDER_BY_DESC,
 		req.States,
@@ -89,14 +90,14 @@ func (a *apiServer) GetJobsV2(
 		req.Limit = 100
 	}
 
-	return resp, a.paginate(&resp.Pagination, &resp.Jobs, req.Offset, req.Limit)
+	return resp, api.Paginate(&resp.Pagination, &resp.Jobs, req.Offset, req.Limit)
 }
 
 // GetJobQueueStats retrieves job queue stats for a set of resource pools.
 func (a *apiServer) GetJobQueueStats(
 	_ context.Context, req *apiv1.GetJobQueueStatsRequest,
 ) (*apiv1.GetJobQueueStatsResponse, error) {
-	resp, err := a.m.rm.GetJobQueueStatsRequest(a.m.system, req)
+	resp, err := a.m.rm.GetJobQueueStatsRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (a *apiServer) UpdateJobQueue(
 	if permErr != nil {
 		return nil, permErr
 	}
-	err = jobservice.Default.UpdateJobQueue(req.Updates)
+	err = jobservice.DefaultService.UpdateJobQueue(req.Updates)
 	if err != nil {
 		return nil, err
 	}

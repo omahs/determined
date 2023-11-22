@@ -1,19 +1,19 @@
-import { ProjectOutlined } from '@ant-design/icons';
 import { Modal, Tree } from 'antd';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
+import { useTheme } from 'hew/Theme';
+import { Loadable } from 'hew/utils/loadable';
 import type { DefaultOptionType } from 'rc-tree-select/lib/TreeSelect';
 import React, { useCallback, useMemo, useState } from 'react';
 
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import Spinner from 'components/kit/Spinner';
 import Link from 'components/Link';
-import Message, { MessageType } from 'components/Message';
 import { paths } from 'routes/utils';
 import { getWorkspaceProjects } from 'services/api';
 import workspaceStore from 'stores/workspaces';
 import { Project, Workspace } from 'types';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { routeToReactUrl } from 'utils/routes';
 
@@ -31,6 +31,10 @@ const WorkspaceQuickSearch: React.FC<Props> = ({ children }: Props) => {
 
   const workspaceObservable = useObservable(workspaceStore.mutables);
   const workspaces = Loadable.getOrElse([], workspaceObservable);
+
+  const {
+    themeSettings: { className: themeClass },
+  } = useTheme();
 
   const fetchData = useCallback(async () => {
     try {
@@ -101,7 +105,7 @@ const WorkspaceQuickSearch: React.FC<Props> = ({ children }: Props) => {
           key: `project-${project.id}`,
           title: (
             <div className={`${css.flexRow} ${css.ellipsis}`}>
-              <ProjectOutlined style={{ fontSize: '16px' }} />
+              <Icon decorative name="project" size="small" />
               <Link onClick={() => onClickProject(project)}>{project.name}</Link>
               <span>({project.numExperiments})</span>
             </div>
@@ -152,6 +156,7 @@ const WorkspaceQuickSearch: React.FC<Props> = ({ children }: Props) => {
           />
         }
         width={'clamp(520px, 50vw, 1000px)'}
+        wrapClassName={themeClass}
         onCancel={onHideModal}>
         <div className={css.modalBody}>
           {isLoading ? (
@@ -159,7 +164,7 @@ const WorkspaceQuickSearch: React.FC<Props> = ({ children }: Props) => {
           ) : (
             <>
               {treeData.length === 0 ? (
-                <Message title="No matching workspace or projects" type={MessageType.Empty} />
+                <Message icon="warning" title="No matching workspace or projects" />
               ) : (
                 <Tree defaultExpandAll selectable={false} treeData={treeData} />
               )}

@@ -1,12 +1,12 @@
 import { ConfigProvider } from 'antd';
+import Button from 'hew/Button';
+import Form from 'hew/Form';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
 import React, { useCallback, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Form from 'components/kit/Form';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import useUI from 'components/kit/Theme';
 import Link from 'components/Link';
+import useUI from 'components/ThemeProvider';
 import { paths } from 'routes/utils';
 import { login } from 'services/api';
 import { updateDetApi } from 'services/apiConfig';
@@ -75,11 +75,9 @@ const DeterminedAuth: React.FC<Props> = ({ canceler }: Props) => {
         const isBadCredentialsSync = isLoginFailure(e);
         setIsBadCredentials(isBadCredentialsSync); // this is not a sync operation
         uiActions.hideSpinner();
-        const actionMsg = isBadCredentialsSync ? 'check your username and password.' : 'retry.';
         if (isBadCredentialsSync) storage.remove(STORAGE_KEY_LAST_USERNAME);
         handleError(e, {
           isUserTriggered: true,
-          publicMessage: `Failed to login. Please ${actionMsg}`,
           publicSubject: 'Login failed',
           silent: false,
           type: isBadCredentialsSync ? ErrorType.Input : ErrorType.Server,
@@ -92,7 +90,7 @@ const DeterminedAuth: React.FC<Props> = ({ canceler }: Props) => {
     [canceler, uiActions, rbacEnabled],
   );
 
-  const onValuesChange = useCallback((changes: FromValues, values: FromValues): void => {
+  const onValuesChange = useCallback((_changes: FromValues, values: FromValues): void => {
     const hasUsername = !!values.username;
     setIsBadCredentials(false);
     setCanSubmit(hasUsername);
@@ -115,7 +113,7 @@ const DeterminedAuth: React.FC<Props> = ({ canceler }: Props) => {
         <Input
           autoFocus
           placeholder="username"
-          prefix={<Icon name="user-small" size="small" title="Username" />}
+          prefix={<Icon name="user" size="small" title="Username" />}
         />
       </Form.Item>
       <Form.Item name="password">

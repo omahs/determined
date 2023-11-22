@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/determined-ai/determined/master/internal/api"
 	"github.com/determined-ai/determined/master/internal/authz"
 	"github.com/determined-ai/determined/master/internal/cluster"
 	"github.com/determined-ai/determined/master/internal/grpcutil"
@@ -18,7 +19,7 @@ import (
 func (a *apiServer) GetAgents(
 	ctx context.Context, req *apiv1.GetAgentsRequest,
 ) (*apiv1.GetAgentsResponse, error) {
-	resp, err := a.m.rm.GetAgents(a.m.system, req)
+	resp, err := a.m.rm.GetAgents(req)
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +41,8 @@ func (a *apiServer) GetAgents(
 		}
 	}
 
-	a.sort(resp.Agents, req.OrderBy, req.SortBy, apiv1.GetAgentsRequest_SORT_BY_ID)
-	return resp, a.paginate(&resp.Pagination, &resp.Agents, req.Offset, req.Limit)
+	api.Sort(resp.Agents, req.OrderBy, req.SortBy, apiv1.GetAgentsRequest_SORT_BY_ID)
+	return resp, api.Paginate(&resp.Pagination, &resp.Agents, req.Offset, req.Limit)
 }
 
 func (a *apiServer) GetAgent(
@@ -52,7 +53,7 @@ func (a *apiServer) GetAgent(
 		return nil, err
 	}
 
-	resp, err := a.m.rm.GetAgent(a.m.system, req)
+	resp, err := a.m.rm.GetAgent(req)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (a *apiServer) GetSlots(
 		return nil, err
 	}
 
-	resp, err := a.m.rm.GetSlots(a.m.system, req)
+	resp, err := a.m.rm.GetSlots(req)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func (a *apiServer) GetSlot(
 		return nil, err
 	}
 
-	resp, err := a.m.rm.GetSlot(a.m.system, req)
+	resp, err := a.m.rm.GetSlot(req)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (a *apiServer) EnableAgent(
 	if err := a.canUpdateAgents(ctx); err != nil {
 		return nil, err
 	}
-	return a.m.rm.EnableAgent(a.m.system, req)
+	return a.m.rm.EnableAgent(req)
 }
 
 func (a *apiServer) DisableAgent(
@@ -152,7 +153,7 @@ func (a *apiServer) DisableAgent(
 	if err := a.canUpdateAgents(ctx); err != nil {
 		return nil, err
 	}
-	return a.m.rm.DisableAgent(a.m.system, req)
+	return a.m.rm.DisableAgent(req)
 }
 
 func (a *apiServer) EnableSlot(
@@ -162,7 +163,7 @@ func (a *apiServer) EnableSlot(
 		return nil, err
 	}
 
-	resp, err = a.m.rm.EnableSlot(a.m.system, req)
+	resp, err = a.m.rm.EnableSlot(req)
 	switch {
 	case errors.Is(err, rmerrors.ErrNotSupported):
 		return resp, status.Error(codes.Unimplemented, err.Error())
@@ -180,7 +181,7 @@ func (a *apiServer) DisableSlot(
 		return nil, err
 	}
 
-	resp, err = a.m.rm.DisableSlot(a.m.system, req)
+	resp, err = a.m.rm.DisableSlot(req)
 	switch {
 	case errors.Is(err, rmerrors.ErrNotSupported):
 		return resp, status.Error(codes.Unimplemented, err.Error())

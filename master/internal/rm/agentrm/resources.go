@@ -6,7 +6,6 @@ import (
 
 	"github.com/determined-ai/determined/master/internal/db"
 	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/device"
@@ -31,7 +30,7 @@ func (c containerResources) Summary() sproto.ResourcesSummary {
 		ResourcesType: sproto.ResourcesTypeDockerContainer,
 		AllocationID:  c.req.AllocationID,
 		AgentDevices: map[aproto.ID][]device.Device{
-			aproto.ID(c.agent.Handler.Address().Local()): c.devices,
+			aproto.ID(c.agent.id): c.devices,
 		},
 
 		ContainerID: &c.containerID,
@@ -42,9 +41,8 @@ func (c containerResources) Summary() sproto.ResourcesSummary {
 
 // StartContainer notifies the agent to start a container.
 func (c containerResources) Start(
-	ctx *actor.System, logCtx logger.Context, spec tasks.TaskSpec, rri sproto.ResourcesRuntimeInfo,
+	logCtx logger.Context, spec tasks.TaskSpec, rri sproto.ResourcesRuntimeInfo,
 ) error {
-	handler := c.agent.Handler
 	spec.ContainerID = string(c.containerID)
 	spec.ResourcesID = string(c.containerID)
 	spec.AllocationID = string(c.req.AllocationID)
@@ -59,7 +57,7 @@ func (c containerResources) Start(
 	spec.UseHostMode = rri.IsMultiAgent
 	spec.Devices = c.devices
 
-	return ctx.Ask(handler, sproto.StartTaskContainer{
+	c.agent.handler.StartTaskContainer(sproto.StartTaskContainer{
 		AllocationID: c.req.AllocationID,
 		StartContainer: aproto.StartContainer{
 			Container: cproto.Container{
@@ -71,12 +69,13 @@ func (c containerResources) Start(
 			Spec: spec.ToDockerSpec(),
 		},
 		LogContext: logCtx,
-	}).Error()
+	})
+	return nil
 }
 
 // Kill notifies the agent to kill the container.
-func (c containerResources) Kill(ctx *actor.System, logCtx logger.Context) {
-	ctx.Tell(c.agent.Handler, sproto.KillTaskContainer{
+func (c containerResources) Kill(logCtx logger.Context) {
+	c.agent.handler.KillTaskContainer(sproto.KillTaskContainer{
 		ContainerID: c.containerID,
 		LogContext:  logCtx,
 	})

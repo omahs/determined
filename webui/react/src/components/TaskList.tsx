@@ -5,6 +5,11 @@ import {
   SorterResult,
   TablePaginationConfig,
 } from 'antd/es/table/interface';
+import Button from 'hew/Button';
+import Icon from 'hew/Icon';
+import { useModal } from 'hew/Modal';
+import { ShirtSize, useTheme } from 'hew/Theme';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -12,9 +17,6 @@ import Badge, { BadgeType } from 'components/Badge';
 import FilterCounter from 'components/FilterCounter';
 import Grid from 'components/Grid';
 import JupyterLabButton from 'components/JupyterLabButton';
-import Button from 'components/kit/Button';
-import Icon from 'components/kit/Icon';
-import { ShirtSize } from 'components/kit/Theme';
 import Link from 'components/Link';
 import InteractiveTable, { ColumnDef } from 'components/Table/InteractiveTable';
 import {
@@ -57,14 +59,12 @@ import {
   Workspace,
 } from 'types';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { alphaNumericSorter, dateTimeStringSorter, numericSorter } from 'utils/sort';
 import { commandStateSorter, filterTasks, isTaskKillable, taskFromCommandTask } from 'utils/task';
 import { getDisplayName } from 'utils/user';
 
 import BatchActionConfirmModalComponent from './BatchActionConfirmModal';
-import { useModal } from './kit/Modal';
 import css from './TaskList.module.scss';
 import WorkspaceFilter from './WorkspaceFilter';
 
@@ -109,6 +109,10 @@ const TaskList: React.FC<Props> = ({ workspace }: Props) => {
   const canceler = useRef(new AbortController());
 
   const BatchActionConfirmModal = useModal(BatchActionConfirmModalComponent);
+
+  const {
+    themeSettings: { className: themeClass },
+  } = useTheme();
 
   const loadedTasks = useMemo(() => tasks?.map(taskFromCommandTask) || [], [tasks]);
 
@@ -468,7 +472,7 @@ const TaskList: React.FC<Props> = ({ workspace }: Props) => {
         })),
         isFiltered: (settings: Settings) => !!settings.workspace && !!settings.workspace.length,
         key: 'workspace',
-        render: (v: string, record: CommandTask) => taskWorkspaceRenderer(record, workspaces),
+        render: (_v: string, record: CommandTask) => taskWorkspaceRenderer(record, workspaces),
         sorter: (a: CommandTask, b: CommandTask): number =>
           alphaNumericSorter(
             workspaces.find((w) => w.id === a.workspaceId)?.name ?? '',
@@ -539,7 +543,7 @@ const TaskList: React.FC<Props> = ({ workspace }: Props) => {
   const handleTableChange = useCallback(
     (
       tablePagination: TablePaginationConfig,
-      tableFilters: Record<string, FilterValue | null>,
+      _tableFilters: Record<string, FilterValue | null>,
       tableSorter: SorterResult<CommandTask> | SorterResult<CommandTask>[],
     ) => {
       if (Array.isArray(tableSorter)) return;
@@ -655,6 +659,7 @@ const TaskList: React.FC<Props> = ({ workspace }: Props) => {
           ${sourcesModal?.sources.length}
           TensorBoard Source${sourcesModal?.plural}
         `}
+        wrapClassName={themeClass}
         onCancel={handleSourceDismiss}>
         <div className={css.sourceLinks}>
           <Grid gap={ShirtSize.Medium} minItemWidth={120}>

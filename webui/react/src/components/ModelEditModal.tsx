@@ -1,8 +1,8 @@
+import Form from 'hew/Form';
+import Input from 'hew/Input';
+import { Modal } from 'hew/Modal';
 import { useId } from 'react';
 
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import { Modal } from 'components/kit/Modal';
 import { patchModel } from 'services/api';
 import { ModelItem } from 'types';
 import handleError from 'utils/error';

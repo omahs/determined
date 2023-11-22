@@ -1,9 +1,9 @@
+import Button from 'hew/Button';
+import Dropdown, { DropdownEvent, MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Tooltip from 'hew/Tooltip';
 import React, { useCallback, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Dropdown, { DropdownEvent, MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
-import Tooltip from 'components/kit/Tooltip';
 import { isMouseEvent } from 'utils/routes';
 
 import css from './PageHeaderFoldable.module.scss';

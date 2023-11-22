@@ -4,6 +4,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/etc"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
@@ -28,6 +30,7 @@ import (
 // TestJobTaskAndAllocationAPI, in lieu of an ORM, ensures that the mappings into and out of the
 // database are total. We should look into an ORM in the near to medium term future.
 func TestJobTaskAndAllocationAPI(t *testing.T) {
+	ctx := context.Background()
 	require.NoError(t, etc.SetRootPath(RootFromDB))
 	db := MustResolveTestPostgres(t)
 	MustMigrateTestPostgres(t, db, MigrationsFromDB)
@@ -63,7 +66,7 @@ func TestJobTaskAndAllocationAPI(t *testing.T) {
 	require.NoError(t, err, "failed to add task")
 
 	// Retrieve it back and make sure the mapping is exhaustive.
-	tOut, err := db.TaskByID(tID)
+	tOut, err := TaskByID(ctx, tID)
 	require.NoError(t, err, "failed to retrieve task")
 	require.True(t, reflect.DeepEqual(tIn, tOut), pprintedExpect(tIn, tOut))
 
@@ -73,7 +76,7 @@ func TestJobTaskAndAllocationAPI(t *testing.T) {
 	require.NoError(t, err, "failed to mark task completed")
 
 	// Re-retrieve it back and make sure the mapping is still exhaustive.
-	tOut, err = db.TaskByID(tID)
+	tOut, err = TaskByID(ctx, tID)
 	require.NoError(t, err, "failed to re-retrieve task")
 	require.True(t, reflect.DeepEqual(tIn, tOut), pprintedExpect(tIn, tOut))
 
@@ -119,6 +122,52 @@ func TestJobTaskAndAllocationAPI(t *testing.T) {
 	aOut, err = db.AllocationByID(aIn.AllocationID)
 	require.NoError(t, err, "failed to re-retrieve allocation")
 	require.True(t, reflect.DeepEqual(aIn, aOut), pprintedExpect(aIn, aOut))
+}
+
+func TestRecordAndEndTaskStats(t *testing.T) {
+	require.NoError(t, etc.SetRootPath(RootFromDB))
+	db := MustResolveTestPostgres(t)
+	MustMigrateTestPostgres(t, db, MigrationsFromDB)
+
+	tID := model.NewTaskID()
+	require.NoError(t, db.AddTask(&model.Task{
+		TaskID:    tID,
+		TaskType:  model.TaskTypeTrial,
+		StartTime: time.Now().UTC().Truncate(time.Millisecond),
+	}), "failed to add task")
+
+	allocationID := model.AllocationID(tID + "allocationID")
+	require.NoError(t, db.AddAllocation(&model.Allocation{
+		TaskID:       tID,
+		AllocationID: allocationID,
+	}), "failed to add allocation")
+
+	var expected []*model.TaskStats
+	for i := 0; i < 3; i++ {
+		taskStats := &model.TaskStats{
+			AllocationID: allocationID,
+			EventType:    "IMAGEPULL",
+			ContainerID:  ptrs.Ptr(cproto.NewID()),
+			StartTime:    ptrs.Ptr(time.Now().Truncate(time.Millisecond)),
+		}
+		if i == 0 {
+			taskStats.ContainerID = nil
+		}
+		require.NoError(t, RecordTaskStatsBun(taskStats))
+
+		taskStats.EndTime = ptrs.Ptr(time.Now().Truncate(time.Millisecond))
+		require.NoError(t, RecordTaskEndStatsBun(taskStats))
+		expected = append(expected, taskStats)
+	}
+
+	var actual []*model.TaskStats
+	err := Bun().NewSelect().
+		Model(&actual).
+		Where("allocation_id = ?", allocationID).
+		Scan(context.TODO(), &actual)
+	require.NoError(t, err)
+
+	require.ElementsMatch(t, expected, actual)
 }
 
 func TestAllocationState(t *testing.T) {

@@ -1,4 +1,5 @@
-import { Modal } from 'components/kit/Modal';
+import { Modal } from 'hew/Modal';
+
 import { paths } from 'routes/utils';
 import { deleteModelVersion } from 'services/api';
 import { ModelVersion } from 'types';
@@ -10,7 +11,7 @@ interface Props {
 }
 
 const ModelVersionDeleteModal = ({ modelVersion }: Props): JSX.Element => {
-  const handleOk = async () => {
+  const handleOk = async (): Promise<void> => {
     if (!modelVersion) return Promise.reject();
 
     try {

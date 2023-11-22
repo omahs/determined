@@ -1,14 +1,14 @@
+import Form from 'hew/Form';
+import Input from 'hew/Input';
+import InputNumber from 'hew/InputNumber';
+import { Modal } from 'hew/Modal';
+import Spinner from 'hew/Spinner';
+import { useToast } from 'hew/Toast';
 import React, { useEffect, useId, useState } from 'react';
 
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import InputNumber from 'components/kit/InputNumber';
-import { Modal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
 import { patchUser } from 'services/api';
 import { V1AgentUserGroup } from 'services/api-ts-sdk';
 import { DetailedUser } from 'types';
-import { message } from 'utils/dialogApi';
 import handleError, { ErrorType } from 'utils/error';
 
 const FORM_ID = 'configure-agent-form';
@@ -24,7 +24,7 @@ const ConfigureAgentModalComponent: React.FC<Props> = ({ user, onClose }: Props)
   const idPrefix = useId();
   const [form] = Form.useForm();
   const [disabled, setDisabled] = useState<boolean>(true);
-
+  const { openToast } = useToast();
   const handleFieldsChange = () => {
     const values = form.getFieldsValue();
     const missingRequiredFields = requiredFields.map((rf) => values[rf]).some((v) => v == null);
@@ -41,7 +41,7 @@ const ConfigureAgentModalComponent: React.FC<Props> = ({ user, onClose }: Props)
       await patchUser({ userId: user.id, userParams: formData });
       onClose?.();
     } catch (e) {
-      message.error('Error configuring agent');
+      openToast({ severity: 'Error', title: 'Error configuring agent' });
       handleError(e, { silent: true, type: ErrorType.Input });
 
       // Re-throw error to prevent modal from getting dismissed.
@@ -70,7 +70,7 @@ const ConfigureAgentModalComponent: React.FC<Props> = ({ user, onClose }: Props)
         handler: handleSubmit,
         text: 'Save',
       }}
-      title="Configure Agent"
+      title="Link with Agent UID/GID"
       onClose={form.resetFields}>
       <Spinner spinning={!user}>
         <Form

@@ -1,14 +1,13 @@
-import { Alert } from 'antd';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import ColorLegend from 'components/ColorLegend';
 import GalleryModal from 'components/GalleryModal';
 import Grid, { GridMode } from 'components/Grid';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
-import Message, { MessageType } from 'components/Message';
 import MetricBadgeTag from 'components/MetricBadgeTag';
 import Section from 'components/Section';
+import useUI from 'components/ThemeProvider';
 import { FacetedData, UPlotScatterProps } from 'components/UPlot/types';
 import UPlotScatter from 'components/UPlot/UPlotScatter';
 import { terminalRunStates } from 'constants/states';
@@ -21,7 +20,6 @@ import {
   HyperparameterType,
   Metric,
   MetricType,
-  metricTypeParamMap,
   Primitive,
   Range,
   Scale,
@@ -133,10 +131,10 @@ const HpHeatMaps: React.FC<Props> = ({
         const xScaleKey = isXCategorical ? 'xCategorical' : isXLogarithmic ? 'xLog' : 'x';
         const yScaleKey = isYCategorical ? 'yCategorical' : isYLogarithmic ? 'yLog' : 'y';
         const xSplits = isXCategorical
-          ? new Array(xHpLabels.length).fill(0).map((x, i) => i)
+          ? new Array(xHpLabels.length).fill(0).map((_x, i) => i)
           : undefined;
         const ySplits = isYCategorical
-          ? new Array(yHpLabels.length).fill(0).map((x, i) => i)
+          ? new Array(yHpLabels.length).fill(0).map((_x, i) => i)
           : undefined;
         const xValues = isXCategorical ? xHpLabels : undefined;
         const yValues = isYCategorical ? yHpLabels : undefined;
@@ -227,8 +225,8 @@ const HpHeatMaps: React.FC<Props> = ({
         experiment.id,
         selectedMetric.name,
         selectedBatch,
-        metricTypeParamMap[selectedMetric.group],
-        undefined, // custom metric group
+        undefined,
+        selectedMetric.group,
         selectedBatchMargin,
         undefined,
         { signal: canceler.signal },
@@ -339,12 +337,12 @@ const HpHeatMaps: React.FC<Props> = ({
     return <Message title={pageError.message} />;
   } else if ((hasLoaded && !chartData) || !selectedMetric) {
     return isExperimentTerminal ? (
-      <Message title="No data to plot." type={MessageType.Empty} />
+      <Message icon="warning" title="No data to plot." />
     ) : (
       <div>
-        <Alert
+        <Message
           description="Please wait until the experiment is further along."
-          message="Not enough data points to plot."
+          title="Not enough data points to plot."
         />
         <Spinner spinning />
       </div>
@@ -387,7 +385,7 @@ const HpHeatMaps: React.FC<Props> = ({
               </div>
             </>
           ) : (
-            <Message title="No data to plot." type={MessageType.Empty} />
+            <Message icon="warning" title="No data to plot." />
           )}
         </div>
       </Section>

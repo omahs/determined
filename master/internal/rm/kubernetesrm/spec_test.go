@@ -1,4 +1,4 @@
-//nolint:exhaustivestruct
+//nolint:exhaustruct
 package kubernetesrm
 
 import (
@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/determined-ai/determined/master/internal/sproto"
 	"github.com/determined-ai/determined/master/pkg/device"
 	"github.com/determined-ai/determined/master/pkg/model"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
@@ -64,14 +65,11 @@ func TestAddNodeDisabledAffinityToPodSpec(t *testing.T) {
 		actualList := p.Spec.Affinity.
 			NodeAffinity.
 			RequiredDuringSchedulingIgnoredDuringExecution.
-			NodeSelectorTerms
-		expectedItem := k8sV1.NodeSelectorTerm{
-			MatchExpressions: []k8sV1.NodeSelectorRequirement{
-				{
-					Key:      "cluster-id",
-					Operator: k8sV1.NodeSelectorOpDoesNotExist,
-				},
-			},
+			NodeSelectorTerms[0].
+			MatchExpressions
+		expectedItem := k8sV1.NodeSelectorRequirement{
+			Key:      "cluster-id",
+			Operator: k8sV1.NodeSelectorOpDoesNotExist,
 		}
 		require.Contains(t, actualList, expectedItem)
 	}
@@ -105,13 +103,9 @@ func TestAddNodeDisabledAffinityToPodSpec(t *testing.T) {
 	hasDisabledLabel(p)
 	require.Len(t, p.Spec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, 7)
 
-	nodeSelectorTerm := k8sV1.NodeSelectorTerm{
-		MatchExpressions: []k8sV1.NodeSelectorRequirement{
-			{
-				Key:      "other-id",
-				Operator: k8sV1.NodeSelectorOpDoesNotExist,
-			},
-		},
+	nodeSelectorTerm := k8sV1.NodeSelectorRequirement{
+		Key:      "other-id",
+		Operator: k8sV1.NodeSelectorOpDoesNotExist,
 	}
 	p = &k8sV1.Pod{
 		Spec: k8sV1.PodSpec{
@@ -119,7 +113,11 @@ func TestAddNodeDisabledAffinityToPodSpec(t *testing.T) {
 				NodeAffinity: &k8sV1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &k8sV1.NodeSelector{
 						NodeSelectorTerms: []k8sV1.NodeSelectorTerm{
-							nodeSelectorTerm,
+							{
+								MatchExpressions: []k8sV1.NodeSelectorRequirement{
+									nodeSelectorTerm,
+								},
+							},
 						},
 					},
 				},
@@ -131,7 +129,50 @@ func TestAddNodeDisabledAffinityToPodSpec(t *testing.T) {
 	require.Contains(t, p.Spec.Affinity.
 		NodeAffinity.
 		RequiredDuringSchedulingIgnoredDuringExecution.
-		NodeSelectorTerms, nodeSelectorTerm)
+		NodeSelectorTerms[0].
+		MatchExpressions, nodeSelectorTerm)
+
+	// Test idempotency.
+	copy := p.DeepCopy()
+	addNodeDisabledAffinityToPodSpec(p, "cluster-id")
+	addNodeDisabledAffinityToPodSpec(p, "cluster-id")
+	require.Equal(t, copy, p)
+}
+
+func TestAddDisallowedNodesToPodSpec(t *testing.T) {
+	p := &k8sV1.Pod{}
+	addNodeDisabledAffinityToPodSpec(p, "cluster-id")
+
+	copy := p.DeepCopy()
+
+	// No block list adds anything.
+	addDisallowedNodesToPodSpec(&sproto.AllocateRequest{
+		BlockedNodes: nil,
+	}, p)
+	require.Equal(t, copy, p)
+
+	addDisallowedNodesToPodSpec(&sproto.AllocateRequest{
+		BlockedNodes: []string{"a1", "a2"},
+	}, p)
+
+	expectedA1 := k8sV1.NodeSelectorRequirement{
+		Key:      "metadata.name",
+		Operator: k8sV1.NodeSelectorOpNotIn,
+		Values:   []string{"a1"},
+	}
+	expectedA2 := k8sV1.NodeSelectorRequirement{
+		Key:      "metadata.name",
+		Operator: k8sV1.NodeSelectorOpNotIn,
+		Values:   []string{"a2"},
+	}
+
+	for _, e := range []k8sV1.NodeSelectorRequirement{expectedA1, expectedA2} {
+		require.Contains(t, p.Spec.Affinity.
+			NodeAffinity.
+			RequiredDuringSchedulingIgnoredDuringExecution.
+			NodeSelectorTerms[0].
+			MatchFields, e)
+	}
 }
 
 func TestLaterEnvironmentVariablesGetSet(t *testing.T) {

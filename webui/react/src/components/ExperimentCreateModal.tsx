@@ -1,13 +1,14 @@
-import { Alert } from 'antd';
+import Button from 'hew/Button';
+import Form, { hasErrors } from 'hew/Form';
+import Input from 'hew/Input';
+import Message from 'hew/Message';
+import { Modal } from 'hew/Modal';
+import Spinner from 'hew/Spinner';
+import { Loaded } from 'hew/utils/loadable';
 import yaml from 'js-yaml';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useId, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Form, { hasErrors } from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import { Modal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
 import { paths } from 'routes/utils';
 import { createExperiment } from 'services/api';
 import { V1LaunchWarning } from 'services/api-ts-sdk';
@@ -21,7 +22,6 @@ import handleError, {
   isError,
 } from 'utils/error';
 import { trialHParamsToExperimentHParams, upgradeConfig } from 'utils/experiment';
-import { Loaded } from 'utils/loadable';
 import { routeToReactUrl } from 'utils/routes';
 
 export const FULL_CONFIG_BUTTON_TEXT = 'Show Full Config';
@@ -96,7 +96,7 @@ const trialContinueConfig = (
   };
 };
 
-const CodeEditor = React.lazy(() => import('components/kit/CodeEditor'));
+const CodeEditor = React.lazy(() => import('hew/CodeEditor'));
 
 const DEFAULT_MODAL_STATE = {
   config: {},
@@ -134,7 +134,9 @@ const ExperimentCreateModalComponent = ({
     setModalState((prev) => {
       if (prev.error) return { ...prev, error: undefined };
       const values = form.getFieldsValue();
-      prev.config.name = values[EXPERIMENT_NAME];
+      if (!prev.isAdvancedMode) {
+        prev.config.name = values[EXPERIMENT_NAME];
+      }
       if (values[MAX_LENGTH]) {
         const maxLengthType = getMaxLengthType(prev.config);
         if (maxLengthType) {
@@ -164,7 +166,7 @@ const ExperimentCreateModalComponent = ({
 
       // Validate the yaml syntax by attempting to load it.
       try {
-        yaml.load(newConfigString);
+        newModalState.config = yaml.load(newConfigString) as RawJson;
         newModalState.configError = undefined;
         newModalState.error = undefined;
       } catch (e) {
@@ -213,9 +215,6 @@ const ExperimentCreateModalComponent = ({
       const formValues = form.getFieldsValue();
       const newConfig = structuredClone(config);
 
-      if (formValues[EXPERIMENT_NAME]) {
-        newConfig.name = formValues[EXPERIMENT_NAME];
-      }
       if (formValues[MAX_LENGTH]) {
         const maxLengthType = getMaxLengthType(newConfig);
         if (maxLengthType === undefined) {
@@ -240,7 +239,6 @@ const ExperimentCreateModalComponent = ({
           activate: true,
           experimentConfig: newConfig,
           parentId: modalState.experiment.id,
-          projectId: modalState.experiment.projectId,
         });
         const currentSlotsExceeded = warnings
           ? warnings.includes(V1LaunchWarning.CURRENTSLOTSEXCEEDED)
@@ -367,9 +365,9 @@ const ExperimentCreateModalComponent = ({
       title={titleLabel}
       onClose={handleModalClose}>
       <>
-        {modalState.error && <Alert message={modalState.error} type="error" />}
+        {modalState.error && <Message icon="error" title={modalState.error} />}
         {modalState.configError && modalState.isAdvancedMode && (
-          <Alert message={modalState.configError} type="error" />
+          <Message icon="error" title={modalState.configError} />
         )}
         {modalState.isAdvancedMode && (
           <React.Suspense fallback={<Spinner spinning tip="Loading text editor..." />}>
@@ -403,7 +401,7 @@ const ExperimentCreateModalComponent = ({
               rules={[
                 {
                   required: true,
-                  validator: (rule, value) => {
+                  validator: (_rule, value) => {
                     let errorMessage = '';
                     if (!value) errorMessage = 'Please provide a max length.';
                     if (value < 1) errorMessage = 'Max length must be at least 1.';

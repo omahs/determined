@@ -4,28 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/logger"
 	"github.com/determined-ai/determined/master/pkg/model"
-)
-
-// Message protocol from an agent actor to the default resource manager.
-type (
-	// AddAgent adds the agent to the cluster.
-	AddAgent struct {
-		Agent *actor.Ref
-		Slots int
-	}
-	// RemoveAgent removes the agent from the cluster.
-	RemoveAgent struct {
-		Agent *actor.Ref
-	}
-	// UpdateAgent notifies the RP on scheduling-related changes in the agent.
-	UpdateAgent struct {
-		Agent *actor.Ref
-	}
 )
 
 // Message protocol from the default resource manager to an agent actor.
@@ -111,4 +93,13 @@ func (t TerminateDecision) String() string {
 		item = append(item, fmt.Sprintf("%s (reason: %s)", id, reason))
 	}
 	return strings.Join(item, ",")
+}
+
+// ValidateResourcePoolAvailabilityRequest contains the params for ValidateResourcePoolAvailability().
+type ValidateResourcePoolAvailabilityRequest struct {
+	Name  string
+	Slots int
+	// Optional. If it is provided, ValidateResourcePoolAvailability() validates resource pool
+	// availability for a specific task.
+	TaskID *model.TaskID
 }

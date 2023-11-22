@@ -1,25 +1,25 @@
 import { Modal, Tag, Typography } from 'antd';
+import Message from 'hew/Message';
+import Select, { Option, SelectValue } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import { useTheme } from 'hew/Theme';
+import { Loadable } from 'hew/utils/loadable';
+import usePrevious from 'hew/utils/usePrevious';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Badge, { BadgeType } from 'components/Badge';
 import HumanReadableNumber from 'components/HumanReadableNumber';
-import { XOR } from 'components/kit/internal/types';
-import usePrevious from 'components/kit/internal/usePrevious';
-import Select, { Option, SelectValue } from 'components/kit/Select';
-import Spinner from 'components/kit/Spinner';
 import Link from 'components/Link';
-import Message from 'components/Message';
 import MetricBadgeTag from 'components/MetricBadgeTag';
 import MetricSelect from 'components/MetricSelect';
 import useMetricNames from 'hooks/useMetricNames';
 import useResize from 'hooks/useResize';
 import { paths } from 'routes/utils';
 import { getTrialDetails } from 'services/api';
-import { ExperimentItem, Metric, MetricSummary, Primitive, TrialDetails } from 'types';
+import { ExperimentItem, Metric, MetricSummary, Primitive, TrialDetails, XOR } from 'types';
 import { isNumber } from 'utils/data';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { humanReadableBytes, pluralizer } from 'utils/string';
 
 import css from './TrialsComparisonModal.module.scss';
@@ -50,6 +50,9 @@ const TrialsComparisonModal: React.FC<ModalProps> = ({
   ...props
 }: ModalProps) => {
   const resize = useResize();
+  const {
+    themeSettings: { className: themeClass },
+  } = useTheme();
 
   useEffect(() => {
     if (props.trialIds?.length === 0 || props.trials?.length === 0) onCancel();
@@ -67,6 +70,7 @@ const TrialsComparisonModal: React.FC<ModalProps> = ({
           : 'Trial Comparison'
       }
       width={resize.width * 0.9}
+      wrapClassName={themeClass}
       onCancel={onCancel}>
       <TrialsComparisonTable {...props} />
     </Modal>

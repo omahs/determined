@@ -1,10 +1,9 @@
+import Button from 'hew/Button';
+import Dropdown from 'hew/Dropdown';
+import Form, { FormListFieldData } from 'hew/Form';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
 import React, { useCallback } from 'react';
-
-import Button from 'components/kit/Button';
-import Dropdown from 'components/kit/Dropdown';
-import Form, { FormListFieldData } from 'components/kit/Form';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
 
 import css from './EditableRow.module.scss';
 

@@ -72,6 +72,18 @@ export const patchUser = generateDetApi<
   Type.DetailedUser
 >(Config.patchUser);
 
+export const patchUsers = generateDetApi<
+  Service.PatchUsersParams,
+  Api.V1PatchUsersResponse,
+  Api.V1PatchUsersResponse
+>(Config.patchUsers);
+
+export const assignMultipleGroups = generateDetApi<
+  Api.V1AssignMultipleGroupsRequest,
+  Api.V1AssignMultipleGroupsResponse,
+  Api.V1AssignMultipleGroupsResponse
+>(Config.assignMultipleGroups);
+
 export const getUserSetting = generateDetApi<
   EmptyParams,
   Api.V1GetUserSettingResponse,
@@ -153,7 +165,7 @@ export const listRoles = generateDetApi<
 >(Config.listRoles);
 
 export const assignRolesToGroup = generateDetApi<
-  Service.AssignRolesToGroupParams,
+  Service.AssignRolesToGroupParams[],
   Api.V1AssignRolesResponse,
   Api.V1AssignRolesResponse
 >(Config.assignRolesToGroup);
@@ -165,7 +177,7 @@ export const removeRolesFromGroup = generateDetApi<
 >(Config.removeRolesFromGroup);
 
 export const assignRolesToUser = generateDetApi<
-  Service.AssignRolesToUserParams,
+  Service.AssignRolesToUserParams[],
   Api.V1AssignRolesResponse,
   Api.V1AssignRolesResponse
 >(Config.assignRolesToUser);
@@ -500,7 +512,7 @@ export const patchModel = generateDetApi<
 export const getModelDetails = generateDetApi<
   Service.GetModelDetailsParams,
   Api.V1GetModelVersionsResponse,
-  Type.ModelVersions | undefined
+  Type.ModelWithVersions | undefined
 >(Config.getModelDetails);
 
 export const getModelVersion = generateDetApi<
@@ -754,6 +766,30 @@ export const killTensorBoard = generateDetApi<
   Api.V1KillTensorboardResponse,
   void
 >(Config.killTensorBoard);
+
+export const getJupyterLab = generateDetApi<
+  Service.CommandIdParams,
+  Api.V1GetNotebookResponse,
+  Type.CommandTask
+>(Config.getJupyterLab);
+
+export const getShell = generateDetApi<
+  Service.CommandIdParams,
+  Api.V1GetShellResponse,
+  Type.CommandTask
+>(Config.getShell);
+
+export const getTensorBoard = generateDetApi<
+  Service.CommandIdParams,
+  Api.V1GetTensorboardResponse,
+  Type.CommandTask
+>(Config.getTensorBoard);
+
+export const getCommand = generateDetApi<
+  Service.CommandIdParams,
+  Api.V1GetCommandResponse,
+  Type.CommandTask
+>(Config.getCommand);
 
 export const getTaskTemplates = generateDetApi<
   Service.GetTemplatesParams,

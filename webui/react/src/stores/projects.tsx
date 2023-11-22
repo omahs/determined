@@ -1,9 +1,9 @@
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import { Map } from 'immutable';
 
 import { getWorkspaceProjects } from 'services/api';
 import { Project } from 'types';
 import handleError from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { Observable, observable, WritableObservable } from 'utils/observable';
 
 class ProjectStore {

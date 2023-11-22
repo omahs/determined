@@ -1,6 +1,6 @@
+import Button from 'hew/Button';
 import React from 'react';
 
-import Button from 'components/kit/Button';
 interface Props {
   activeFilterCount: number;
   onReset: () => void;

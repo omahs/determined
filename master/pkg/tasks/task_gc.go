@@ -37,7 +37,7 @@ func (g GCCkptSpec) ToTaskSpec() TaskSpec {
 	// Set Environment.
 	// Keep only the EnvironmentVariables provided by the experiment's config.
 	envVars := g.LegacyConfig.Environment.EnvironmentVariables()
-	//nolint:exhaustivestruct // This has caused an issue before, but is valid as a partial struct.
+	//nolint:exhaustruct // This has caused an issue before, but is valid as a partial struct.
 	env := expconf.EnvironmentConfig{
 		RawEnvironmentVariables: &envVars,
 		RawPodSpec:              g.LegacyConfig.Environment.PodSpec(),
@@ -106,9 +106,13 @@ func (g GCCkptSpec) ToTaskSpec() TaskSpec {
 		"--experiment-id",
 		strconv.Itoa(g.ExperimentID),
 		"--storage-config", fmt.Sprintf("/run/determined/%s", storageConfigPath),
-		"--delete", fmt.Sprintf("/run/determined/%s", checkpointsToDeletePath),
-		"--globs", fmt.Sprintf("/run/determined/%s", checkpointsGlobsPath),
 	}
+
+	if len(g.ToDelete) > 0 {
+		res.Entrypoint = append(res.Entrypoint, "--delete", fmt.Sprintf("/run/determined/%s", checkpointsToDeletePath))
+		res.Entrypoint = append(res.Entrypoint, "--globs", fmt.Sprintf("/run/determined/%s", checkpointsGlobsPath))
+	}
+
 	if g.DeleteTensorboards {
 		res.Entrypoint = append(res.Entrypoint, "--delete-tensorboards")
 	}

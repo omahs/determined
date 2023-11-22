@@ -6,14 +6,14 @@ import {
   Theme as GTheme,
   SizedGridColumn,
 } from '@hpe.com/glide-data-grid';
+import { getColor, getInitials } from 'hew/Avatar';
+import { Theme } from 'hew/Theme';
+import { Loadable } from 'hew/utils/loadable';
 
-import { getColor, getInitials } from 'components/Avatar';
-import { DarkLight, Theme } from 'components/kit/Theme';
 import { paths } from 'routes/utils';
 import { DetailedUser, ExperimentWithTrial, ProjectColumn } from 'types';
 import { getPath, isString } from 'utils/data';
 import { formatDatetime } from 'utils/datetime';
-import { Loadable } from 'utils/loadable';
 import { humanReadableNumber } from 'utils/number';
 import { floatToPercent, humanReadableBytes } from 'utils/string';
 import { getDisplayName } from 'utils/user';
@@ -89,14 +89,14 @@ interface Params {
   appTheme: Theme;
   columnWidths: Record<string, number>;
   rowSelection: CompactSelection;
-  darkLight: DarkLight;
+  themeIsDark: boolean;
   users: Loadable<DetailedUser[]>;
   selectAll: boolean;
 }
 export const getColumnDefs = ({
   columnWidths,
   rowSelection,
-  darkLight,
+  themeIsDark,
   users,
   selectAll,
   appTheme,
@@ -404,8 +404,8 @@ export const getColumnDefs = ({
     id: 'user',
     renderer: (record: ExperimentWithTrial) => {
       const displayName = Loadable.match(users, {
+        _: () => undefined,
         Loaded: (users) => getDisplayName(users?.find((u) => u.id === record.experiment.userId)),
-        NotLoaded: () => undefined,
       });
       return {
         allowOverlay: true,
@@ -414,7 +414,7 @@ export const getColumnDefs = ({
           image: undefined,
           initials: getInitials(displayName),
           kind: 'user-profile-cell',
-          tint: getColor(displayName, darkLight),
+          tint: getColor(displayName, themeIsDark),
         },
         kind: GridCellKind.Custom,
       };
@@ -422,8 +422,8 @@ export const getColumnDefs = ({
     title: 'User',
     tooltip: (record: ExperimentWithTrial) => {
       return Loadable.match(users, {
+        _: () => undefined,
         Loaded: (users) => getDisplayName(users?.find((u) => u.id === record.experiment.userId)),
-        NotLoaded: () => undefined,
       });
     },
     width: columnWidths.user,
@@ -588,7 +588,7 @@ export const defaultColumnWidths: Record<ExperimentColumn, number> = {
 
 // TODO: use theme here
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getHeaderIcons = (appTheme: Theme): DataEditorProps['headerIcons'] => ({
+export const getHeaderIcons = (_appTheme: Theme): DataEditorProps['headerIcons'] => ({
   allSelected: () => `
     <svg width="16" height="16" viewBox="-1 -1 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="0.5" y="0.5" width="13" height="13" rx="3" fill="#D9D9D9" fill-opacity="0.05" stroke="#454545"/>

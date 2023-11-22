@@ -7,7 +7,6 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/aproto"
 	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/device"
@@ -34,8 +33,6 @@ type (
 		IsUserVisible bool
 		State         SchedulingState
 		Name          string
-		// Allocation actor
-		Group *actor.Ref
 
 		// Resource configuration.
 		SlotsNeeded         int
@@ -51,6 +48,8 @@ type (
 
 		// Logging context of the allocation actor.
 		LogContext logger.Context
+
+		BlockedNodes []string
 	}
 
 	// IdleTimeoutConfig configures how idle timeouts should behave.
@@ -137,7 +136,7 @@ func (*ReleaseResources) ResourcesEvent() {}
 func (*ResourcesStateChanged) ResourcesEvent() {}
 
 // ResourcesEvent implements ResourcesEvent.
-func (*ResourcesFailure) ResourcesEvent() {}
+func (*ResourcesFailureError) ResourcesEvent() {}
 
 // ResourcesEvent implements ResourcesEvent.
 func (*ContainerLog) ResourcesEvent() {}
@@ -373,8 +372,8 @@ func (s ResourcesSummary) Slots() int {
 // to start tasks on assigned resources.
 type Resources interface {
 	Summary() ResourcesSummary
-	Start(*actor.System, logger.Context, tasks.TaskSpec, ResourcesRuntimeInfo) error
-	Kill(*actor.System, logger.Context)
+	Start(logger.Context, tasks.TaskSpec, ResourcesRuntimeInfo) error
+	Kill(logger.Context)
 }
 
 // ResourceList is a wrapper for a list of resources.

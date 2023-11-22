@@ -1,7 +1,8 @@
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 
-import { UIProvider } from 'components/kit/Theme';
+import { ThemeProvider } from 'components/ThemeProvider';
 import { generateAlphaNumeric } from 'utils/string';
 
 import BadgeTag, { Props } from './BadgeTag';
@@ -10,14 +11,16 @@ const LABEL = generateAlphaNumeric();
 const CONTENT = generateAlphaNumeric();
 const CONTENT_TOOLTIP = generateAlphaNumeric();
 
-vi.mock('components/kit/Tooltip');
+vi.mock('hew/Tooltip');
 
 const setup = ({ children = CONTENT, tooltip = CONTENT_TOOLTIP, ...props }: Props = {}) => {
   const view = render(
-    <UIProvider>
-      <BadgeTag tooltip={tooltip} {...props}>
-        {children}
-      </BadgeTag>
+    <UIProvider theme={DefaultTheme.Light}>
+      <ThemeProvider>
+        <BadgeTag tooltip={tooltip} {...props}>
+          {children}
+        </BadgeTag>
+      </ThemeProvider>
     </UIProvider>,
   );
   return { view };

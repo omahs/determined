@@ -1,4 +1,13 @@
 import { Space } from 'antd';
+import Button from 'hew/Button';
+import Column from 'hew/Column';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon, { IconName } from 'hew/Icon';
+import { useModal } from 'hew/Modal';
+import Row from 'hew/Row';
+import { useToast } from 'hew/Toast';
+import Tooltip from 'hew/Tooltip';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useMemo, useState } from 'react';
 
 import BatchActionConfirmModalComponent from 'components/BatchActionConfirmModal';
@@ -6,12 +15,6 @@ import ExperimentMoveModalComponent from 'components/ExperimentMoveModal';
 import ExperimentTensorBoardModal from 'components/ExperimentTensorBoardModal';
 import { FilterFormStore } from 'components/FilterForm/components/FilterFormStore';
 import TableFilter from 'components/FilterForm/TableFilter';
-import Button from 'components/kit/Button';
-import { Column, Columns } from 'components/kit/Columns';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon, { IconName } from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
-import Tooltip from 'components/kit/Tooltip';
 import useMobile from 'hooks/useMobile';
 import usePermissions from 'hooks/usePermissions';
 import {
@@ -33,14 +36,12 @@ import {
   ProjectColumn,
   ProjectExperiment,
 } from 'types';
-import { notification } from 'utils/dialogApi';
 import handleError, { ErrorLevel } from 'utils/error';
 import {
   canActionExperiment,
   getActionsForExperimentsUnion,
   getProjectExperimentForExperimentItem,
 } from 'utils/experiment';
-import { Loadable } from 'utils/loadable';
 import { pluralizer } from 'utils/string';
 import { openCommandResponse } from 'utils/wait';
 
@@ -139,9 +140,8 @@ const TableActionBar: React.FC<Props> = ({
   const ExperimentMoveModal = useModal(ExperimentMoveModalComponent);
   const { Component: ExperimentTensorBoardModalComponent, open: openExperimentTensorBoardModal } =
     useModal(ExperimentTensorBoardModal);
-  const totalExperiments = Loadable.getOrElse(0, total);
   const isMobile = useMobile();
-
+  const { openToast } = useToast();
   const experimentIds = useMemo(() => Array.from(selectedExperimentIds), [selectedExperimentIds]);
 
   const experimentMap = useMemo(() => {
@@ -155,7 +155,10 @@ const TableActionBar: React.FC<Props> = ({
   }, [experiments, project]);
 
   const selectedExperiments = useMemo(
-    () => Array.from(selectedExperimentIds).map((id) => experimentMap[id]),
+    () =>
+      Array.from(selectedExperimentIds).flatMap((id) =>
+        id in experimentMap ? [experimentMap[id]] : [],
+      ),
     [experimentMap, selectedExperimentIds],
   );
 
@@ -229,8 +232,6 @@ const TableActionBar: React.FC<Props> = ({
     [onActionComplete, onActionSuccess],
   );
 
-  const closeNotification = useCallback(() => notification.destroy(), []);
-
   const submitBatchAction = useCallback(
     async (action: BatchAction) => {
       try {
@@ -243,39 +244,31 @@ const TableActionBar: React.FC<Props> = ({
         const numFailures = results.failed.length;
 
         if (numSuccesses === 0 && numFailures === 0) {
-          notification.open({
+          openToast({
             description: `No selected experiments were eligible for ${action.toLowerCase()}`,
-            message: 'No eligible experiments',
+            title: 'No eligible experiments',
           });
         } else if (numFailures === 0) {
-          notification.open({
-            btn: null,
-            description: (
-              <div onClick={closeNotification}>
-                <p>
-                  {action} succeeded for {results.successful.length} experiments
-                </p>
-              </div>
-            ),
-            message: `${action} Success`,
+          openToast({
+            closeable: true,
+            description: `${action} succeeded for ${results.successful.length} experiments`,
+            title: `${action} Success`,
           });
         } else if (numSuccesses === 0) {
-          notification.warning({
+          openToast({
             description: `Unable to ${action.toLowerCase()} ${numFailures} experiments`,
-            message: `${action} Failure`,
+            severity: 'Warning',
+            title: `${action} Failure`,
           });
         } else {
-          notification.warning({
-            description: (
-              <div onClick={closeNotification}>
-                <p>
-                  {action} succeeded for {numSuccesses} out of {numFailures + numSuccesses} eligible
-                  experiments
-                </p>
-              </div>
-            ),
-            key: 'move-notification',
-            message: `Partial ${action} Failure`,
+          openToast({
+            closeable: true,
+            description: `${action} succeeded for ${numSuccesses} out of ${
+              numFailures + numSuccesses
+            } eligible
+            experiments`,
+            severity: 'Warning',
+            title: `Partial ${action} Failure`,
           });
         }
       } catch (e) {
@@ -294,7 +287,7 @@ const TableActionBar: React.FC<Props> = ({
         onActionComplete?.();
       }
     },
-    [sendBatchActions, closeNotification, onActionComplete, onActionSuccess],
+    [sendBatchActions, onActionComplete, onActionSuccess, openToast],
   );
 
   const handleBatchAction = useCallback(
@@ -335,85 +328,92 @@ const TableActionBar: React.FC<Props> = ({
   }, [availableBatchActions]);
 
   const selectionLabel = useMemo(() => {
-    let label = `${totalExperiments.toLocaleString()} ${pluralizer(
-      totalExperiments,
-      'experiment',
-    )}`;
+    return Loadable.match(total, {
+      Failed: () => null,
+      Loaded: (totalExperiments) => {
+        let label = `${totalExperiments.toLocaleString()} ${pluralizer(
+          totalExperiments,
+          'experiment',
+        )}`;
 
-    if (selectAll) {
-      const all = !excludedExperimentIds?.size ? 'All ' : '';
-      const totalSelected = Loadable.isLoaded(total)
-        ? (total.data - (excludedExperimentIds?.size ?? 0)).toLocaleString() + ' '
-        : '';
-      label = `${all}${totalSelected}experiments selected`;
-    } else if (selectedExperimentIds.size > 0) {
-      label = `${selectedExperimentIds.size} of ${label} selected`;
-    }
+        if (selectAll) {
+          const all = !excludedExperimentIds?.size ? 'All ' : '';
+          const totalSelected =
+            (totalExperiments - (excludedExperimentIds?.size ?? 0)).toLocaleString() + ' ';
+          label = `${all}${totalSelected}experiments selected`;
+        } else if (selectedExperimentIds.size > 0) {
+          label = `${selectedExperimentIds.size} of ${label} selected`;
+        }
 
-    return label;
-  }, [excludedExperimentIds, selectAll, selectedExperimentIds, total, totalExperiments]);
+        return label;
+      },
+      NotLoaded: () => 'Loading experiments...',
+    });
+  }, [excludedExperimentIds, selectAll, selectedExperimentIds, total]);
 
   const handleAction = useCallback((key: string) => handleBatchAction(key), [handleBatchAction]);
 
   return (
-    <Columns>
-      <Column>
-        <Space className={css.base}>
-          <TableFilter
-            formStore={formStore}
-            isMobile={isMobile}
-            isOpenFilter={isOpenFilter}
-            loadableColumns={projectColumns}
-            onIsOpenFilterChange={onIsOpenFilterChange}
-          />
-          <MultiSortMenu
-            columns={projectColumns}
-            isMobile={isMobile}
-            sorts={sorts}
-            onChange={onSortChange}
-          />
-          <ColumnPickerMenu
-            initialVisibleColumns={initialVisibleColumns}
-            isMobile={isMobile}
-            projectColumns={projectColumns}
-            projectId={project.id}
-            onVisibleColumnChange={onVisibleColumnChange}
-          />
-          <OptionsMenu
-            rowHeight={rowHeight}
-            tableViewMode={tableViewMode}
-            onRowHeightChange={onRowHeightChange}
-            onTableViewModeChange={onTableViewModeChange}
-          />
-          {(selectAll || selectedExperimentIds.size > 0) && (
-            <Dropdown menu={editMenuItems} onClick={handleAction}>
-              <Button hideChildren={isMobile}>Actions</Button>
-            </Dropdown>
-          )}
-          {!isMobile && <span className={css.expNum}>{selectionLabel}</span>}
-        </Space>
-      </Column>
-      <Column align="right">
-        <Columns>
-          {heatmapBtnVisible && (
-            <Tooltip content={'Toggle Metric Heatmap'}>
+    <>
+      <Row>
+        <Column>
+          <Space className={css.base}>
+            <TableFilter
+              formStore={formStore}
+              isMobile={isMobile}
+              isOpenFilter={isOpenFilter}
+              loadableColumns={projectColumns}
+              onIsOpenFilterChange={onIsOpenFilterChange}
+            />
+            <MultiSortMenu
+              columns={projectColumns}
+              isMobile={isMobile}
+              sorts={sorts}
+              onChange={onSortChange}
+            />
+            <ColumnPickerMenu
+              initialVisibleColumns={initialVisibleColumns}
+              isMobile={isMobile}
+              projectColumns={projectColumns}
+              projectId={project.id}
+              onVisibleColumnChange={onVisibleColumnChange}
+            />
+            <OptionsMenu
+              rowHeight={rowHeight}
+              tableViewMode={tableViewMode}
+              onRowHeightChange={onRowHeightChange}
+              onTableViewModeChange={onTableViewModeChange}
+            />
+            {(selectAll || selectedExperimentIds.size > 0) && (
+              <Dropdown menu={editMenuItems} onClick={handleAction}>
+                <Button hideChildren={isMobile}>Actions</Button>
+              </Dropdown>
+            )}
+            {!isMobile && <span className={css.expNum}>{selectionLabel}</span>}
+          </Space>
+        </Column>
+        <Column align="right">
+          <Row>
+            {heatmapBtnVisible && (
+              <Tooltip content={'Toggle Metric Heatmap'}>
+                <Button
+                  icon={<Icon name="heatmap" title="heatmap" />}
+                  type={heatmapOn ? 'primary' : 'default'}
+                  onClick={() => onHeatmapToggle?.(heatmapOn)}
+                />
+              </Tooltip>
+            )}
+            {!!onComparisonViewToggle && (
               <Button
-                icon={<Icon name="heatmap" title="heatmap" />}
-                type={heatmapOn ? 'primary' : 'default'}
-                onClick={() => onHeatmapToggle?.(heatmapOn)}
-              />
-            </Tooltip>
-          )}
-          {!!onComparisonViewToggle && (
-            <Button
-              hideChildren={isMobile}
-              icon={<Icon name={compareViewOn ? 'panel-on' : 'panel'} title="compare" />}
-              onClick={onComparisonViewToggle}>
-              Compare
-            </Button>
-          )}
-        </Columns>
-      </Column>
+                hideChildren={isMobile}
+                icon={<Icon name={compareViewOn ? 'panel-on' : 'panel'} title="compare" />}
+                onClick={onComparisonViewToggle}>
+                Compare
+              </Button>
+            )}
+          </Row>
+        </Column>
+      </Row>
       {batchAction && (
         <BatchActionConfirmModal.Component
           batchAction={batchAction}
@@ -438,7 +438,7 @@ const TableActionBar: React.FC<Props> = ({
         selectedExperiments={selectedExperiments}
         workspaceId={project?.workspaceId}
       />
-    </Columns>
+    </>
   );
 };
 

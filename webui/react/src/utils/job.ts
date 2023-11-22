@@ -1,4 +1,5 @@
-import { IconName } from 'components/kit/Icon';
+import { IconName } from 'hew/Icon';
+
 import { updateJobQueue } from 'services/api';
 import * as Api from 'services/api-ts-sdk';
 import { CommandType, Job, JobType, ResourcePool } from 'types';

@@ -2,11 +2,20 @@ package agentrm
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/determined-ai/determined/master/internal/sproto"
 )
 
-// Hard Constraints
+const (
+	best  = "best"
+	worst = "worst"
+)
+
+// Hard Constraints.
+func agentPermittedSatisfied(req *sproto.AllocateRequest, agent *agentState) bool {
+	return !slices.Contains(req.BlockedNodes, string(agent.id))
+}
 
 func slotsSatisfied(req *sproto.AllocateRequest, agent *agentState) bool {
 	return req.SlotsNeeded <= agent.numEmptySlots()

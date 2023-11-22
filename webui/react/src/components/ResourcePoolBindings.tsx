@@ -1,9 +1,10 @@
+import Avatar, { Size } from 'hew/Avatar';
+import Button from 'hew/Button';
+import { useModal } from 'hew/Modal';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
-import DynamicIcon from 'components/DynamicIcon';
-import Button from 'components/kit/Button';
-import { useModal } from 'components/kit/Modal';
 import Link from 'components/Link';
 import ResourcePoolBindingModalComponent from 'components/ResourcePoolBindingModal';
 import { ColumnDef } from 'components/Table/InteractiveTable';
@@ -12,7 +13,6 @@ import { paths } from 'routes/utils';
 import clusterStore from 'stores/cluster';
 import workspaceStore from 'stores/workspaces';
 import { ResourcePool, Workspace } from 'types';
-import { Loadable } from 'utils/loadable';
 import { alphaNumericSorter } from 'utils/sort';
 
 import css from './ResourcePoolBindings.module.scss';
@@ -27,6 +27,10 @@ const ResourcePoolBindings = ({ pool }: Props): JSX.Element => {
   const resourcePoolBindings: number[] = resourcePoolBindingMap.get(pool.name, []);
   const workspaces = Loadable.getOrElse([], useObservable(workspaceStore.workspaces));
 
+  useEffect(() => {
+    return clusterStore.fetchResourcePoolBindings(pool.name);
+  }, [pool.name]);
+
   const tableColumns: ColumnDef<Workspace>[] = useMemo(() => {
     return [
       {
@@ -35,7 +39,7 @@ const ResourcePoolBindings = ({ pool }: Props): JSX.Element => {
         key: 'workspace',
         render: (_, record) => (
           <div className={css.tableRow}>
-            <DynamicIcon name={record.name} size={40} style={{ borderRadius: '100%' }} />
+            <Avatar palette="muted" size={Size.Medium} square text={record.name} />
             <div>
               <div>
                 <Link path={paths.workspaceDetails(record.id)}>{record.name}</Link>

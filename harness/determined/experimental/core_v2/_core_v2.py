@@ -1,5 +1,6 @@
 """Singleton-style Core API."""
 
+import atexit
 import dataclasses
 import logging
 import uuid
@@ -7,14 +8,15 @@ from typing import Any, Dict, List, Optional, Union
 
 import determined
 from determined import core, experimental
-from determined.common import yaml
+from determined.common import util
 from determined.experimental import core_v2
 
-logger = logging.getLogger("determined.experimental.core_v2")
+logger = logging.getLogger("determined.core")
 
 
 _context = None  # type: Optional[core.Context]
 _client = None  # type: Optional[experimental.Determined]
+_atexit_registered = False  # type: bool
 
 
 @dataclasses.dataclass
@@ -164,7 +166,7 @@ def _init_context(
         "project": unmanaged_config.project,
     }
 
-    config_text = yaml.dump(config)
+    config_text = util.yaml_safe_dump(config)
     assert config_text is not None
 
     unmanaged_info = core_v2._get_or_create_experiment_and_trial(
@@ -233,6 +235,7 @@ def init(
     """
     global _context
     global _client
+    global _atexit_registered
 
     if _context is not None:
         _context.close()
@@ -252,6 +255,10 @@ def init(
     )
     _context.start()
     _set_globals()
+
+    if not _atexit_registered:
+        atexit.register(close)
+        _atexit_registered = True
 
 
 def close() -> None:

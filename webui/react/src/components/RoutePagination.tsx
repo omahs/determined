@@ -1,7 +1,7 @@
+import Pagination from 'hew/Pagination';
+import Tooltip from 'hew/Tooltip';
 import React, { useCallback, useEffect, useState } from 'react';
 
-import Pagination from 'components/kit/Pagination';
-import Tooltip from 'components/kit/Tooltip';
 import { keyEmitter, KeyEvent } from 'hooks/useKeyTracker';
 
 import css from './RoutePagination.module.scss';
@@ -47,7 +47,7 @@ const RoutePagination: React.FC<Props> = ({ currentId, ids, onSelectId, tooltipL
     <div className={css.base}>
       <Pagination
         current={currentPage}
-        itemRender={(page, type, originalElement) => {
+        itemRender={(_page, type, originalElement) => {
           if (
             (tooltipLabel && type === 'prev' && currentPage > 1) ||
             (type === 'next' && currentPage < ids.length)

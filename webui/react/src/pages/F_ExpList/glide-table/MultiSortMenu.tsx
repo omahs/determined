@@ -1,17 +1,17 @@
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Select from 'hew/Select';
+import { Loadable } from 'hew/utils/loadable';
 import * as io from 'io-ts';
 
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
-import Select from 'components/kit/Select';
 import { V1ColumnType } from 'services/api-ts-sdk';
 import { ProjectColumn } from 'types';
-import { Loadable } from 'utils/loadable';
 
 import css from './MultiSortMenu.module.scss';
 
 // in the list of columns from the api but not supported by the sort functionality
-const BANNED_SORT_COLUMNS = new Set(['tags']);
+export const BANNED_SORT_COLUMNS = new Set(['tags']);
 
 const directionType = io.keyof({ asc: null, desc: null });
 export type DirectionType = io.TypeOf<typeof directionType>;
@@ -152,7 +152,7 @@ const ColumnOptions: React.FC<ColumnOptionsProps> = ({ onChange, columns, value 
   <Select
     autoFocus
     dropdownMatchSelectWidth={300}
-    loading={Loadable.isLoading(columns)}
+    loading={Loadable.isNotLoaded(columns)}
     options={Loadable.getOrElse([], columns)
       .filter((c) => !BANNED_SORT_COLUMNS.has(c.column))
       .map((c) => ({
@@ -239,10 +239,7 @@ const MultiSort: React.FC<MultiSortProps> = ({ sorts, columns, onChange }) => {
         })}
       </div>
       <div className={css.actions}>
-        <Button
-          icon={<Icon decorative name="add-small" size="tiny" />}
-          type="text"
-          onClick={addRow}>
+        <Button icon={<Icon decorative name="add" size="tiny" />} type="text" onClick={addRow}>
           Add sort
         </Button>
         <Button type="text" onClick={clearAll}>

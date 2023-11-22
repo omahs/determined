@@ -1,6 +1,5 @@
 import { render } from '@testing-library/react';
-
-import { UIProvider } from 'components/kit/Theme';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 
 import { ClusterOverallStats } from './ClusterOverallStats';
 
@@ -13,7 +12,7 @@ vi.mock('services/api', () => ({
 
 const setup = () => {
   const view = render(
-    <UIProvider>
+    <UIProvider theme={DefaultTheme.Light}>
       <ClusterOverallStats />
     </UIProvider>,
   );

@@ -1,9 +1,9 @@
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import { observable, WritableObservable } from 'micro-observables';
 
 import { globalStorage } from 'globalStorage';
 import { Auth } from 'types';
 import { getCookie, setCookie } from 'utils/browser';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 
 export const AUTH_COOKIE_KEY = 'auth';
 
@@ -36,8 +36,8 @@ class AuthStore {
   public readonly isChecked = this.#state.select((state) => state.isChecked);
   public readonly isAuthenticated = this.auth.select((loadableAuth) => {
     return Loadable.match(loadableAuth, {
+      _: () => false,
       Loaded: (a) => a.isAuthenticated,
-      NotLoaded: () => false,
     });
   });
 

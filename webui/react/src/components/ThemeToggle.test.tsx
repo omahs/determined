@@ -1,17 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DefaultTheme, UIProvider } from 'hew/Theme';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
-import { Mode, UIProvider } from 'components/kit/Theme';
+import { Mode, ThemeProvider } from 'components/ThemeProvider';
 
 import ThemeToggle, { ThemeOptions } from './ThemeToggle';
 
 const ThemeToggleContainer: React.FC = () => (
-  <UIProvider>
-    <BrowserRouter>
-      <ThemeToggle />
-    </BrowserRouter>
+  <UIProvider theme={DefaultTheme.Light}>
+    <ThemeProvider>
+      <BrowserRouter>
+        <ThemeToggle />
+      </BrowserRouter>
+    </ThemeProvider>
   </UIProvider>
 );
 

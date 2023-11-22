@@ -1,18 +1,21 @@
 import { Space } from 'antd';
+import Button from 'hew/Button';
+import Card from 'hew/Card';
+import Column from 'hew/Column';
+import Input from 'hew/Input';
+import Message from 'hew/Message';
+import { useModal } from 'hew/Modal';
+import Row from 'hew/Row';
+import Section from 'hew/Section';
+import Select, { Option } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import Toggle from 'hew/Toggle';
+import { Loadable } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import GridListRadioGroup, { GridListView } from 'components/GridListRadioGroup';
-import Button from 'components/kit/Button';
-import Card from 'components/kit/Card';
-import { Column, Columns } from 'components/kit/Columns';
-import Input from 'components/kit/Input';
-import { useModal } from 'components/kit/Modal';
-import Select, { Option } from 'components/kit/Select';
-import Spinner from 'components/kit/Spinner';
-import Toggle from 'components/kit/Toggle';
 import Link from 'components/Link';
-import Message, { MessageType } from 'components/Message';
 import ProjectActionDropdown from 'components/ProjectActionDropdown';
 import ProjectCard from 'components/ProjectCard';
 import ProjectCreateModalComponent from 'components/ProjectCreateModal';
@@ -37,7 +40,6 @@ import { V1GetWorkspaceProjectsRequestSortBy } from 'services/api-ts-sdk';
 import userStore from 'stores/users';
 import { Project, Workspace } from 'types';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 import { validateDetApiEnum } from 'utils/service';
 
@@ -139,7 +141,7 @@ const WorkspaceProjects: React.FC<Props> = ({ workspace, id, pageRef }) => {
 
   const prevWhose = usePrevious(settings.whose, undefined);
   useEffect(() => {
-    if (settings.whose === prevWhose || !settings.whose || Loadable.isLoading(loadableUsers))
+    if (settings.whose === prevWhose || !settings.whose || Loadable.isNotLoaded(loadableUsers))
       return;
 
     switch (settings.whose) {
@@ -363,7 +365,7 @@ const WorkspaceProjects: React.FC<Props> = ({ workspace, id, pageRef }) => {
             containerRef={pageRef}
             ContextMenu={actionDropdown}
             dataSource={projects}
-            loading={isLoading || Loadable.isLoading(loadableUsers)}
+            loading={isLoading || Loadable.isNotLoaded(loadableUsers)}
             pagination={getFullPaginationConfig(
               {
                 limit: settings.tableLimit,
@@ -403,58 +405,60 @@ const WorkspaceProjects: React.FC<Props> = ({ workspace, id, pageRef }) => {
 
   return (
     <>
-      <Columns page>
-        <Column>
-          <Select value={settings.whose} width={160} onSelect={handleViewSelect}>
-            <Option value={WhoseProjects.All}>All Projects</Option>
-            <Option value={WhoseProjects.Mine}>My Projects</Option>
-            <Option value={WhoseProjects.Others}>Others&apos; Projects</Option>
-          </Select>
-        </Column>
-        <Column align="right">
-          <Space wrap>
-            {!workspace.archived && (
-              <Toggle
-                checked={settings.archived}
-                label="Show Archived"
-                onChange={switchShowArchived}
-              />
-            )}
-            <Select value={settings.sortKey} width={170} onSelect={handleSortSelect}>
-              <Option value={V1GetWorkspaceProjectsRequestSortBy.NAME}>Alphabetical</Option>
-              <Option value={V1GetWorkspaceProjectsRequestSortBy.LASTEXPERIMENTSTARTTIME}>
-                Last Updated
-              </Option>
-              <Option value={V1GetWorkspaceProjectsRequestSortBy.CREATIONTIME}>
-                Newest to Oldest
-              </Option>
+      <Section>
+        <Row wrap>
+          <Column>
+            <Select value={settings.whose} width={160} onSelect={handleViewSelect}>
+              <Option value={WhoseProjects.All}>All Projects</Option>
+              <Option value={WhoseProjects.Mine}>My Projects</Option>
+              <Option value={WhoseProjects.Others}>Others&apos; Projects</Option>
             </Select>
-            {settings && <GridListRadioGroup value={settings.view} onChange={handleViewChange} />}
-            <div className={css.headerButton}>
-              {!workspace.immutable &&
-                !workspace.archived &&
-                canCreateProject({ workspace: workspace }) && (
-                  <Button onClick={handleProjectCreateClick}>New Project</Button>
-                )}
-            </div>
-          </Space>
-        </Column>
-      </Columns>
+          </Column>
+          <Column align="right">
+            <Space wrap>
+              {!workspace.archived && (
+                <Toggle
+                  checked={settings.archived}
+                  label="Show Archived"
+                  onChange={switchShowArchived}
+                />
+              )}
+              <Select value={settings.sortKey} width={170} onSelect={handleSortSelect}>
+                <Option value={V1GetWorkspaceProjectsRequestSortBy.NAME}>Alphabetical</Option>
+                <Option value={V1GetWorkspaceProjectsRequestSortBy.LASTEXPERIMENTSTARTTIME}>
+                  Last Updated
+                </Option>
+                <Option value={V1GetWorkspaceProjectsRequestSortBy.CREATIONTIME}>
+                  Newest to Oldest
+                </Option>
+              </Select>
+              {settings && <GridListRadioGroup value={settings.view} onChange={handleViewChange} />}
+              <div className={css.headerButton}>
+                {!workspace.immutable &&
+                  !workspace.archived &&
+                  canCreateProject({ workspace: workspace }) && (
+                    <Button onClick={handleProjectCreateClick}>New Project</Button>
+                  )}
+              </div>
+            </Space>
+          </Column>
+        </Row>
+      </Section>
       <Spinner spinning={isLoading}>
         {projects.length !== 0 ? (
           projectsList
         ) : workspace.numProjects === 0 ? (
           <Message
-            message={
+            description={
               canCreateProject({ workspace: { id } })
                 ? 'Create a project with the "New Project" button or in the CLI.'
                 : 'User cannot create a project in this workspace.'
             }
+            icon="warning"
             title="Workspace contains no projects. "
-            type={MessageType.Empty}
           />
         ) : (
-          <Message title="No projects matching the current filters" type={MessageType.Empty} />
+          <Message icon="warning" title="No projects matching the current filters" />
         )}
       </Spinner>
       <ProjectCreateModal.Component workspaceId={workspace.id} />

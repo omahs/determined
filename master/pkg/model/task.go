@@ -6,10 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/determined-ai/determined/master/pkg/cproto"
 	"github.com/determined-ai/determined/master/pkg/ptrs"
 	"github.com/determined-ai/determined/master/pkg/tasklog"
 	"github.com/determined-ai/determined/proto/pkg/apiv1"
@@ -115,6 +118,21 @@ type Allocation struct {
 	// ProxyAddress stores the explicitly provided task-provided proxy address for resource
 	// managers that do not supply us with it. Comes from `determined.exec.prep_container --proxy`.
 	ProxyAddress *string `db:"proxy_address" bun:"proxy_address"`
+	ExitReason   *string `db:"exit_reason" bun:"exit_reason"`
+	ExitErr      *string `db:"exit_error" bun:"exit_error"`
+	StatusCode   *int32  `db:"status_code" bun:"status_code"`
+}
+
+// AcceleratorData is the model for an allocation accelerator data in the database.
+type AcceleratorData struct {
+	bun.BaseModel `bun:"table:allocation_accelerators"`
+
+	ContainerID      string       `db:"container_id" bun:"container_id"`
+	AllocationID     AllocationID `db:"allocation_id" bun:"allocation_id,notnull"`
+	NodeName         string       `db:"node_name" bun:"node_name,notnull"`
+	AcceleratorType  string       `db:"accelerator_type" bun:"accelerator_type,notnull"`
+	AcceleratorUuids []string     `db:"accelerator_uuids" bun:"accelerator_uuids,array"`
+	ID               *int         `db:"id" bun:"id,pk,autoincrement"`
 }
 
 // AllocationState represents the current state of the task. Value indicates a partial ordering.
@@ -124,8 +142,13 @@ type AllocationState string
 type TaskStats struct {
 	AllocationID AllocationID
 	EventType    string
-	StartTime    *time.Time
-	EndTime      *time.Time
+	// ContainerID is sent by the agent. This won't always be present in the database
+	// This is a weird table since sometimes it is one row per allocation
+	// (like in record queued stats) and sometimes it is many per allocation like in
+	// pulled time.
+	ContainerID *cproto.ID
+	StartTime   *time.Time
+	EndTime     *time.Time
 }
 
 // ResourceAggregates is the model for resource_aggregates in the database.
@@ -189,8 +212,23 @@ func MostProgressedAllocationState(states ...AllocationState) AllocationState {
 }
 
 // Proto returns the proto representation of the task state.
-func (s AllocationState) Proto() taskv1.State {
-	switch s {
+func (a AcceleratorData) Proto() *apiv1.AcceleratorData {
+	return &apiv1.AcceleratorData{
+		ContainerId:      a.ContainerID,
+		AllocationId:     string(a.AllocationID),
+		NodeName:         a.NodeName,
+		AcceleratorType:  a.AcceleratorType,
+		AcceleratorUuids: a.AcceleratorUuids,
+	}
+}
+
+// Proto returns the proto representation of the task state.
+func (s *AllocationState) Proto() taskv1.State {
+	if s == nil {
+		return taskv1.State_STATE_UNSPECIFIED
+	}
+
+	switch *s {
 	case AllocationStateWaiting:
 		return taskv1.State_STATE_WAITING
 	case AllocationStatePulling:
@@ -205,6 +243,31 @@ func (s AllocationState) Proto() taskv1.State {
 		return taskv1.State_STATE_TERMINATED
 	default:
 		return taskv1.State_STATE_UNSPECIFIED
+	}
+}
+
+// Proto returns the proto representation of the allocation state.
+func (a Allocation) Proto() *taskv1.Allocation {
+	var startTime *string
+	if a.StartTime != nil {
+		startTime = ptrs.Ptr(a.StartTime.String())
+	}
+
+	var endTime *string
+	if a.EndTime != nil {
+		endTime = ptrs.Ptr(a.EndTime.String())
+	}
+
+	return &taskv1.Allocation{
+		TaskId:       string(a.TaskID),
+		IsReady:      a.IsReady,
+		StartTime:    startTime,
+		EndTime:      endTime,
+		AllocationId: string(a.AllocationID),
+		State:        a.State.Proto(),
+		Slots:        int32(a.Slots),
+		ExitReason:   a.ExitReason,
+		StatusCode:   a.StatusCode,
 	}
 }
 
@@ -270,6 +333,26 @@ func TaskLogLevelToProto(l string) logv1.LogLevel {
 	}
 }
 
+// TaskLogLevelFromLogrus returns an equivalent task log level from a logrus level.
+func TaskLogLevelFromLogrus(l logrus.Level) string {
+	switch l {
+	case logrus.TraceLevel:
+		return LogLevelTrace
+	case logrus.DebugLevel:
+		return LogLevelDebug
+	case logrus.InfoLevel:
+		return LogLevelInfo
+	case logrus.WarnLevel:
+		return LogLevelWarning
+	case logrus.ErrorLevel:
+		return LogLevelError
+	case logrus.FatalLevel, logrus.PanicLevel:
+		return LogLevelCritical
+	default:
+		return LogLevelUnspecified
+	}
+}
+
 // TaskLog represents a structured log emitted by an allocation.
 type TaskLog struct {
 	// A task log should have one of these IDs after being persisted. All should be unique.
@@ -290,6 +373,38 @@ type TaskLog struct {
 	Log         string     `db:"log" json:"log"`
 	Source      *string    `db:"source" json:"source,omitempty"`
 	StdType     *string    `db:"stdtype" json:"stdtype,omitempty"`
+}
+
+// TaskLogFromProto converts a proto task log to a model task log.
+func TaskLogFromProto(in *taskv1.TaskLog) *TaskLog {
+	var level *string
+	if in.Level != nil {
+		level = ptrs.Ptr(TaskLogLevelFromProto(*in.Level))
+	}
+
+	var id *int
+	if in.Id != nil {
+		id = ptrs.Ptr(int(*in.Id))
+	}
+
+	var rankID *int
+	if in.RankId != nil {
+		rankID = ptrs.Ptr(int(*in.RankId))
+	}
+
+	return &TaskLog{
+		ID:           id,
+		TaskID:       in.TaskId,
+		AllocationID: in.AllocationId,
+		AgentID:      in.AgentId,
+		ContainerID:  in.ContainerId,
+		RankID:       rankID,
+		Timestamp:    ptrs.Ptr(in.Timestamp.AsTime()),
+		Level:        level,
+		Log:          in.Log,
+		Source:       in.Source,
+		StdType:      in.Stdtype,
+	}
 }
 
 const (
@@ -404,6 +519,19 @@ func (t TaskLogBatch) ForEach(f func(interface{}) error) error {
 		}
 	}
 	return nil
+}
+
+// TaskContextDirectory represents a row in database for a tasks context directory.
+// This currently is only for notebooks, trials, tensorboards, and commands now.
+// Trials aren't in it because they are stored on experiments.model_def.
+// In addition trials can have many tasks but currently can only have one model_def.
+// We would end up duplicating a lot of data migrating experiment's model_def over to this
+// table. Also that migration would be pretty painful.
+type TaskContextDirectory struct {
+	bun.BaseModel `bun:"table:task_context_directory"`
+
+	TaskID           TaskID `bun:"task_id"`
+	ContextDirectory []byte `bun:"context_directory"`
 }
 
 // AccessScopeID is an identifier for an access scope.

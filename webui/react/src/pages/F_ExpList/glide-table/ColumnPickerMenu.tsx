@@ -1,15 +1,16 @@
 import { Space } from 'antd';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
+import Button from 'hew/Button';
+import Checkbox from 'hew/Checkbox';
+import Dropdown from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import Input from 'hew/Input';
+import Message from 'hew/Message';
+import Pivot from 'hew/Pivot';
+import Spinner from 'hew/Spinner';
+import { Loadable } from 'hew/utils/loadable';
 import React, { ChangeEvent, useCallback, useMemo, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Checkbox from 'components/kit/Checkbox';
-import Dropdown from 'components/kit/Dropdown';
-import Empty from 'components/kit/Empty';
-import Icon from 'components/kit/Icon';
-import Input from 'components/kit/Input';
-import Pivot from 'components/kit/Pivot';
-import Spinner from 'components/kit/Spinner';
 import { useSettings } from 'hooks/useSettings';
 import {
   F_ExperimentListSettings,
@@ -18,7 +19,6 @@ import {
 import { V1LocationType } from 'services/api-ts-sdk';
 import { ProjectColumn } from 'types';
 import { ensureArray } from 'utils/data';
-import { Loadable } from 'utils/loadable';
 
 import css from './ColumnPickerMenu.module.scss';
 import { defaultExperimentColumns } from './columns';
@@ -185,7 +185,7 @@ const ColumnPickerTab: React.FC<ColumnTabProps> = ({
               </Checkbox>
             ))
           ) : (
-            <Empty description="No results" />
+            <Message description="No results" icon="warning" />
           )}
         </Space>
       ) : (

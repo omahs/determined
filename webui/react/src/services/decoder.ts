@@ -16,7 +16,9 @@ export const mapV1User = (data: Sdk.V1User): types.DetailedUser => {
     id: data.id || 0,
     isActive: data.active,
     isAdmin: data.admin,
+    lastAuthAt: data.lastAuthAt ? new Date(data.lastAuthAt).getTime() : undefined,
     modifiedAt: new Date(data.modifiedAt || 1).getTime(),
+    remote: data.remote,
     username: data.username,
   };
 };
@@ -284,7 +286,7 @@ export const mapV1ModelVersion = (modelVersion: Sdk.V1ModelVersion): types.Model
 
 export const mapV1ModelDetails = (
   modelDetailsResponse: Sdk.V1GetModelVersionsResponse,
-): types.ModelVersions | undefined => {
+): types.ModelWithVersions | undefined => {
   if (
     !modelDetailsResponse.model ||
     !modelDetailsResponse.modelVersions ||

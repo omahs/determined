@@ -1,14 +1,14 @@
+import Button from 'hew/Button';
+import Spinner from 'hew/Spinner';
+import Toggle from 'hew/Toggle';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useRef } from 'react';
 
 import { FilterFormStore, ITEM_LIMIT } from 'components/FilterForm/components/FilterFormStore';
 import FilterGroup from 'components/FilterForm/components/FilterGroup';
 import { FormKind } from 'components/FilterForm/components/type';
-import Button from 'components/kit/Button';
-import Spinner from 'components/kit/Spinner';
-import Toggle from 'components/kit/Toggle';
 import { V1ProjectColumn } from 'services/api-ts-sdk';
-import { Loadable } from 'utils/loadable';
 
 import css from './FilterForm.module.scss';
 
@@ -22,8 +22,8 @@ const FilterForm = ({ formStore, columns, onHidePopOver }: Props): JSX.Element =
   const scrollBottomRef = useRef<HTMLDivElement>(null);
   const loadableData = useObservable(formStore.formset);
   const isButtonDisabled = Loadable.match(loadableData, {
+    _: () => true,
     Loaded: (data) => data.filterGroup.children.length > ITEM_LIMIT,
-    NotLoaded: () => true,
   });
 
   const onAddItem = (formKind: FormKind) => {
@@ -38,6 +38,7 @@ const FilterForm = ({ formStore, columns, onHidePopOver }: Props): JSX.Element =
   return (
     <div className={css.base}>
       {Loadable.match(loadableData, {
+        Failed: () => null, // TODO inform user if data fails to load
         Loaded: (data) => (
           <>
             <div className={css.header}>
@@ -81,7 +82,7 @@ const FilterForm = ({ formStore, columns, onHidePopOver }: Props): JSX.Element =
                   formStore.removeChild(data.filterGroup.id);
                   onHidePopOver();
                 }}>
-                Reset
+                Clear filters
               </Button>
             </div>
           </>

@@ -1,18 +1,20 @@
-import { Typography } from 'antd';
+import Avatar from 'hew/Avatar';
+import Button from 'hew/Button';
+import Dropdown, { MenuItem } from 'hew/Dropdown';
+import Icon, { IconName, IconSize } from 'hew/Icon';
+import { matchesShortcut, shortcutToString } from 'hew/InputShortcut';
+import { useModal } from 'hew/Modal';
+import Nameplate from 'hew/Nameplate';
+import Spinner from 'hew/Spinner';
+import Tooltip from 'hew/Tooltip';
+import { Loadable } from 'hew/utils/loadable';
 import { boolean } from 'io-ts';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { CSSTransition } from 'react-transition-group';
 
-import DynamicIcon from 'components/DynamicIcon';
-import Button from 'components/kit/Button';
-import Dropdown, { MenuItem } from 'components/kit/Dropdown';
-import Icon, { IconName, IconSize } from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
-import Tooltip from 'components/kit/Tooltip';
 import Link, { Props as LinkProps } from 'components/Link';
+import useUI from 'components/ThemeProvider';
 import UserSettings from 'components/UserSettings';
 import shortCutSettingsConfig, {
   Settings as ShortcutSettings,
@@ -28,9 +30,7 @@ import clusterStore from 'stores/cluster';
 import determinedStore, { BrandingType } from 'stores/determinedInfo';
 import userStore from 'stores/users';
 import workspaceStore from 'stores/workspaces';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
-import { matchesShortcut, shortcutToString } from 'utils/shortcut';
 
 import css from './NavigationSideBar.module.scss';
 import ThemeToggle from './ThemeToggle';
@@ -43,7 +43,6 @@ interface ItemProps extends LinkProps {
   icon: IconName | React.ReactElement;
   iconSize?: IconSize;
   label: string;
-  labelRender?: React.ReactNode;
   status?: string;
   tooltip?: string | boolean;
 }
@@ -88,14 +87,7 @@ export const NavigationItem: React.FC<ItemProps> = ({
   const link = (
     <div className={containerClasses.join(' ')}>
       <Link className={classes.join(' ')} path={path} {...props}>
-        {typeof props.icon === 'string' ? (
-          <div className={css.icon}>
-            <Icon decorative name={props.icon} size={props.iconSize ?? 'large'} />
-          </div>
-        ) : (
-          <div className={css.icon}>{props.icon}</div>
-        )}
-        <div className={css.label}>{props.labelRender ? props.labelRender : props.label}</div>
+        <Nameplate icon={props.icon} iconSize={props.iconSize ?? 'large'} name={props.label} />
       </Link>
       <div className={css.navItemExtra}>
         {status && (
@@ -292,7 +284,7 @@ const NavigationSideBar: React.FC = () => {
                     </WorkspaceQuickSearch>
                     {canCreateWorkspace && (
                       <Button
-                        icon={<Icon name="add-small" size="tiny" title="Create workspace" />}
+                        icon={<Icon name="add" size="tiny" title="Create workspace" />}
                         type="text"
                         onClick={WorkspaceCreateModal.open}
                       />
@@ -306,6 +298,7 @@ const NavigationSideBar: React.FC = () => {
                 tooltip={settings.navbarCollapsed}
               />
               {Loadable.match(pinnedWorkspaces, {
+                Failed: () => null, // TODO inform user if workspaces fail to load
                 Loaded: (workspaces) => (
                   <ul className={css.pinnedWorkspaces} role="list">
                     {workspaces
@@ -318,14 +311,10 @@ const NavigationSideBar: React.FC = () => {
                           workspace={workspace}>
                           <li>
                             <NavigationItem
-                              icon={<DynamicIcon name={workspace.name} size={24} />}
+                              icon={<Avatar palette="muted" square text={workspace.name} />}
                               label={workspace.name}
-                              labelRender={
-                                <Typography.Paragraph ellipsis={{ rows: 1, tooltip: true }}>
-                                  {workspace.name}
-                                </Typography.Paragraph>
-                              }
                               path={paths.workspaceDetails(workspace.id)}
+                              tooltip={settings.navbarCollapsed}
                             />
                           </li>
                         </WorkspaceActionDropdown>
@@ -336,14 +325,12 @@ const NavigationSideBar: React.FC = () => {
                     {canCreateWorkspace && (
                       <li>
                         <NavigationItem
-                          icon="add-small"
-                          iconSize="tiny"
-                          label="New Workspace"
-                          labelRender={
-                            <Typography.Paragraph ellipsis={{ rows: 1, tooltip: true }}>
-                              New Workspace
-                            </Typography.Paragraph>
+                          icon={
+                            <div className={css.newWorkspaceIcon}>
+                              <Icon decorative name="add" size="tiny" />
+                            </div>
                           }
+                          label="New Workspace"
                           tooltip={settings.navbarCollapsed}
                           onClick={WorkspaceCreateModal.open}
                         />

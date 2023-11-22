@@ -1,16 +1,23 @@
 import { Space } from 'antd';
+import Accordion from 'hew/Accordion';
+import Button from 'hew/Button';
+import Drawer from 'hew/Drawer';
+import Icon from 'hew/Icon';
+import InlineForm from 'hew/InlineForm';
+import Input from 'hew/Input';
+import InputShortcut, { KeyboardShortcut, shortcutToString } from 'hew/InputShortcut';
+import { useModal } from 'hew/Modal';
+import Select, { Option } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import { useToast } from 'hew/Toast';
+import { Body } from 'hew/Typography';
+import useConfirm from 'hew/useConfirm';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useState } from 'react';
 
-import Drawer from 'components/kit/Drawer';
-import InlineForm from 'components/kit/InlineForm';
-import Input from 'components/kit/Input';
-import InputShortcut from 'components/kit/InputShortcut';
-import { useModal } from 'components/kit/Modal';
-import Select, { Option } from 'components/kit/Select';
-import Spinner from 'components/kit/Spinner';
-import useUI, { Mode } from 'components/kit/Theme';
 import PasswordChangeModalComponent from 'components/PasswordChangeModal';
 import Section from 'components/Section';
+import useUI, { Mode } from 'components/ThemeProvider';
 import { ThemeOptions } from 'components/ThemeToggle';
 import {
   shortcutSettingsConfig,
@@ -30,21 +37,12 @@ import {
 } from 'pages/F_ExpList/F_ExperimentList.settings';
 import { TableViewMode } from 'pages/F_ExpList/glide-table/GlideTable';
 import { RowHeight, rowHeightItems } from 'pages/F_ExpList/glide-table/OptionsMenu';
-import { patchUser } from 'services/api';
 import determinedStore from 'stores/determinedInfo';
 import userStore from 'stores/users';
 import userSettings from 'stores/userSettings';
-import { message } from 'utils/dialogApi';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
-import { KeyboardShortcut, shortcutToString } from 'utils/shortcut';
 
-import Accordion from './kit/Accordion';
-import Button from './kit/Button';
-import Icon from './kit/Icon';
-import Paragraph from './kit/Typography/Paragraph';
-import useConfirm from './kit/useConfirm';
 import css from './UserSettings.module.scss';
 import UserSettingsModalComponent from './UserSettingsModal';
 
@@ -66,7 +64,7 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
   const currentUser = Loadable.getOrElse(undefined, useObservable(userStore.currentUser));
   const info = useObservable(determinedStore.info);
   const confirm = useConfirm();
-
+  const { openToast } = useToast();
   const UserSettingsModal = useModal(UserSettingsModalComponent);
   const PasswordChangeModal = useModal(PasswordChangeModalComponent);
   const {
@@ -79,45 +77,41 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
   const handleSaveDisplayName = useCallback(
     async (newValue: string): Promise<void | Error> => {
       try {
-        const user = await patchUser({
-          userId: currentUser?.id || 0,
-          userParams: { displayName: newValue as string },
+        await userStore.patchUser(currentUser?.id || 0, {
+          displayName: newValue as string,
         });
-        userStore.updateUsers(user);
-        message.success(API_DISPLAYNAME_SUCCESS_MESSAGE);
+        openToast({ severity: 'Confirm', title: API_DISPLAYNAME_SUCCESS_MESSAGE });
       } catch (e) {
         handleError(e, { silent: false, type: ErrorType.Input });
         return e as Error;
       }
     },
-    [currentUser?.id],
+    [currentUser?.id, openToast],
   );
 
   const handleSaveUsername = useCallback(
     async (newValue: string): Promise<void | Error> => {
       try {
-        const user = await patchUser({
-          userId: currentUser?.id || 0,
-          userParams: { username: newValue as string },
+        await userStore.patchUser(currentUser?.id || 0, {
+          username: newValue as string,
         });
-        userStore.updateUsers(user);
-        message.success(API_USERNAME_SUCCESS_MESSAGE);
+        openToast({ severity: 'Confirm', title: API_USERNAME_SUCCESS_MESSAGE });
       } catch (e) {
-        message.error(API_USERNAME_ERROR_MESSAGE);
+        openToast({ severity: 'Error', title: API_USERNAME_ERROR_MESSAGE });
         handleError(e, { silent: true, type: ErrorType.Input });
         return e as Error;
       }
     },
-    [currentUser?.id],
+    [currentUser?.id, openToast],
   );
 
   const [newPassword, setNewPassword] = useState<string>('');
 
-  const NEW_PASSWORD_REQUIRED_MESSAGE = 'New password required.';
-  const PASSWORD_TOO_SHORT_MESSAGE = "Password isn't long enough.";
-  const PASSWORD_UPPERCASE_MESSAGE = 'Password must include a uppercase letter.';
-  const PASSWORD_LOWERCASE_MESSAGE = 'Password must include a lowercase letter.';
-  const PASSWORD_NUMBER_MESSAGE = 'Password must include a number.';
+  const NEW_PASSWORD_REQUIRED_MESSAGE = "Password can't be blank";
+  const PASSWORD_TOO_SHORT_MESSAGE = 'Password must have at least 8 characters';
+  const PASSWORD_UPPERCASE_MESSAGE = 'Password must include an uppercase letter';
+  const PASSWORD_LOWERCASE_MESSAGE = 'Password must include a lowercase letter';
+  const PASSWORD_NUMBER_MESSAGE = 'Password must include a number';
 
   const handleSavePassword = useCallback(
     (value: string) => {
@@ -138,6 +132,7 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
       useObservable(userSettings.get(FeatureSettingsConfig, FEATURE_SETTINGS_PATH)),
     ]),
     {
+      Failed: () => null,
       Loaded: ([
         savedExperimentListGlobalSettings,
         savedShortcutSettings,
@@ -160,16 +155,19 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
                   rules={[{ message: 'Please input your username', required: true }]}
                   testId="username"
                   onSubmit={handleSaveUsername}>
-                  <Input maxLength={32} placeholder="Add username" />
+                  <Input autoFocus maxLength={32} placeholder="Add username" />
                 </InlineForm>
                 <InlineForm<string>
                   initialValue={currentUser?.displayName ?? ''}
                   label="Display Name"
                   testId="displayname"
                   onSubmit={handleSaveDisplayName}>
-                  <Input maxLength={32} placeholder="Add display name" />
+                  <Input autoFocus maxLength={32} placeholder="Add display name" />
                 </InlineForm>
-                {info.userManagementEnabled && (
+                {currentUser?.remote && (
+                  <label>Remote user cannot change password from WebUI</label>
+                )}
+                {info.userManagementEnabled && !currentUser?.remote && (
                   <>
                     <InlineForm<string>
                       initialValue={newPassword}
@@ -199,7 +197,7 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
                       onCancel={() => setEditingPassword(false)}
                       onEdit={() => setEditingPassword(true)}
                       onSubmit={handleSavePassword}>
-                      <Input.Password />
+                      <Input.Password autoFocus />
                     </InlineForm>
                     <PasswordChangeModal.Component
                       newPassword={newPassword}
@@ -345,10 +343,10 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
               </div>
             </Section>
             <Section title="Advanced">
-              <Paragraph>
+              <Body>
                 Advanced features are potentially dangerous and could require you to completely
                 reset your user settings if you make a mistake.
-              </Paragraph>
+              </Body>
               <Accordion title="I know what I'm doing">
                 <Space>
                   <Button
@@ -376,7 +374,7 @@ const UserSettings: React.FC<Props> = ({ show, onClose }: Props) => {
           </Drawer>
         );
       },
-      NotLoaded: () => <Spinner spinning />,
+      NotLoaded: () => <Spinner spinning />, // TDOD correctly handle error state
     },
   );
 };

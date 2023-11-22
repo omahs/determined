@@ -1,13 +1,13 @@
+import Form from 'hew/Form';
+import Input from 'hew/Input';
+import { Modal } from 'hew/Modal';
+import { useToast } from 'hew/Toast';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useId, useState } from 'react';
 
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import { Modal } from 'components/kit/Modal';
 import { login, setUserPassword } from 'services/api';
 import userStore from 'stores/users';
-import { message } from 'utils/dialogApi';
 import handleError, { ErrorType } from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
 
 const MODAL_HEADER_LABEL = 'Change Password';
@@ -41,7 +41,7 @@ const PasswordChangeModalComponent: React.FC<Props> = ({ newPassword, onSubmit }
   const [form] = Form.useForm<FormInputs>();
   const currentUser = Loadable.getOrElse(undefined, useObservable(userStore.currentUser));
   const [disabled, setDisabled] = useState<boolean>(true);
-
+  const { openToast } = useToast();
   const submitValidatedFields = [OLD_PASSWORD_NAME];
   const requiredFields = [NEW_PASSWORD_NAME, CONFIRM_PASSWORD_NAME];
 
@@ -63,11 +63,11 @@ const PasswordChangeModalComponent: React.FC<Props> = ({ newPassword, onSubmit }
     try {
       const password = newPassword;
       await setUserPassword({ password, userId: currentUser?.id ?? 0 });
-      message.success(API_SUCCESS_MESSAGE);
+      openToast({ severity: 'Confirm', title: API_SUCCESS_MESSAGE });
       form.resetFields();
       onSubmit?.();
     } catch (e) {
-      message.error(API_ERROR_MESSAGE);
+      openToast({ severity: 'Error', title: API_ERROR_MESSAGE });
       handleError(e, { silent: true, type: ErrorType.Input });
 
       // Re-throw error to prevent modal from getting dismissed.
@@ -100,7 +100,7 @@ const PasswordChangeModalComponent: React.FC<Props> = ({ newPassword, onSubmit }
           rules={[
             {
               message: INCORRECT_PASSWORD_MESSAGE,
-              validator: async (rule, value) => {
+              validator: async (_rule, value) => {
                 await login({ password: value ?? '', username: currentUser?.username ?? '' });
               },
             },
@@ -115,7 +115,7 @@ const PasswordChangeModalComponent: React.FC<Props> = ({ newPassword, onSubmit }
             { message: CONFIRM_PASSWORD_REQUIRED_MESSAGE, required: true },
             {
               message: PASSWORDS_NOT_MATCHING_MESSAGE,
-              validator: (rule, value) => {
+              validator: (_rule, value) => {
                 return value === newPassword ? Promise.resolve() : Promise.reject();
               },
             },

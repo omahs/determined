@@ -31,7 +31,7 @@ resource_manager:
   scheduler:
     type: {{ .resource_manager.scheduler.type }}
     {{- if eq .resource_manager.scheduler.type "priority" }}
-    preemption: {{ .resource_manager.scheduler.preemption_enabled }}
+    preemption: {{ .resource_manager.scheduler.preemption }}
     {{- end }}
 
 resource_pools:
@@ -55,6 +55,13 @@ security:
   tls:
     cert: /etc/determined/master.crt
     key: /etc/determined/master.key
+{{ end }}
+
+{{ if ne .lore_version "" }}
+__internal:
+  proxied_servers:
+    - destination: "http://lore-backend:9011/lore"
+      path_prefix: /lore
 {{ end }}
 
 {{ if or (or .cpu_env_image .gpu_env_image) .bind_mounts }}

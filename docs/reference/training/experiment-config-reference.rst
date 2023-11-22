@@ -26,13 +26,9 @@ Some configuration settings, such as searcher training lengths and budgets,
 training units: records, batches, or epochs.
 
 -  ``records``: A *record* is a single labeled example (sometimes called a sample).
-
 -  ``batches``: A *batch* is a group of records. The number of records in a batch is configured via
    the ``global_batch_size`` hyperparameter.
-
--  ``epoch``: An *epoch* is a single copy of the entire training data set; the number of records in
-   an epoch is configured via the :ref:`records_per_epoch <config-records-per-epoch>` configuration
-   field.
+-  ``epoch``: An *epoch* is a single copy of the entire training data set.
 
 For example, to specify the ``max_length`` for a searcher in terms of batches, the configuration
 would read as shown below.
@@ -43,9 +39,10 @@ would read as shown below.
      batches: 900
 
 To express it in terms of records or epochs, ``records`` or ``epochs`` would be specified in place
-of ``batches``. In the case of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must also
-be specified. Below is an example that configures a ``single`` searcher to train a model for 64
-epochs.
+of ``batches``. For :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+:class:`~determined.keras.TFKerasTrial`, :ref:`records_per_epoch <config-records-per-epoch>` must
+also be specified if using epochs. Below is an example that configures a ``single`` searcher to
+train a model for 64 epochs.
 
 .. code:: yaml
 
@@ -266,9 +263,10 @@ Optional. The number of records in the training data set. It must be configured 
 specify ``min_validation_period``, ``min_checkpoint_period``, and ``searcher.max_length`` in units
 of ``epochs``.
 
--  The system does not attempt to determine the size of an epoch automatically, because the size of
-   the training set might vary based on data augmentation, changes to external storage, or other
-   factors.
+.. note::
+
+   For :class:`~determined.pytorch.PyTorchTrial`, epoch length is automatically determined using the
+   chief worker's dataset length, and this value will be ignored.
 
 .. _max-restarts:
 
@@ -281,6 +279,44 @@ repeatedly occurs. After reach the ``max_restarts`` limit for an experiment, any
 trials will not be restarted and will be marked as errored. An experiment is considered successful
 if at least one of its trials completes without errors. The default value for ``max_restarts`` is
 ``5``.
+
+.. _config-log-policies:
+
+``log_policies``
+================
+
+Optional. Defines actions in response to trial logs matching specified regex patterns (Go language
+syntax). For more information about the syntax, you can visit this `RE2 reference page
+<https://github.com/google/re2/wiki/Syntax>`__. Actions include:
+
+-  ``exclude_node``: Excludes a failed trial's restart attempts (due to its ``max_restarts`` policy)
+   from being scheduled on nodes with matched error logs. This is useful for bypassing nodes with
+   hardware issues, like uncorrectable GPU ECC errors.
+
+   Note: This option is not supported on PBS systems.
+
+   For the agent resource manager, if a trial becomes unschedulable due to enough node exclusions,
+   and ``launch_error`` in the master config is true (default), the trial fails.
+
+-  ``cancel_retries``: Prevents a trial from restarting if a trial reports a log that matches the
+   pattern, even if it has remaining ``max_restarts``. This avoids using resources for retrying a
+   trial that encounters certain failures that won't be fixed by retrying the trial, such as CUDA
+   memory issues.
+
+Example configuration:
+
+.. code:: yaml
+
+   log_policies:
+      - pattern: ".*uncorrectable ECC error encountered.*"
+        action:
+          type: exclude_node
+      - pattern: ".*CUDA out of memory.*"
+        action:
+          type: cancel_retries
+
+These settings may also be specified at the cluster or resource pool level through task container
+defaults.
 
 *******************
  Validation Policy
@@ -301,8 +337,9 @@ Optional. Specifies the minimum frequency at which validation should be run for 
    min_validation_period:
       epochs: 2
 
--  If this is in the unit of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must be
-   specified.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If this is in the unit of epochs,
+   :ref:`records_per_epoch <config-records-per-epoch>` must be specified.
 
 .. _experiment-config-perform-initial-validation:
 
@@ -341,8 +378,9 @@ Optional. Specifies the minimum frequency for running checkpointing for each tri
       min_checkpoint_period:
          epochs: 2
 
--  If the unit is in epochs, you must also specify :ref:`records_per_epoch
-   <config-records-per-epoch>`.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If the unit is in epochs, you must also specify
+   :ref:`records_per_epoch <config-records-per-epoch>`.
 
 ``checkpoint_policy``
 =====================
@@ -619,6 +657,36 @@ Optional. `Propagation behavior
 <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`__ for replicas of the
 bind-mount. Defaults to ``rprivate``.
 
+Local Directory
+===============
+
+If ``type: directory`` is specified, checkpoints will be written to a local directory. For tasks
+running on Determined platform, it's a path within the container. For detached mode, it's simply a
+local path.
+
+The assumption is that a persistent storage will be mounted at the path parametrized by
+``container_path`` option using ``bind_mounts``, ``pod_spec``, or other mechanisms. Otherwise, this
+path will usually end up being ephemeral storage within the container, and the data will be lost
+when the container exits.
+
+.. warning::
+
+   TensorBoards currently do not inherit ``bind_mounts`` or ``pod_specs`` from their parent
+   experiments. Therefore, if an experiment is using ``type: directory`` storage, and mounts the
+   storage separately, a launched TensorBoard will need the same mount configuration provided
+   explicitly using ``det tensorboard start <experiment_id> --config-file <CONFIG FILE>`` or
+   similar.
+
+.. warning::
+
+   When downloading checkpoints (e.g., using ``det checkpoint download``), Determined assumes the
+   same directory is present locally at the same ``container_path``.
+
+``container_path``
+------------------
+
+Required. The file system path to use.
+
 .. _experiment-configuration_hyperparameters:
 
 *****************
@@ -799,8 +867,9 @@ Required. The length of the trial.
       max_length:
          epochs: 2
 
--  If this is in the unit of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must be
-      specified.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If this is in the unit of epochs,
+   :ref:`records_per_epoch <config-records-per-epoch>` must be specified.
 
 **Optional Fields**
 
@@ -857,8 +926,9 @@ Required. The length of each trial.
       max_length:
          epochs: 2
 
--  If this is in the unit of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must be
-   specified.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If this is in the unit of epochs,
+   :ref:`records_per_epoch <config-records-per-epoch>` must be specified.
 
 **Optional Fields**
 
@@ -913,8 +983,9 @@ Required. The length of each trial.
       max_length:
          epochs: 2
 
--  If this is in the unit of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must be
-   specified.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If this is in the unit of epochs,
+   :ref:`records_per_epoch <config-records-per-epoch>` must be specified.
 
 **Optional Fields**
 
@@ -974,8 +1045,9 @@ to converge on the data set.
       max_length:
          epochs: 2
 
--  If this is in the unit of epochs, :ref:`records_per_epoch <config-records-per-epoch>` must be
-   specified.
+-  :class:`~determined.pytorch.deepspeed.DeepSpeedTrial` and
+   :class:`~determined.keras.TFKerasTrial`: If this is in the unit of epochs,
+   :ref:`records_per_epoch <config-records-per-epoch>` must be specified.
 
 ``max_trials``
 --------------
@@ -1166,12 +1238,12 @@ For each bind mount, the following optional fields may also be specified:
 ``read_only``
 =============
 
-Required. Whether the bind-mount should be a read-only mount. Defaults to ``false``.
+Optional. Whether the bind-mount should be a read-only mount. Defaults to ``false``.
 
 ``propagation``
 ===============
 
-Required. `Propagation behavior
+Optional. `Propagation behavior
 <https://docs.docker.com/storage/bind-mounts/#configure-bind-propagation>`__ for replicas of the
 bind-mount. Defaults to ``rprivate``.
 
@@ -1214,9 +1286,9 @@ Optional. The Docker image to use when executing the workload. This image must b
 container images for NVIDIA GPU tasks using ``cuda`` key (``gpu`` prior to 0.17.6), CPU tasks using
 ``cpu`` key, and ROCm (AMD GPU) tasks using ``rocm`` key. Default values:
 
--  ``determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.24.0`` for NVIDIA GPUs.
--  ``determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-0.24.0`` for CPUs.
--  ``determinedai/environments:rocm-5.0-pytorch-1.10-tf-2.7-rocm-0.24.0`` for ROCm.
+-  ``determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-0.26.4`` for NVIDIA GPUs.
+-  ``determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-0.26.4`` for CPUs.
+-  ``determinedai/environments:rocm-5.0-pytorch-1.10-tf-2.7-rocm-0.26.4`` for ROCm.
 
 When the cluster is configured with :ref:`resource_manager.type: slurm
 <cluster-configuration-slurm>` and ``container_run_type: singularity``, images are executed using
@@ -1370,7 +1442,7 @@ training. Defaults to ``64``.
 ============================
 
 Optional. The delay (in milliseconds) between each tensor fusion during distributed training.
-Defaults to ``5``.
+Defaults to ``1``.
 
 ``auto_tune_tensor_fusion``
 ===========================

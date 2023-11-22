@@ -5,9 +5,9 @@ import json
 import logging
 import os
 import socket
-import sys
 import tarfile
 import uuid
+import warnings
 from typing import List, Optional
 
 import psutil
@@ -19,51 +19,33 @@ from determined import constants, gpu
 from determined.common import api, util
 from determined.common.api import bindings, certs
 
+logger = logging.getLogger("determined")
 
-def trial_prep(sess: api.Session, info: det.ClusterInfo) -> None:
-    trial_info = det.TrialInfo._from_env()
-    trial_info._to_file()
 
-    model_def_resp = None
-    try:
-        model_def_resp = bindings.get_GetModelDef(sess, experimentId=trial_info.experiment_id)
-    except Exception as e:
-        # Since this is the very first api call in the entrypoint script, and the call is made
-        # before you can debug with a startup hook, we offer an overly-detailed explanation to help
-        # sysadmins debug their cluster.
-        resp_content = str(e)
-        noverify = info.master_cert_file == "noverify"
-        cert_content = None if noverify else info.master_cert_file
-        if cert_content is not None:
-            with open(cert_content) as f:
-                cert_content = f.read()
-        print(
-            "Failed to download model definition from master.  This may be due to an address\n"
-            "resolution problem, a certificate problem, a firewall problem, or some other\n"
-            "networking error.\n"
-            "Debug information:\n"
-            f"    master_url: {info.master_url}\n"
-            f"    endpoint: api/v1/experiments/{trial_info.experiment_id}/model_def\n"
-            f"    tls_verify_name: {info.master_cert_name}\n"
-            f"    tls_noverify: {noverify}\n"
-            f"    tls_cert: {cert_content}\n"
-            f"    response content: {resp_content}\n",
-            file=sys.stderr,
-        )
-        raise
+def is_trial(info: det.ClusterInfo) -> bool:
+    return info.task_type == "TRIAL"
 
-    tgz = base64.b64decode(model_def_resp.to_json()["b64Tgz"])
 
-    with tarfile.open(fileobj=io.BytesIO(tgz), mode="r:gz") as model_def:
+def download_context_directory(sess: api.Session, info: det.ClusterInfo) -> None:
+    b64_tgz = bindings.get_GetTaskContextDirectory(sess, taskId=info.task_id).b64Tgz
+    if not is_trial(info) and len(b64_tgz) == 0:
+        return  # Non trials can have empty model defs.
+    assert len(b64_tgz) > 0
+
+    tgz = base64.b64decode(b64_tgz)
+    with tarfile.open(fileobj=io.BytesIO(tgz), mode="r:gz") as context_directory:
         # Ensure all members of the tarball resolve to subdirectories.
-        for path in model_def.getnames():
+        for path in context_directory.getnames():
             if os.path.relpath(path).startswith("../"):
                 raise ValueError(f"'{path}' in tarball would expand to a parent directory")
-        model_def.extractall(path=constants.MANAGED_TRAINING_MODEL_COPY)
-        model_def.extractall(path=".")
+        context_directory.extractall(path=constants.MANAGED_TRAINING_MODEL_COPY)
+        context_directory.extractall(path=".")
 
     # pre-0.18.3 code wrote tensorboard stuff under /tmp/tensorboard
-    det.util.force_create_symlink(f"/tmp/tensorboard-{info.allocation_id}-0", "/tmp/tensorboard")
+    if is_trial(info):
+        det.util.force_create_symlink(
+            f"/tmp/tensorboard-{info.allocation_id}-0", "/tmp/tensorboard"
+        )
 
 
 def do_rendezvous_rm_provided(
@@ -102,7 +84,7 @@ def do_rendezvous_slurm(
             rendezvous_ip = get_ip_from_interface(rendezvous_iface)
             break
         except ValueError as e:
-            logging.warning(f"Unable to resolve ip for {rendezvous_iface}: {str(e)}")
+            logger.warning(f"Unable to resolve ip for {rendezvous_iface}: {str(e)}")
 
     # Note, rendezvous must be sorted in rank order.
     resp = bindings.post_AllocationAllGather(
@@ -256,7 +238,7 @@ def set_proxy_address(sess: api.Session, allocation_id: str) -> None:
         except ValueError as e:
             resolution_error = e
     else:
-        logging.warning(f"falling back to naive proxy ip resolution (error={resolution_error})")
+        logger.warning(f"falling back to naive proxy ip resolution (error={resolution_error})")
         proxy_ip = socket.gethostbyname(socket.gethostname())
 
     # Right now this is just used in 'singularity-over-slurm' mode when singularity is using the
@@ -290,6 +272,11 @@ if __name__ == "__main__":
     parser.add_argument("--rendezvous", action="store_true")
     parser.add_argument("--proxy", action="store_true")
     parser.add_argument("--notify_container_running", action="store_true")
+    parser.add_argument(
+        "--download_context_directory",
+        action="store_true",
+        help="download the task's user files from master",
+    )
     args = parser.parse_args()
 
     # Avoid reading det.get_cluster_info(), which might (wrongly) set a singleton to None.
@@ -297,6 +284,11 @@ if __name__ == "__main__":
     if info is None:
         info = det.ClusterInfo._from_env()
         info._to_file()
+    if is_trial(info):
+        trial_info = det.TrialInfo._from_file()
+        if trial_info is None:
+            trial_info = det.TrialInfo._from_env()
+            trial_info._to_file()
 
     try:
         # See the ClusterInfo.trial property for explanation
@@ -308,7 +300,16 @@ if __name__ == "__main__":
         level=logging.DEBUG if debug else logging.INFO,
         format=det.LOG_FORMAT,
     )
-    logging.debug("running prep_container")
+    logger.debug("running prep_container")
+
+    if args.trial:
+        warnings.warn(
+            "--trial has been deprecated and will be removed "
+            "in a future version.\n"
+            "Please use --download_context_directory instead.",
+            FutureWarning,
+            stacklevel=1,
+        )
 
     cert = certs.default_load(info.master_url)
     sess = api.Session(
@@ -327,8 +328,8 @@ if __name__ == "__main__":
     if args.notify_container_running:
         send_container_running_notification(sess, info.allocation_id)
 
-    if args.trial:
-        trial_prep(sess, info)
+    if args.download_context_directory or args.trial:
+        download_context_directory(sess, info)
 
     if args.resources:
         resources = det.ResourcesInfo._by_inspection()
@@ -337,12 +338,29 @@ if __name__ == "__main__":
         # based only on task logs.
         hostname = os.environ.get("HOSTNAME", "")
         agent_id = os.environ.get("DET_AGENT_ID", "")
-        logging.info(
+        container_id = os.environ.get("DET_CONTAINER_ID", "")
+        _, accelerator_type = gpu.get_gpus()
+        logger.info(
             f"Running task container on agent_id={agent_id}, hostname={hostname} "
             f"with visible GPUs {resources.gpu_uuids}"
         )
+        bindings.post_PostAllocationAcceleratorData(
+            sess,
+            allocationId=info.allocation_id,
+            body=bindings.v1PostAllocationAcceleratorDataRequest(
+                allocationId=info.allocation_id,
+                acceleratorData=bindings.v1AcceleratorData(
+                    containerId=container_id,
+                    acceleratorType="cpu" if accelerator_type == "" else accelerator_type,
+                    acceleratorUuids=resources.gpu_uuids,
+                    allocationId=info.allocation_id,
+                    nodeName=agent_id,
+                    taskId=info.task_id,
+                ),
+            ),
+        )
         for process in gpu.get_gpu_processes():
-            logging.warning(
+            logger.warning(
                 f"process {process.process_name} "
                 f"with pid {process.pid} "
                 f"is using {process.used_memory} memory "

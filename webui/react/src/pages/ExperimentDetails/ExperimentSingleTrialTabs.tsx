@@ -1,14 +1,14 @@
 import type { TabsProps } from 'antd';
+import Button from 'hew/Button';
+import Message from 'hew/Message';
+import Pivot from 'hew/Pivot';
+import Notes from 'hew/RichTextEditor';
+import Spinner from 'hew/Spinner';
+import Tooltip from 'hew/Tooltip';
 import { string } from 'io-ts';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { unstable_useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import Button from 'components/kit/Button';
-import Notes from 'components/kit/Notes';
-import Pivot from 'components/kit/Pivot';
-import Spinner from 'components/kit/Spinner';
-import Tooltip from 'components/kit/Tooltip';
-import Message, { MessageType } from 'components/Message';
 import TrialLogPreview from 'components/TrialLogPreview';
 import { UNMANAGED_MESSAGE } from 'constant';
 import { terminalRunStates } from 'constants/states';
@@ -29,6 +29,7 @@ import handleError, { ErrorLevel, ErrorType } from 'utils/error';
 
 import ExperimentCheckpoints from './ExperimentCheckpoints';
 import ExperimentCodeViewer from './ExperimentCodeViewer';
+import css from './ExperimentSingleTrialTabs.module.scss';
 
 const TabType = {
   Checkpoints: 'checkpoints',
@@ -47,7 +48,7 @@ type Params = {
 };
 
 const NeverTrials: React.FC = () => (
-  <Message title="Experiment will not have trials" type={MessageType.Alert} />
+  <Message icon="warning" title="Experiment will not have trials" />
 );
 
 const TAB_KEYS = Object.values(TabType);
@@ -295,8 +296,9 @@ const ExperimentSingleTrialTabs: React.FC<Props> = ({
         <Notes
           disabled={!editableNotes}
           disableTitle
-          notes={{ contents: experiment.notes ?? '', name: 'Notes' }}
+          docs={{ contents: experiment.notes ?? '', name: 'Notes' }}
           onError={handleError}
+          onPageUnloadHook={unstable_useBlocker}
           onSave={handleNotesUpdate}
         />
       ),
@@ -348,18 +350,20 @@ const ExperimentSingleTrialTabs: React.FC<Props> = ({
       hidePreview={tabKey === TabType.Logs}
       trial={trialDetails}
       onViewLogs={handleViewLogs}>
-      <Pivot
-        activeKey={tabKey}
-        items={tabItems}
-        tabBarExtraContent={
-          tabKey === TabType.Hyperparameters && showCreateExperiment && !experiment.unmanaged ? (
-            <div style={{ padding: 4 }}>
-              <Button onClick={handleHPSearch}>Hyperparameter Search</Button>
-            </div>
-          ) : undefined
-        }
-        onChange={handleTabChange}
-      />
+      <div className={css.pivoter}>
+        <Pivot
+          activeKey={tabKey}
+          items={tabItems}
+          tabBarExtraContent={
+            tabKey === TabType.Hyperparameters && showCreateExperiment && !experiment.unmanaged ? (
+              <div style={{ padding: 4 }}>
+                <Button onClick={handleHPSearch}>Hyperparameter Search</Button>
+              </div>
+            ) : undefined
+          }
+          onChange={handleTabChange}
+        />
+      </div>
       {modalHyperparameterSearchContextHolder}
     </TrialLogPreview>
   );

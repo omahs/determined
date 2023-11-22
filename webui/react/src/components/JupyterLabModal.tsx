@@ -1,14 +1,17 @@
-import { Alert, Select } from 'antd';
+import Button from 'hew/Button';
+import Form, { FormInstance } from 'hew/Form';
+import Input from 'hew/Input';
+import InputNumber from 'hew/InputNumber';
+import Message from 'hew/Message';
+import { Modal } from 'hew/Modal';
+import Select, { Option, SelectValue } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import { number, string, undefined as undefinedType, union } from 'io-ts';
 import yaml from 'js-yaml';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import Button from 'components/kit/Button';
-import Form, { FormInstance } from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import InputNumber from 'components/kit/InputNumber';
-import { Modal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
+import Link from 'components/Link';
 import usePermissions from 'hooks/usePermissions';
 import { SettingsConfig, useSettings } from 'hooks/useSettings';
 import { paths } from 'routes/utils';
@@ -18,10 +21,7 @@ import workspaceStore from 'stores/workspaces';
 import { RawJson, Template, Workspace } from 'types';
 import handleError from 'utils/error';
 import { JupyterLabOptions, launchJupyterLab, previewJupyterLab } from 'utils/jupyter';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { useObservable } from 'utils/observable';
-
-const { Option } = Select;
 
 const STORAGE_PATH = 'jupyter-lab';
 const DEFAULT_SLOT_COUNT = 1;
@@ -79,7 +79,7 @@ interface Props {
   workspace?: Workspace;
 }
 
-const CodeEditor = React.lazy(() => import('components/kit/CodeEditor'));
+const CodeEditor = React.lazy(() => import('hew/CodeEditor'));
 
 const JupyterLabModalComponent: React.FC<Props> = ({ workspace }: Props) => {
   const idPrefix = useId();
@@ -183,13 +183,14 @@ const JupyterLabModalComponent: React.FC<Props> = ({ workspace }: Props) => {
     <Modal
       cancel
       footerLink={
-        showFullConfig
-          ? {
-              external: true,
-              text: 'Read about JupyterLab settings',
-              url: paths.docs('/architecture/introduction.html#interactive-job-configuration'),
-            }
-          : undefined
+        showFullConfig ? (
+          <Link
+            external
+            path={paths.docs('/architecture/introduction.html#interactive-job-configuration')}
+            popout>
+            Read about JupyterLab settings
+          </Link>
+        ) : undefined
       }
       size={showFullConfig ? 'large' : 'small'}
       submit={{
@@ -279,7 +280,7 @@ const JupyterLabFullConfig: React.FC<FullConfigProps> = ({
     form.setFieldValue('config', usableConfig);
   }, [usableConfig, form]);
 
-  const onSelectWorkspace = (workspaceId?: number) => {
+  const onSelectWorkspace = (workspaceId?: SelectValue) => {
     const selected = workspaces.find((w) => workspaceId && w.id === workspaceId);
     setWorkspace(selected);
   };
@@ -310,7 +311,7 @@ const JupyterLabFullConfig: React.FC<FullConfigProps> = ({
           rules={[
             { message: 'JupyterLab config required', required: true },
             {
-              validator: (rule, value) => {
+              validator: (_rule, value) => {
                 try {
                   yaml.load(value);
                   return Promise.resolve();
@@ -332,7 +333,7 @@ const JupyterLabFullConfig: React.FC<FullConfigProps> = ({
           />
         </Form.Item>
       </React.Suspense>
-      {configError && <Alert message={configError} type="error" />}
+      {configError && <Message icon="error" title={configError} />}
     </Form>
   );
 };
@@ -405,7 +406,7 @@ const JupyterLabForm: React.FC<{
     form.setFieldValue('workspaceId', currentWorkspace?.id);
   }, [currentWorkspace, form]);
 
-  const onSelectWorkspace = (workspaceId?: number) => {
+  const onSelectWorkspace = (workspaceId?: SelectValue) => {
     const selected = workspaces.find((w) => workspaceId && w.id === workspaceId);
     setWorkspace(selected);
   };
@@ -442,7 +443,7 @@ const JupyterLabForm: React.FC<{
         <Input placeholder="Name (optional)" />
       </Form.Item>
       <Form.Item initialValue={defaults?.pool} label="Resource Pool" name="pool">
-        <Select allowClear placeholder="Pick the best option" showSearch>
+        <Select allowClear placeholder="Pick the best option">
           {resourcePools.map((pool) => (
             <Option key={pool.name} value={pool.name}>
               {pool.name}

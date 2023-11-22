@@ -1,14 +1,14 @@
+import { matchesShortcut } from 'hew/InputShortcut';
+import { useModal } from 'hew/Modal';
 import React, { useEffect } from 'react';
 
 import JupyterLabModalComponent from 'components/JupyterLabModal';
-import { useModal } from 'components/kit/Modal';
 import shortCutSettingsConfig, {
   Settings as ShortcutSettings,
 } from 'components/UserSettings.settings';
 import { keyEmitter, KeyEvent } from 'hooks/useKeyTracker';
 import { useSettings } from 'hooks/useSettings';
 import { Workspace } from 'types';
-import { matchesShortcut } from 'utils/shortcut';
 
 interface Props {
   enabled?: boolean;

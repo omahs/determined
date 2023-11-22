@@ -6,9 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/determined-ai/determined/master/internal/sproto"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/model"
-	"github.com/determined-ai/determined/master/pkg/tasks"
 )
 
 type (
@@ -21,8 +19,9 @@ type (
 var ErrMock = errors.New("mock error")
 
 type MockTask struct {
-	RMRef *actor.Ref
+	RPRef *resourcePool
 
+	TaskID         model.TaskID
 	ID             model.AllocationID
 	JobID          string
 	Group          *MockGroup
@@ -33,77 +32,8 @@ type MockTask struct {
 	// Any test that set this to false is half wrong. It is used as a proxy to oversubscribe agents.
 	ContainerStarted  bool
 	JobSubmissionTime time.Time
-}
 
-func (t *MockTask) Receive(ctx *actor.Context) error {
-	switch msg := ctx.Message().(type) {
-	case actor.PreStart:
-	case actor.PostStop:
-		task := sproto.ResourcesReleased{AllocationID: t.ID}
-		if ctx.ExpectingResponse() {
-			ctx.Respond(ctx.Ask(t.RMRef, task).Get())
-		} else {
-			ctx.Tell(t.RMRef, task)
-		}
-	case SendRequestResourcesToResourceManager:
-		task := sproto.AllocateRequest{
-			AllocationID:      t.ID,
-			JobID:             model.JobID(t.JobID),
-			JobSubmissionTime: t.JobSubmissionTime,
-			Name:              string(t.ID),
-			SlotsNeeded:       t.SlotsNeeded,
-			Preemptible:       !t.NonPreemptible,
-			ResourcePool:      t.ResourcePool,
-		}
-		if t.Group == nil {
-			task.Group = ctx.Self()
-		} else {
-			task.Group = ctx.Self().System().Get(actor.Addr(t.Group.ID))
-		}
-		if ctx.ExpectingResponse() {
-			ctx.Respond(ctx.Ask(t.RMRef, task).Get())
-		} else {
-			ctx.Tell(t.RMRef, task)
-		}
-	case SendResourcesReleasedToResourceManager:
-		task := sproto.ResourcesReleased{AllocationID: t.ID}
-		if ctx.ExpectingResponse() {
-			ctx.Respond(ctx.Ask(t.RMRef, task).Get())
-		} else {
-			ctx.Tell(t.RMRef, task)
-		}
-	case ThrowError:
-		return ErrMock
-	case ThrowPanic:
-		panic(ErrMock)
-
-	case sproto.ResourcesAllocated:
-		rank := 0
-		for _, allocation := range msg.Resources {
-			if err := allocation.Start(
-				ctx.Self().System(),
-				nil,
-				tasks.TaskSpec{},
-				sproto.ResourcesRuntimeInfo{
-					Token:        "",
-					AgentRank:    rank,
-					IsMultiAgent: len(msg.Resources) > 1,
-				},
-			); err != nil {
-				ctx.Respond(err)
-				return nil
-			}
-			rank++
-		}
-	case sproto.ReleaseResources:
-		ctx.Tell(t.RMRef, sproto.ResourcesReleased{AllocationID: t.ID})
-
-	case sproto.ResourcesStateChanged:
-
-	default:
-		return actor.ErrUnexpectedMessage(ctx)
-	}
-	return nil
+	BlockedNodes []string
 }
 
 type MockGroup struct {
@@ -113,20 +43,7 @@ type MockGroup struct {
 	Priority *int
 }
 
-func (g *MockGroup) Receive(ctx *actor.Context) error {
-	switch ctx.Message().(type) {
-	case actor.PreStart:
-	case actor.PostStop:
-	case *sproto.RMJobInfo:
-	default:
-		return actor.ErrUnexpectedMessage(ctx)
-	}
-	return nil
-}
-
-func MockTaskToAllocateRequest(
-	mockTask *MockTask, allocationRef *actor.Ref,
-) *sproto.AllocateRequest {
+func MockTaskToAllocateRequest(mockTask *MockTask) *sproto.AllocateRequest {
 	jobID := mockTask.JobID
 	jobSubmissionTime := mockTask.JobSubmissionTime
 
@@ -134,16 +51,18 @@ func MockTaskToAllocateRequest(
 		jobID = string(mockTask.ID)
 	}
 	if jobSubmissionTime.IsZero() {
-		jobSubmissionTime = allocationRef.RegisteredTime()
+		jobSubmissionTime = time.Now()
 	}
 
 	req := &sproto.AllocateRequest{
+		TaskID:            mockTask.TaskID,
 		AllocationID:      mockTask.ID,
 		JobID:             model.JobID(jobID),
 		SlotsNeeded:       mockTask.SlotsNeeded,
 		IsUserVisible:     true,
 		Preemptible:       !mockTask.NonPreemptible,
 		JobSubmissionTime: jobSubmissionTime,
+		BlockedNodes:      mockTask.BlockedNodes,
 	}
 	return req
 }
@@ -170,16 +89,4 @@ func NewMockAgent(
 		MaxZeroSlotContainers: maxZeroSlotContainers,
 		ZeroSlotContainers:    zeroSlotContainers,
 	}
-}
-
-func (m *MockAgent) Receive(ctx *actor.Context) error {
-	switch ctx.Message().(type) {
-	case actor.PreStart:
-	case actor.PostStop:
-	case sproto.StartTaskContainer:
-	case sproto.KillTaskContainer:
-	default:
-		return actor.ErrUnexpectedMessage(ctx)
-	}
-	return nil
 }

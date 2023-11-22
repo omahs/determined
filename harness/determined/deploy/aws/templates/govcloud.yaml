@@ -4,11 +4,11 @@ Description: Determined Template
 Mappings:
   RegionMap:
     us-gov-east-1:
-      Master: ami-01d71f6009765d511
-      Agent: ami-0b71e56244b8ac1cb
+      Master: ami-04ef693ebcf519dc3
+      Agent: ami-00126631d6e55c1bb
     us-gov-west-1:
-      Master: ami-0b64b04df085adbf1
-      Agent: ami-0d26002529bfac823
+      Master: ami-08bd15d820a3c087e
+      Agent: ami-0ca659511f1cd0294
 Parameters:
   Keypair:
     Type: AWS::EC2::KeyPair::KeyName
@@ -67,7 +67,7 @@ Parameters:
   Version:
     Type: String
     Description: Determined version or commit for master docker image
-    Default: 0.25.2-dev0
+    Default: 0.26.5-dev0
 
   DBPassword:
     Type: String
@@ -205,7 +205,7 @@ Parameters:
         scheduler:
           type: {{ .resource_manager.scheduler.type }}
           {{- if eq .resource_manager.scheduler.type "priority" }}
-          preemption: {{ .resource_manager.scheduler.preemption_enabled }}
+          preemption: {{ .resource_manager.scheduler.preemption }}
           {{- end }}
 
       resource_pools:
@@ -229,6 +229,13 @@ Parameters:
         tls:
           cert: /etc/determined/master.crt
           key: /etc/determined/master.key
+      {{ end }}
+
+      {{ if ne .lore_version "" }}
+      __internal:
+        proxied_servers:
+          - destination: "http://lore-backend:9011/lore"
+            path_prefix: /lore
       {{ end }}
 
       {{ if or (or .cpu_env_image .gpu_env_image) .bind_mounts }}

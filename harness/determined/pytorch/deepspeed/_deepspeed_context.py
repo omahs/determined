@@ -13,6 +13,8 @@ from determined import profiler, pytorch
 from determined.pytorch import deepspeed as det_ds
 from determined.util import merge_dicts
 
+logger = logging.getLogger("determined.pytorch")
+
 
 def overwrite_deepspeed_config(
     base_ds_config: Union[str, Dict], source_ds_dict: Dict[str, Any]
@@ -77,7 +79,7 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
         # Apex AMP and cannot be used with more complex AMP modes.
         apex_available = importlib.util.find_spec("apex") is not None
         if not apex_available:
-            logging.warning(
+            logger.warning(
                 "Missing package APEX is required for ZeRO optimizer support through DeepSpeed."
             )
 
@@ -91,6 +93,8 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
         self._current_batch_idx = None  # type: Optional[int]
 
         self._determined_profiler = None  # type: Optional[profiler.ProfilerAgent]
+        self.profiler = None  # type: Any
+
         self._mpu = det_ds.make_data_parallel_mpu(
             self.distributed
         )  # type: det_ds.ModelParallelUnit
@@ -136,7 +140,7 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
         for opt_field, default_value in other_optimizations_default_values.items():
             opt_value = optimizations_config.get(opt_field, default_value)
             if opt_value != default_value:
-                logging.warning(
+                logger.warning(
                     f"{opt_field}={opt_value} ignored since the setting does not apply "
                     "to DeepSpeedTrial."
                 )
@@ -186,7 +190,7 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
             if len(self.models) == 0:
                 self._mpu = det_ds.make_deepspeed_mpu(model.mpu)
             else:
-                logging.warning("Using the MPU corresponding to the first wrapped model engine. ")
+                logger.warning("Using the MPU corresponding to the first wrapped model engine. ")
 
         if len(self.models) == 0:
             self._train_micro_batch_size_per_gpu = int(model.train_micro_batch_size_per_gpu())
@@ -195,7 +199,7 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
             # If multiple model engines are wrapped, we will raise a warning if the micro batch
             # size for additional model engines does not match that of the first model engine.
             if model.train_micro_batch_size_per_gpu() != self._train_micro_batch_size_per_gpu:
-                logging.warning(
+                logger.warning(
                     f"Train micro batch size for wrapped model engine {len(self.models) + 1} does "
                     "not match that for the first wrapped engine.  Num sample reporting will only "
                     "apply to wrapped model engine 1."
@@ -329,6 +333,43 @@ class DeepSpeedTrialContext(det.TrialContext, pytorch._PyTorchReducerContext):
         if self._current_batch_idx is None:
             raise det.errors.InternalException("Training hasn't started.")
         return self._current_batch_idx
+
+    def set_profiler(self, *args: List[str], **kwargs: Any) -> None:
+        """
+        ``set_profiler()`` is a thin wrapper around PyTorch profiler, torch-tb-profiler.
+        It overrides the ``on_trace_ready`` parameter to the determined tensorboard path, while all
+        other arguments are passed directly into ``torch.profiler.profile``. Stepping the profiler
+        will be handled automatically during the training loop.
+
+        See the `PyTorch profiler plugin
+        <https://github.com/pytorch/kineto/tree/master/tb_plugin>`_ for details.
+
+        Examples:
+
+        Profiling GPU and CPU activities, skipping batch 1, warming up on batch 2, and profiling
+        batches 3 and 4.
+
+        .. code-block:: python
+
+            self.context.set_profiler(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU,
+                    torch.profiler.ProfilerActivity.CUDA,
+                ],
+                schedule=torch.profiler.schedule(
+                    wait=1,
+                    warmup=1,
+                    active=2
+                ),
+            )
+        """
+        self.profiler = torch.profiler.profile(
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(
+                str(self.get_tensorboard_path())
+            ),
+            *args,
+            **kwargs,
+        )
 
     def get_tensorboard_writer(self) -> Any:
         """

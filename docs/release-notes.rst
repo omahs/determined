@@ -7,6 +7,247 @@
 ###############
 
 **************
+ Version 0.26
+**************
+
+Version 0.26.4
+==============
+
+**Release Date:** November 17, 2023
+
+**Breaking Changes**
+
+-  CLI: The CLI command to patch the master log config has been changed from ``det master config
+   --log --level <log_level> --color <on/off>`` to ``det master config set --log.level=<log_level>
+   --log.color=<on/off>``.
+
+**New Features**
+
+-  Experiments: Add a ``log_policies`` configuration option to define actions when a trial's log
+   matches specified patterns.
+
+   -  The ``exclude_node`` action prevents a failed trial's restart attempts (due to its
+      ``max_restarts`` policy) from being scheduled on nodes with matching error logs. This is
+      useful for bypassing nodes with hardware issues like uncorrectable GPU ECC errors.
+
+   -  The ``cancel_retries`` action prevents a trial from restarting if a trial reports a log that
+      matches the pattern, even if it has remaining ``max_restarts``. This avoids using resources
+      for retrying a trial that encounters certain failures that won't be fixed by retrying the
+      trial, such as CUDA memory issues. For details, visit :ref:`experiment-config-reference` and
+      :ref:`master-config-reference`.
+
+   This option is also configurable at the cluster or resource pool level via task container
+   defaults.
+
+-  CLI: Add a new CLI command ``det e delete-tb-files [Experiment ID]`` to delete local TensorBoard
+   files associated with a given experiment.
+
+**Improvements**
+
+-  Update default environment images to Python 3.9 from Python 3.8.
+
+**Bug Fixes**
+
+-  Users: Fix an issue where if a user's remote status was edited through ``det user edit <username>
+   --remote=true``, that user could still log in using their username and password; they should only
+   be able to log in through IdP integrations.
+
+Version 0.26.3
+==============
+
+**Release Date:** November 03, 2023
+
+**New Features**
+
+-  CLI: Add a new CLI command ``det user edit <target_user> [--display-name] [--remote] [--active]
+   [--admin] [--username]`` that allows the user to edit multiple fields for the target user. Old
+   methods for editing users will still be available, but are now deprecated.
+
+-  Add new ``directory`` checkpoint storage type, which allows for storing checkpoint and
+   TensorBoard data at a specified path inside the task containers. Users are responsible for
+   mounting a persistent storage at this path, e.g., a shared PVC using ``pod_spec`` configuration
+   in Kubernetes-based setups.
+
+**Deprecated Features**
+
+-  API: Support for mixed precision in ``PyTorchTrial`` using NVIDIA's Apex library is deprecated
+   and will be removed in a future version of Determined. Users should transition to Torch Automatic
+   Mixed Precision (``torch.cuda.amp``). For examples, refer to the `examples
+   <https://github.com/determined-ai/determined/tree/0.26.1/harness/tests/experiment/fixtures/pytorch_amp>`_.
+
+-  Images: Environment images will no longer include the Apex package in a future version of
+   Determined. If needed, users can install it from the official repository.
+
+Version 0.26.2
+==============
+
+**Release Date:** October 25, 2023
+
+Notice: The ``ruamel.yaml`` library's 0.18.0 release includes breaking changes that affect earlier
+versions of Determined. The failure behavior is that commands that emit YAML, such as ``det
+experiment config``, will emit nothing to ``stdout`` or ``stderr`` but instead silently exit 1 due
+to the new version of ``ruamel.yaml``. This release of Determined has included a
+``ruamel.yaml<0.18.0`` requirement, but older versions of Determined will also be affected, so users
+of older versions of Determined may have to manually downgrade ``ruamel.yaml`` if they observe this
+behavior.
+
+**New Features**
+
+-  Python SDK: Add various new features and enhancements. A few highlights are listed below.
+
+   -  Add support for downloading a zipped archive of experiment code
+      (:meth:`Experiment.download_code <determined.experimental.client.Experiment.download_code>`).
+
+   -  Add support for :class:`~determined.experimental.client.Project` and
+      :class:`~determined.experimental.client.Workspace` as SDK objects.
+
+   -  Surface more attributes to resource classes, including ``hparams`` and ``summary_metrics`` for
+      :class:`~determined.experimental.client.Trial`.
+
+   -  Add support for fetching and filtering multiple experiments with
+      :meth:`client.list_experiments <determined.experimental.client.list_experiments>`.
+
+   -  Add support for filtering trial logs by timestamp and a query string using
+      :meth:`Trial.iter_logs <determined.experimental.client.Trial.iter_logs>`.
+
+   -  All resource objects now have a ``.reload()`` method that refreshes the resource's attributes
+      from the server. Previously, attributes were most easily refreshed by creating an entirely new
+      object.
+
+-  Python SDK: All ``GET`` API calls now retry the request up to 5 times on failure.
+
+**Deprecated Features**
+
+-  Python SDK: Several methods have been renamed for better API standardization.
+
+   -  Methods returning a ``List`` and ``Iterator`` now have names starting with ``list_*`` and
+      ``iter_*``, respectively.
+
+   -  :class:`~determined.experimental.client.TrialReference` and
+      :class:`~determined.experimental.client.ExperimentReference` are now
+      :class:`~determined.experimental.client.Trial` and
+      :class:`~determined.experimental.client.Experiment`.
+
+-  Python SDK: Consolidate various ways of fetching checkpoints.
+
+   -  :meth:`Experiment.top_checkpoint <determined.experimental.client.Experiment.top_checkpoint>`
+      and :meth:`Experiment.top_n_checkpoints
+      <determined.experimental.client.Experiment.top_n_checkpoints>` are deprecated in favor of
+      :meth:`Experiment.list_checkpoints
+      <determined.experimental.client.Experiment.list_checkpoints>`.
+
+   -  :meth:`Trial.get_checkpoints <determined.experimental.client.Trial.get_checkpoints>`,
+      :meth:`Trial.top_checkpoint <determined.experimental.client.Trial.top_checkpoint>`, and
+      :meth:`Trial.select_checkpoint <determined.experimental.client.Trial.select_checkpoint>` are
+      deprecated in favor of :meth:`Trial.list_checkpoints
+      <determined.experimental.client.Trial.list_checkpoints>`.
+
+-  Python SDK: Deprecate resource ordering enum classes (``CheckpointOrderBy``,
+   ``ExperimentOrderBy``, ``TrialOrderBy``, ``ModelOrderBy``) in favor of a shared
+   :class:`~determined.experimental.client.OrderBy`.
+
+**Bug Fixes**
+
+-  Core API: On context closure, properly save all TensorBoard files not related to metrics
+   reporting, particularly the native profiler traces.
+-  Core API v2: Fix an issue where TensorBoard files were not saved for managed experiments.
+
+Version 0.26.1
+==============
+
+**Release Date:** October 12, 2023
+
+**New Features**
+
+-  Experiments: Add an experiment continue feature to the CLI (``det e continue <experiment-id>``),
+   which allows for resuming or recovering training for an experiment whether it previously
+   succeeded or failed. This is limited to single-searcher experiments and using it may prevent the
+   user from replicating the continued experiment's results.
+
+**Improvements**
+
+-  Logging: Some API logs would previously only go to the standard output of the running master but
+   now will also appear in the output of ``det master logs``.
+
+-  Kubernetes: Increase the file context limit for notebooks, commands, TensorBoards, and shells
+   from approximately 1MB to roughly 95MB, the same limit as the agent resource manager.
+
+-  CLI: ``det notebook|shell|tensorboard open <id>`` will now wait for the item to be ready instead
+   of giving an error if it is not ready.
+
+-  Detached mode: Add support for S3 and GCS cloud storage for TensorBoard files.
+
+-  Kubernetes: On Kubernetes, ``max_slots_per_pod`` can now be configured at a resource pool level
+   through the master config option
+   ``resource_pools.task_container_defaults.kubernetes.max_slots_per_pod``.
+
+**Bug Fixes**
+
+-  TensorBoard: Fix an issue where TensorBoard files for an experiment were not getting deleted when
+   the experiment was deleted.
+
+-  Kubernetes: Fix an issue where custom node affinities on tasks were being ignored.
+
+   On Kubernetes, upgrading from a version before this feature to a version after this feature can
+   cause queued allocations with a custom node affinity to be killed. Users can pause queued
+   experiments to avoid this.
+
+**Known Issue**
+
+-  When using custom metric groups, the ``Learning Curve`` view in the experiment's visualization
+   tab does not render.
+
+Version 0.26.0
+==============
+
+**Release Date:** September 25, 2023
+
+**Breaking Changes**
+
+-  Kubernetes: Remove the ``agent_reattach_enabled`` config option. Agent reattach is now always
+   enabled.
+-  Agent: Take the default value for the ``--visible-gpus`` option from the ``CUDA_VISIBLE_DEVICES``
+   or ``ROCR_VISIBLE_DEVICES`` environment variables, if defined.
+
+**New Features**
+
+-  SDK: Add the ability to keep track of what experiments use a particular checkpoint or model
+   version for inference.
+
+-  SDK: Add :meth:`Checkpoint.get_metrics <determined.experimental.client.Checkpoint.get_metrics>`
+   and :meth:`ModelVersion.get_metrics <determined.experimental.model.ModelVersion.get_metrics>`
+   methods.
+
+-  Kubernetes: Support enabling and disabling agents to prevent Determined from scheduling jobs on
+   specific nodes.
+
+   Upgrading from a version before this feature to a version after this feature only on Kubernetes
+   will cause queued allocations to be killed on upgrade. Users can pause queued experiments to
+   avoid this.
+
+**Improvements**
+
+-  Enable reporting and display of metrics with floating-point epoch values.
+
+-  API: Allow the reporting of duplicate metrics across multiple ``report_metrics`` calls with the
+   same ``steps_completed``, provided they have identical values.
+
+-  SDK: :func:`~determined.experimental.client.stream_trials_training_metrics` and
+   :func:`~determined.experimental.client.stream_trials_validation_metrics` are now deprecated.
+   Please use :func:`~determined.experimental.client.stream_trials_metrics` instead. The
+   corresponding methods of :class:`~determined.experimental.client.Determined` and
+   :class:`~determined.experimental.client.TrialReference` have also been updated similarly.
+
+**Bug Fixes**
+
+-  Checkpoints: Fix an issue where in certain situations duplicate checkpoints with the same UUID
+   would be returned by the WebUI and the CLI.
+-  Models: Fix a bug where ``det model describe`` and other methods in the CLI and SDK that act on a
+   single model would error if two models had similar names.
+-  Workspaces: Fix an issue where notebooks, TensorBoards, shells, and commands would not inherit
+   agent user group and agent user information from their workspace.
+
+**************
  Version 0.25
 **************
 
@@ -424,8 +665,8 @@ Version 0.21.1
 
    -  :meth:`~determined.experimental.client.stream_trials_training_metrics`
    -  :meth:`~determined.experimental.client.stream_trials_validation_metrics`
-   -  :meth:`~determined.experimental.client.TrialReference.stream_training_metrics`
-   -  :meth:`~determined.experimental.client.TrialReference.stream_validation_metrics`
+   -  :meth:`~determined.experimental.client.Trial.stream_training_metrics`
+   -  :meth:`~determined.experimental.client.Trial.stream_validation_metrics`
 
 **Removed Features**
 
@@ -785,12 +1026,12 @@ Version 0.19.7
    Hugging Face's Diffusers.
 
 -  Python SDK now supports reading logs from trials, via the new
-   :meth:`~determined.experimental.client.TrialReference.logs` method. Additionally, the Python SDK
-   also supports a new blocking call on an experiment to get the first trial created for an
-   experiment via the
-   :meth:`~determined.experimental.client.ExperimentReference.await_first_trial()` method. Users who
-   have been writing automation around the ``det e create --follow-first-trial`` CLI command may now
-   use the Python SDK instead, by combining ``.await_first_trial()`` and ``.logs()``.
+   :meth:`~determined.experimental.client.Trial.logs` method. Additionally, the Python SDK also
+   supports a new blocking call on an experiment to get the first trial created for an experiment
+   via the :meth:`~determined.experimental.client.ExperimentReference.await_first_trial()` method.
+   Users who have been writing automation around the ``det e create --follow-first-trial`` CLI
+   command may now use the Python SDK instead, by combining ``.await_first_trial()`` and
+   ``.logs()``.
 
 -  RBAC: the enterprise edition of Determined (`HPE Machine Learning Development Environment
    <https://www.hpe.com/us/en/solutions/artificial-intelligence/machine-learning-development-environment.html>`_)
@@ -1163,7 +1404,7 @@ Version 0.18.3
 -  CLI: Add new flag ``--agent-config-path`` to ``det deploy local agent-up`` allowing custom agent
    configs to be used.
 -  CLI: Add ``det (notebook|shell|tensorboard) list --json`` option, allowing user to get
-   JSON-formatted notebook, shell or tensorboard task list.
+   JSON-formatted notebook, shell or TensorBoard task list.
 -  Configuration: Experiment configuration ``resources.shm_size`` now supports passing in a unit
    like ``4.5 G`` or ``128MiB``.
 
@@ -2650,8 +2891,9 @@ Version 0.13.11
    :meth:`determined.pytorch.PyTorchExperimentalContext.wrap_reducer()` for detailed documentation
    and code snippets.
 
-   See ``determined/examples/features/custom_reducers_mnist_pytorch`` for a complete example of how
-   to use custom reducers. The example emits a per-class F1 score using the new custom reducer API.
+   See ``determined/examples/features/legacy/custom_reducers_mnist_pytorch`` for a complete example
+   of how to use custom reducers. The example emits a per-class F1 score using the new custom
+   reducer API.
 
 -  Trials: Support more than 1 backward pass per optimizer step for distributed training in
    PyTorchTrial.
@@ -3689,9 +3931,8 @@ Version 0.12.3
 -  Add support for locally testing experiments via ``det e create --local``.
 
 -  Add :class:`determined.experimental.Determined` class for accessing
-   :class:`~determined.experimental.ExperimentReference`,
-   :class:`~determined.experimental.TrialReference`, and
-   :class:`~determined.experimental.Checkpoint` objects.
+   :class:`~determined.experimental.ExperimentReference`, :class:`~determined.experimental.Trial`,
+   and :class:`~determined.experimental.Checkpoint` objects.
 
 -  TensorBoard logs now appear under the ``storage_path`` for ``shared_fs`` checkpoint
    configurations.
@@ -3879,7 +4120,7 @@ Version 0.12.2
 
 -  Add support for gradient aggregation in Keras trials for TensorFlow 2.1.
 
--  Add TrialReference and Checkpoint experimental APIs for exporting and loading checkpoints.
+-  Add Trial and Checkpoint experimental APIs for exporting and loading checkpoints.
 
 -  Improve performance when starting many tasks simultaneously.
 

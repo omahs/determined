@@ -1,12 +1,14 @@
 import { Typography } from 'antd';
+import Form from 'hew/Form';
+import Icon from 'hew/Icon';
+import { Modal } from 'hew/Modal';
+import Select, { Option } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import { useToast } from 'hew/Toast';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 
-import Form from 'components/kit/Form';
-import Icon from 'components/kit/Icon';
-import { Modal } from 'components/kit/Modal';
-import Select, { Option } from 'components/kit/Select';
-import Spinner from 'components/kit/Spinner';
 import Link from 'components/Link';
 import usePermissions from 'hooks/usePermissions';
 import { paths } from 'routes/utils';
@@ -15,9 +17,7 @@ import { V1BulkExperimentFilters } from 'services/api-ts-sdk';
 import projectStore from 'stores/projects';
 import workspaceStore from 'stores/workspaces';
 import { Project } from 'types';
-import { message, notification } from 'utils/dialogApi';
 import handleError from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { pluralizer } from 'utils/string';
 
 const FORM_ID = 'move-experiment-form';
@@ -45,6 +45,7 @@ const ExperimentMoveModalComponent: React.FC<Props> = ({
   sourceWorkspaceId,
 }: Props) => {
   const idPrefix = useId();
+  const { openToast } = useToast();
   const [disabled, setDisabled] = useState<boolean>(true);
   const [form] = Form.useForm<FormInputs>();
   const workspaceId = Form.useWatch('workspaceId', form);
@@ -70,11 +71,9 @@ const ExperimentMoveModalComponent: React.FC<Props> = ({
     }
   }, [workspaceId]);
 
-  const closeNotification = useCallback(() => notification.destroy(), []);
-
   const handleSubmit = async () => {
     if (workspaceId === sourceWorkspaceId && projectId === sourceProjectId) {
-      message.info('No changes to save.');
+      openToast({ title: 'No changes to save.' });
       return;
     }
     const values = await form.validateFields();
@@ -99,41 +98,33 @@ const ExperimentMoveModalComponent: React.FC<Props> = ({
       Loadable.getOrElse([], loadableProjects).find((p) => p.id === projId)?.name ?? '';
 
     if (numSuccesses === 0 && numFailures === 0) {
-      notification.open({
+      openToast({
         description: 'No selected experiments were eligible for moving',
-        message: 'No eligible experiments',
+        title: 'No eligible experiments',
       });
     } else if (numFailures === 0) {
-      notification.open({
-        btn: null,
-        description: (
-          <div onClick={closeNotification}>
-            <p>
-              {results.successful.length} experiments moved to project {destinationProjectName}
-            </p>
-            <Link path={paths.projectDetails(projId)}>View Project</Link>
-          </div>
-        ),
-        message: 'Move Success',
+      openToast({
+        closeable: true,
+        description: `${results.successful.length} experiments moved to project ${destinationProjectName}`,
+        link: <Link path={paths.projectDetails(projId)}>View Project</Link>,
+        title: 'Move Success',
       });
     } else if (numSuccesses === 0) {
-      notification.warning({
+      openToast({
         description: `Unable to move ${numFailures} experiments`,
-        message: 'Move Failure',
+        severity: 'Warning',
+        title: 'Move Failure',
       });
     } else {
-      notification.warning({
-        description: (
-          <div onClick={closeNotification}>
-            <p>
-              {numFailures} out of {numFailures + numSuccesses} eligible experiments failed to move
-              to project {destinationProjectName}
-            </p>
-            <Link path={paths.projectDetails(projId)}>View Project</Link>
-          </div>
-        ),
-        key: 'move-notification',
-        message: 'Partial Move Failure',
+      openToast({
+        closeable: true,
+        description: `${numFailures} out of ${
+          numFailures + numSuccesses
+        } eligible experiments failed to move
+      to project ${destinationProjectName}`,
+        link: <Link path={paths.projectDetails(projId)}>View Project</Link>,
+        severity: 'Warning',
+        title: 'Partial Move Failure',
       });
     }
     form.resetFields();
@@ -197,6 +188,7 @@ const ExperimentMoveModalComponent: React.FC<Props> = ({
             name="projectId"
             rules={[{ message: 'Project is required', required: true }]}>
             {Loadable.match(loadableProjects, {
+              Failed: () => null, // Inform the user if this fails to load
               Loaded: (loadableProjects) => (
                 <Select
                   filterOption={(input, option) =>

@@ -1,7 +1,6 @@
 #!/bin/bash
 
-source /run/determined/task-signal-handling.sh
-source /run/determined/task-logging-setup.sh
+source /run/determined/task-setup.sh
 
 set -e
 
@@ -25,7 +24,7 @@ fi
 if [ -z "$DET_PYTHON_EXECUTABLE" ]; then
     export DET_PYTHON_EXECUTABLE="python3"
 fi
-"$DET_PYTHON_EXECUTABLE" -m determined.exec.prep_container --trial --resources --proxy
+"$DET_PYTHON_EXECUTABLE" -m determined.exec.prep_container --download_context_directory --resources --proxy
 
 set -x
 test -f "${STARTUP_HOOK}" && source "${STARTUP_HOOK}"
@@ -34,6 +33,4 @@ set +x
 # Do rendezvous last, to ensure all launch layers start around the same time.
 "$DET_PYTHON_EXECUTABLE" -m determined.exec.prep_container --rendezvous
 
-trap_and_forward_signals
-"$DET_PYTHON_EXECUTABLE" -m determined.exec.launch "$@" &
-wait_and_handle_signals $!
+exec "$DET_PYTHON_EXECUTABLE" -m determined.exec.launch "$@"

@@ -10,6 +10,8 @@ from typing import Any, Callable, List
 from determined import tensorboard
 from determined.common import util
 
+logger = logging.getLogger("determined.tensorboard")
+
 
 @dataclass
 class PathUploadInfo:
@@ -34,6 +36,7 @@ class TensorboardManager(metaclass=abc.ABCMeta):
         base_path: pathlib.Path,
         sync_path: pathlib.Path,
         async_upload: bool = True,
+        sync_on_close: bool = True,
     ) -> None:
         self.base_path = base_path
         self.sync_path = sync_path
@@ -42,6 +45,7 @@ class TensorboardManager(metaclass=abc.ABCMeta):
         self.upload_thread = None
         if async_upload:
             self.upload_thread = _TensorboardUploadThread(self._sync_impl)
+        self.sync_on_close = sync_on_close
 
     def list_tb_files(
         self,
@@ -112,6 +116,8 @@ class TensorboardManager(metaclass=abc.ABCMeta):
             self.upload_thread.start()
 
     def close(self) -> None:
+        if self.sync_on_close:
+            self.sync()
         if self.upload_thread is not None and self.upload_thread.is_alive():
             self.upload_thread.close()
 
@@ -130,7 +136,7 @@ def get_metric_writer() -> tensorboard.BatchMetricWriter:
         writer: tensorboard.MetricWriter = tensorflow.TFWriter()
 
     except ModuleNotFoundError:
-        logging.warning("TensorFlow writer not found")
+        logger.warning("TensorFlow writer not found")
         from determined.tensorboard.metric_writers import pytorch
 
         writer = pytorch._TorchWriter()
@@ -148,7 +154,7 @@ class _TensorboardUploadThread(threading.Thread):
 
         self._work_queue: queue.Queue = queue.Queue(maxsize=work_queue_max_size)
 
-        super().__init__()
+        super().__init__(daemon=True, name="TensorboardUploadThread")
 
     def run(self) -> None:
         while True:
@@ -164,7 +170,7 @@ class _TensorboardUploadThread(threading.Thread):
             try:
                 self._upload_function(path_info_list)
             except Exception as e:
-                logging.warning(f"Sync of Tensorboard files failed with error: {e}")
+                logger.warning(f"Sync of Tensorboard files failed with error: {e}")
 
     def upload(self, path_info_list: List[PathUploadInfo]) -> None:
         self._work_queue.put(path_info_list)
@@ -175,7 +181,7 @@ class _TensorboardUploadThread(threading.Thread):
         was_waiting = False
         while self.is_alive():
             was_waiting = True
-            logging.info("Waiting for Tensorboard files to finish uploading")
+            logger.info("Waiting for Tensorboard files to finish uploading")
             self.join(10)
         if was_waiting:
-            logging.info("Tensorboard upload completed")
+            logger.info("Tensorboard upload completed")

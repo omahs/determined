@@ -1,14 +1,13 @@
-import { Alert } from 'antd';
+import { LineChart } from 'hew/LineChart';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
+import { Loadable, Loaded, NotLoaded } from 'hew/utils/loadable';
 import _ from 'lodash';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { LineChart, Serie } from 'components/kit/LineChart';
-import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
-import Message, { MessageType } from 'components/Message';
 import Section from 'components/Section';
 import TableBatch from 'components/Table/TableBatch';
+import useUI from 'components/ThemeProvider';
 import { UPlotPoint } from 'components/UPlot/types';
 import { terminalRunStates } from 'constants/states';
 import TrialsComparisonModal from 'pages/ExperimentDetails/TrialsComparisonModal';
@@ -25,14 +24,14 @@ import {
   Hyperparameter,
   HyperparameterType,
   Metric,
-  metricTypeParamMap,
   RunState,
   Scale,
+  Serie,
+  XAxisDomain,
 } from 'types';
 import { glasbeyColor } from 'utils/color';
 import { flattenObject, isPrimitive } from 'utils/data';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';
-import { Loadable, Loaded, NotLoaded } from 'utils/loadable';
 import { metricToStr } from 'utils/metric';
 import { isNewTabClickEvent, openBlank, routeToReactUrl } from 'utils/routes';
 import { openCommandResponse } from 'utils/wait';
@@ -149,7 +148,7 @@ const LearningCurve: React.FC<Props> = ({
 
   const handlePointClick = useCallback(
     (e: MouseEvent, point: UPlotPoint) => {
-      const trialId = point ? trialIds[point.seriesIdx - 1] : undefined;
+      const trialId = trialIds[point.seriesIdx];
       if (trialId) handleTrialClick(e, trialId);
     },
     [handleTrialClick, trialIds],
@@ -157,13 +156,13 @@ const LearningCurve: React.FC<Props> = ({
 
   const handlePointFocus = useCallback(
     (point?: UPlotPoint) => {
-      const trialId = point ? trialIds[point.seriesIdx - 1] : undefined;
+      const trialId = point ? trialIds[point.seriesIdx] : undefined;
       if (trialId) handleTrialFocus(trialId);
     },
     [handleTrialFocus, trialIds],
   );
 
-  const handleTableMouseEnter = useCallback((event: React.MouseEvent, record: TrialHParams) => {
+  const handleTableMouseEnter = useCallback((_event: React.MouseEvent, record: TrialHParams) => {
     if (record.id) setHighlightedTrialId(record.id);
   }, []);
 
@@ -189,8 +188,8 @@ const LearningCurve: React.FC<Props> = ({
       detApi.StreamingInternal.trialsSample(
         experiment.id,
         selectedMetric.name,
-        metricTypeParamMap[selectedMetric.group],
         undefined,
+        selectedMetric.group,
         selectedMaxTrial,
         MAX_DATAPOINTS,
         undefined,
@@ -236,13 +235,12 @@ const LearningCurve: React.FC<Props> = ({
         const newTrialHps = newTrialIds.map((id) => trialHpMap[id]);
         setTrialHps(newTrialHps);
 
-        const newChartData = newTrialIds
+        const newChartData: Serie[] = newTrialIds
           .filter((trialId) => !selectedRowKeys.length || selectedRowKeys.includes(trialId))
           .map((trialId) => ({
             color: glasbeyColor(trialId),
             data: { [XAxisDomain.Batches]: metricsMap[trialId] },
             key: trialId,
-            metricType: '',
             name: `trial ${trialId}`,
           }));
         setChartData(Loaded(newChartData));
@@ -311,12 +309,12 @@ const LearningCurve: React.FC<Props> = ({
     return <Message title={pageError.message} />;
   } else if ((hasLoaded && !hasTrials) || !selectedMetric) {
     return isExperimentTerminal ? (
-      <Message title="No learning curve data to show." type={MessageType.Empty} />
+      <Message icon="warning" title="No learning curve data to show." />
     ) : (
       <div className={css.waiting}>
-        <Alert
+        <Message
           description="Please wait until the experiment is further along."
-          message="Not enough data points to plot."
+          title="Not enough data points to plot."
         />
         <Spinner center spinning />
       </div>

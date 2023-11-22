@@ -1,16 +1,23 @@
+import { ChartGrid, ChartsProps } from 'hew/LineChart';
+import Spinner from 'hew/Spinner';
+import { Loaded, NotLoaded } from 'hew/utils/loadable';
 import React, { useMemo, useState } from 'react';
 
-import { ChartGrid, ChartsProps, Serie } from 'components/kit/LineChart';
-import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
-import Spinner from 'components/kit/Spinner';
 import { UPlotPoint } from 'components/UPlot/types';
 import { closestPointPlugin } from 'components/UPlot/UPlotChart/closestPointPlugin';
 import { drawPointsPlugin } from 'components/UPlot/UPlotChart/drawPointsPlugin';
 import { tooltipsPlugin } from 'components/UPlot/UPlotChart/tooltipsPlugin';
 import { useCheckpointFlow } from 'hooks/useModal/Checkpoint/useCheckpointFlow';
-import { CheckpointWorkloadExtended, ExperimentBase, Metric, TrialDetails } from 'types';
+import {
+  CheckpointWorkloadExtended,
+  ExperimentBase,
+  Metric,
+  Serie,
+  TrialDetails,
+  XAxisDomain,
+} from 'types';
+import { glasbeyColor } from 'utils/color';
 import handleError from 'utils/error';
-import { Loaded, NotLoaded } from 'utils/loadable';
 import { metricSorter, metricToKey } from 'utils/metric';
 
 import { useTrialMetrics } from './useTrialMetrics';
@@ -113,7 +120,7 @@ const TrialDetailsMetrics: React.FC<Props> = ({ experiment, trial }: Props) => {
       }, new Set<number>());
       const xVals = Array.from(xValSet).sort((a, b) => a - b);
 
-      const onPointClick = (event: MouseEvent, point: UPlotPoint) => {
+      const onPointClick = (_event: MouseEvent, point: UPlotPoint) => {
         const xVal = xVals[point.idx];
         const selectedCheckpoint =
           xVal !== undefined ? checkpointsDict[Math.floor(xVal)] : undefined;
@@ -140,7 +147,7 @@ const TrialDetailsMetrics: React.FC<Props> = ({ experiment, trial }: Props) => {
               return '<div>⬦ Best Checkpoint <em>(click to view details)</em> </div>';
             },
             isShownEmptyVal: false,
-            seriesColors: series.map((s) => s.color ?? '#009BDE'),
+            seriesColors: series.map((s, idx) => s.color ?? glasbeyColor(idx)),
           }),
         ],
         series,

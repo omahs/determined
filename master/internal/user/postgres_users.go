@@ -29,11 +29,26 @@ func StartSession(ctx context.Context, user *model.User) (string, error) {
 		Expiry: time.Now().Add(SessionDuration),
 	}
 
-	_, err := db.Bun().NewInsert().
-		Model(userSession).
-		Column("user_id", "expiry").
-		Returning("id").
-		Exec(ctx, &userSession.ID)
+	err := db.Bun().RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		_, err := db.Bun().NewInsert().
+			Model(userSession).
+			Column("user_id", "expiry").
+			Returning("id").
+			Exec(ctx, &userSession.ID)
+		if err != nil {
+			return err
+		}
+
+		_, err = db.Bun().NewUpdate().
+			Table("users").
+			SetColumn("last_auth_at", "NOW()").
+			Where("id = (?)", user.ID).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +71,7 @@ func Add(
 	var userID model.UserID
 	return userID, db.Bun().RunInTx(ctx, &sql.TxOptions{},
 		func(ctx context.Context, tx bun.Tx) error {
-			uID, err := addUser(ctx, tx, user)
+			uID, err := AddUserTx(ctx, tx, user)
 			if err != nil {
 				return err
 			}
@@ -78,7 +93,7 @@ func Update(
 				Model(updated).
 				Column(toUpdate...).
 				Where("id = ?", updated.ID).Exec(ctx); err != nil {
-				return fmt.Errorf("error updating %q: %s", updated.Username, err)
+				return fmt.Errorf("error setting active status of %q: %s", updated.Username, err)
 			}
 		}
 
@@ -102,6 +117,23 @@ func Update(
 	})
 }
 
+// SetActive changes multiple users' activation status.
+func SetActive(
+	ctx context.Context,
+	updateIDs []model.UserID,
+	activate bool,
+) error {
+	if len(updateIDs) > 0 {
+		if _, err := db.Bun().NewUpdate().
+			Table("users").
+			Set("active = ?", activate).
+			Where("id IN (?)", bun.In(updateIDs)).Exec(ctx); err != nil {
+			return fmt.Errorf("error updating %q: %s", updateIDs, err)
+		}
+	}
+	return nil
+}
+
 // DeleteSessionByToken deletes user session if found
 // (externally managed sessions are not stored in the DB and will not be found).
 func DeleteSessionByToken(ctx context.Context, token string) error {
@@ -109,7 +141,7 @@ func DeleteSessionByToken(ctx context.Context, token string) error {
 	var session model.UserSession
 	// verification will fail when using external token (Jwt instead of Paseto)
 	if err := v2.Verify(token, db.GetTokenKeys().PublicKey, &session, nil); err != nil {
-		return nil
+		return nil //nolint: nilerr
 	}
 	return DeleteSessionByID(ctx, session.ID)
 }
@@ -123,9 +155,9 @@ func DeleteSessionByID(ctx context.Context, sessionID model.SessionID) error {
 	return err
 }
 
-// addUser & addAgentUserGroup are helper methods for Add & Update.
-// addUser UPSERT's the existence of a new user.
-func addUser(ctx context.Context, idb bun.IDB, user *model.User) (model.UserID, error) {
+// AddUserTx & addAgentUserGroup are helper methods for Add & Update.
+// AddUserTx UPSERT's the existence of a new user.
+func AddUserTx(ctx context.Context, idb bun.IDB, user *model.User) (model.UserID, error) {
 	if _, err := idb.NewInsert().Model(user).Returning("id").Exec(ctx); err != nil {
 		return 0, fmt.Errorf("error inserting user: %s", err)
 	}
@@ -172,6 +204,14 @@ func addAgentUserGroup(
 		return err
 	}
 	_, err := idb.NewInsert().Model(&next).Returning("id").Exec(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = idb.NewUpdate().Table("users").
+		Set("modified_at = NOW()").
+		Where("id = ?", userID).
+		Exec(ctx)
 	return err
 }
 
@@ -260,8 +300,8 @@ func ResetUserSetting(ctx context.Context, userID model.UserID) error {
 // List returns all of the users in the database.
 func List(ctx context.Context) (values []model.FullUser, err error) {
 	err = db.Bun().NewSelect().TableExpr("users AS u").
-		Column("u.id", "u.display_name", "u.username", "u.admin", "u.active", "u.modified_at").
-		ColumnExpr(`h.uid AS agent_uid, h.gid AS agent_gid, 
+		Column("u.id", "u.display_name", "u.username", "u.admin", "u.active", "u.modified_at", "u.last_auth_at").
+		ColumnExpr(`h.uid AS agent_uid, h.gid AS agent_gid,
 		h.user_ AS agent_user, h.group_ AS agent_group`).
 		Join("LEFT OUTER JOIN agent_user_groups h ON u.id = h.user_id").
 		Scan(ctx, &values)
@@ -275,8 +315,8 @@ func ByID(ctx context.Context, userID model.UserID) (*model.FullUser, error) {
 		Column("u.id", "u.username",
 			"u.display_name", "u.admin",
 			"u.active", "u.remote",
-			"u.modified_at").
-		ColumnExpr(`h.uid AS agent_uid, h.gid AS agent_gid, 
+			"u.modified_at", "u.last_auth_at").
+		ColumnExpr(`h.uid AS agent_uid, h.gid AS agent_gid,
 		h.user_ AS agent_user, h.group_ AS agent_group`).
 		Join("LEFT OUTER JOIN agent_user_groups h ON u.id = h.user_id").
 		Where("u.id = ?", userID).Scan(ctx, &fu)
@@ -297,7 +337,7 @@ func ByToken(ctx context.Context, token string, ext *model.ExternalSessions) (
 	var session model.UserSession
 
 	if ext.JwtKey != "" {
-		return UserByExternalToken(token, ext)
+		return ByExternalToken(token, ext)
 	}
 
 	v2 := paseto.NewV2()

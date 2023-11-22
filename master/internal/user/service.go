@@ -16,11 +16,9 @@ import (
 
 	"github.com/determined-ai/determined/master/internal/api"
 	"github.com/determined-ai/determined/master/internal/authz"
-	"github.com/determined-ai/determined/master/internal/config"
 	detContext "github.com/determined-ai/determined/master/internal/context"
 	"github.com/determined-ai/determined/master/internal/db"
 	"github.com/determined-ai/determined/master/internal/telemetry"
-	"github.com/determined-ai/determined/master/pkg/actor"
 	"github.com/determined-ai/determined/master/pkg/model"
 )
 
@@ -42,8 +40,6 @@ const (
 	authNone int = 0
 	// authStandard indicates a request needs authentication.
 	authStandard = 1
-	// authAdmin indicates a request needs admin authentication.
-	authAdmin = 2
 )
 
 // unauthenticatedPointsList contains URIs and paths that are exempted from authentication.
@@ -61,16 +57,8 @@ var unauthenticatedPointsList = []string{
 	"/agents\\?id=.*",
 }
 
-// adminAuthPointsList contains the paths that require admin authentication.
-var adminAuthPointsList = []string{
-	"/agents/.*/slots/.*",
-}
-
 var unauthenticatedPointsPattern = regexp.MustCompile("^" +
 	strings.Join(unauthenticatedPointsList, "$|^") + "$")
-
-var adminAuthPointsPattern = regexp.MustCompile("^" +
-	strings.Join(adminAuthPointsList, "$|^") + "$")
 
 type agentUserGroup struct {
 	UID   *int   `json:"uid,omitempty"`
@@ -102,14 +90,13 @@ func (h *agentUserGroup) Validate() (*model.AgentUserGroup, error) {
 // Service describes a user manager.
 type Service struct {
 	db        *db.PgDB
-	system    *actor.System
 	extConfig *model.ExternalSessions
 }
 
 // InitService creates the user service singleton.
-func InitService(db *db.PgDB, system *actor.System, extConfig *model.ExternalSessions) {
+func InitService(db *db.PgDB, extConfig *model.ExternalSessions) {
 	once.Do(func() {
-		userService = &Service{db, system, extConfig}
+		userService = &Service{db, extConfig}
 	})
 }
 
@@ -133,7 +120,7 @@ func (s *Service) extractToken(r *http.Request) (string, error) {
 			return "", echo.ErrUnauthorized
 		}
 		return strings.TrimPrefix(authRaw, "Bearer "), nil
-	} else if cookie, err := r.Cookie("det_jwt"); err == nil {
+	} else if cookie, err := r.Cookie("det_jwt"); s.extConfig.Enabled() && err == nil {
 		return cookie.Value, nil
 	} else if cookie, err := r.Cookie("auth"); err == nil {
 		return cookie.Value, nil
@@ -156,8 +143,6 @@ func (s *Service) UserAndSessionFromRequest(
 // getAuthLevel returns what level of authentication a request needs.
 func (s *Service) getAuthLevel(c echo.Context) int {
 	switch {
-	case adminAuthPointsPattern.MatchString(c.Request().RequestURI):
-		return authAdmin
 	case unauthenticatedPointsPattern.MatchString(c.Path()):
 		return authNone
 	case unauthenticatedPointsPattern.MatchString(c.Request().RequestURI):
@@ -171,14 +156,8 @@ func (s *Service) getAuthLevel(c echo.Context) int {
 // to authenticate incoming HTTP requests.
 func (s *Service) ProcessAuthentication(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		var adminOnly bool
-		switch s.getAuthLevel(c) {
-		case authNone:
+		if s.getAuthLevel(c) == authNone {
 			return next(c)
-		case authStandard:
-			adminOnly = false
-		case authAdmin:
-			adminOnly = true
 		}
 
 		user, session, err := s.UserAndSessionFromRequest(c.Request())
@@ -186,9 +165,6 @@ func (s *Service) ProcessAuthentication(next echo.HandlerFunc) echo.HandlerFunc 
 		case nil:
 			if !user.Active {
 				return echo.NewHTTPError(http.StatusForbidden, "user not active")
-			}
-			if adminOnly && !user.Admin && !config.GetAuthZConfig().IsRBACEnabled() {
-				return echo.NewHTTPError(http.StatusForbidden, "user not admin")
 			}
 
 			// Set data on the request context that might be useful to
@@ -256,6 +232,10 @@ func (s *Service) postLogin(c echo.Context) (interface{}, error) {
 		return nil, echo.NewHTTPError(http.StatusForbidden, "user not found")
 	default:
 		return nil, err
+	}
+
+	if user.Remote { // We can't return a more specific error for informational leak reasons.
+		return nil, echo.NewHTTPError(http.StatusForbidden, "invalid credentials")
 	}
 
 	// The user must be active.

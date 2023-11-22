@@ -54,8 +54,8 @@ build-race:
 .PHONY: check
 check:
 	go mod tidy
-	git diff --quiet go.mod go.sum
-	golangci-lint --build-tags integration run -v --timeout 10m
+	git diff --quiet ../go.mod ../go.sum
+	golangci-lint --config ../master/.golangci.yml --build-tags integration run -v --timeout 10m
 
 .PHONY: fmt
 fmt:

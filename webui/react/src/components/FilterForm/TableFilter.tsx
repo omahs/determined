@@ -1,14 +1,14 @@
+import Button from 'hew/Button';
+import Dropdown from 'hew/Dropdown';
+import Icon from 'hew/Icon';
+import { Loadable } from 'hew/utils/loadable';
 import { useObservable } from 'micro-observables';
 import { useCallback } from 'react';
 
 import FilterForm from 'components/FilterForm/components/FilterForm';
 import { FilterFormStore } from 'components/FilterForm/components/FilterFormStore';
 import { FormKind } from 'components/FilterForm/components/type';
-import Button from 'components/kit/Button';
-import Dropdown from 'components/kit/Dropdown';
-import Icon from 'components/kit/Icon';
 import { V1ProjectColumn } from 'services/api-ts-sdk';
-import { Loadable } from 'utils/loadable';
 
 interface Props {
   loadableColumns: Loadable<V1ProjectColumn[]>;
@@ -33,14 +33,14 @@ const TableFilter = ({
     (newOpen: boolean) => {
       if (newOpen) {
         Loadable.match(formset, {
+          _: () => {
+            return;
+          },
           Loaded: (data) => {
             // if there's no conditions, add default condition
             if (data.filterGroup.children.length === 0) {
               formStore.addChild(data.filterGroup.id, FormKind.Field);
             }
-          },
-          NotLoaded: () => {
-            return;
           },
         });
       }

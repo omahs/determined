@@ -130,11 +130,11 @@ def rename_one(links, published, fullsrc, fulldst):
 
 def rename_into(links, published, src, dst, drop_src_root=False):
     """
-    Implement renaming many things into a directory.
+    Rename many things into a directory.
 
     drop_src_root=True indicates a `mv thing newdir/`, where `thing` isn't going to appear in the
     final destination path for any elements of `thing/`, because it will be called `newdir/`
-    isntead.
+    instead.
     """
     if not os.path.isdir(src):
         # src=basepath/base.rst, dst=dstpath/dst
@@ -149,10 +149,12 @@ def rename_into(links, published, src, dst, drop_src_root=False):
             # fulldst=dstpath/dst/[base/]a/b/c/d
             fullsrc = os.path.relpath(os.path.join(root, file), start=HERE)
             if drop_src_root:
+                # The fulldst=dstpath/dst/a/b/c/d case (remove basepath/base/).
                 relsrc = os.path.relpath(fullsrc, start=src)
-                fulldst = os.path.join(dst, relsrc)
             else:
-                fulldst = os.path.join(dst, fullsrc)
+                # The fulldst=dstpath/dst/base/a/b/c/d case (remove just basepath/).
+                relsrc = os.path.relpath(fullsrc, start=os.path.dirname(src))
+            fulldst = os.path.join(dst, relsrc)
             links = rename_one(links, published, fullsrc, fulldst)
     return links
 
@@ -288,13 +290,28 @@ if __name__ == "__main__":
         exit(1)
 
     if sys.argv[1] == "check":
+        return_code = 0
+
+        #check for broken links
         errors = check_links(links)
         if errors:
             print("check failed, errors detected!", file=sys.stderr)
             for e in errors:
                 print(e, file=sys.stderr)
-            exit(1)
-        exit(0)
+            return_code = 1
+
+        #check for dropped urls
+        all_urls = set(l.src for l in links).union(all_urls_from_files())
+        dropped = published.difference(all_urls)
+        if dropped:
+            print(
+                "check failed; the following previously-published urls seem to have been "
+                "dropped and should be assigned redirects:\n    " + "\n    ".join(dropped),
+                file=sys.stderr,
+            )
+            return_code = 1
+
+        exit(return_code)
 
     if sys.argv[1] == "publish":
         """

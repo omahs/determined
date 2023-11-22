@@ -29,6 +29,8 @@ def create_trial_and_trial_controller(
     min_checkpoint_batches: int = sys.maxsize,
     min_validation_batches: int = sys.maxsize,
     aggregation_frequency: int = 1,
+    test_mode: bool = False,
+    trial_args: typing.Optional[typing.Dict] = None,
 ) -> typing.Tuple[pytorch.PyTorchTrial, pytorch._PyTorchTrialController]:
     assert issubclass(
         trial_class, pytorch.PyTorchTrial
@@ -87,7 +89,10 @@ def create_trial_and_trial_controller(
     )
     trial_context._set_default_gradient_compression(False)
     trial_context._set_default_average_aggregated_gradients(True)
-    trial_inst = trial_class(trial_context)
+    if trial_args:
+        trial_inst = trial_class(trial_context, **trial_args)
+    else:
+        trial_inst = trial_class(trial_context)
 
     trial_controller = pytorch._PyTorchTrialController(
         trial_inst=trial_inst,
@@ -101,7 +106,7 @@ def create_trial_and_trial_controller(
         latest_checkpoint=latest_checkpoint,
         steps_completed=steps_completed,
         smaller_is_better=bool(exp_config["searcher"]["smaller_is_better"]),
-        test_mode=False,
+        test_mode=test_mode,
         checkpoint_policy=exp_config["checkpoint_policy"],
         step_zero_validation=bool(exp_config["perform_initial_validation"]),
         det_profiler=None,
@@ -122,6 +127,7 @@ def train_for_checkpoint(
     exp_config: typing.Dict,
     slots_per_trial: int = 1,
     steps: int = 1,
+    trial_args: typing.Optional[typing.Dict] = None,
 ) -> int:
     checkpoint_dir = str(tmp_path.joinpath("checkpoint"))
     tensorboard_path = tmp_path.joinpath("tensorboard")
@@ -137,6 +143,7 @@ def train_for_checkpoint(
         checkpoint_dir=checkpoint_dir,
         tensorboard_path=tensorboard_path,
         expose_gpus=True,
+        trial_args=trial_args,
     )
 
     trial_controller.run()
@@ -154,6 +161,7 @@ def train_from_checkpoint(
     slots_per_trial: int = 1,
     steps: typing.Tuple[int, int] = (1, 1),
     batches_trained: int = 0,
+    trial_args: typing.Optional[typing.Dict] = None,
 ) -> None:
     checkpoint_dir = str(tmp_path.joinpath("checkpoint"))
     tensorboard_path = tmp_path.joinpath("tensorboard")
@@ -173,6 +181,7 @@ def train_from_checkpoint(
         latest_checkpoint=os.listdir(checkpoint_dir)[0],
         steps_completed=batches_trained,
         expose_gpus=True,
+        trial_args=trial_args,
     )
     trial_controller.run()
 
@@ -187,6 +196,7 @@ def train_and_checkpoint(
     tmp_path: pathlib.Path,
     exp_config: typing.Dict,
     steps: typing.Tuple[int, int] = (1, 1),
+    trial_args: typing.Optional[typing.Dict] = None,
 ) -> None:
     # Trial A: train batches and checkpoint
     steps_completed = train_for_checkpoint(
@@ -195,6 +205,7 @@ def train_and_checkpoint(
         tmp_path=tmp_path,
         exp_config=exp_config,
         steps=steps[0],
+        trial_args=trial_args,
     )
 
     # Trial B: restore from checkpoint and train for more batches
@@ -205,6 +216,7 @@ def train_and_checkpoint(
         exp_config=exp_config,
         steps=steps,
         batches_trained=steps_completed,
+        trial_args=trial_args,
     )
 
 

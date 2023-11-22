@@ -1,7 +1,6 @@
 import { Typography } from 'antd';
+import Card from 'hew/Card';
 import React from 'react';
-
-import Card from 'components/kit/Card';
 
 import css from './OverviewStats.module.scss';
 

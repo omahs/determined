@@ -1,4 +1,5 @@
-import { StateOfUnion } from 'components/kit/Theme';
+import { StateOfUnion } from 'hew/Theme';
+
 import { V1ResourcePoolType, V1SchedulerType } from 'services/api-ts-sdk';
 import {
   CheckpointState,
@@ -83,14 +84,14 @@ export const terminalRunStatesKeys = [...runStateList, RunState.Deleted];
 export const runStateToLabel: { [key in RunState]: string } = {
   [RunState.Active]: 'Active',
   [RunState.Running]: 'Running',
-  [RunState.Canceled]: 'Canceled',
+  [RunState.Canceled]: 'Stopped',
   [RunState.Completed]: 'Completed',
   [RunState.Deleted]: 'Deleted',
   [RunState.Deleting]: 'Deleting',
   [RunState.DeleteFailed]: 'Delete Failed',
   [RunState.Error]: 'Errored',
   [RunState.Paused]: 'Paused',
-  [RunState.StoppingCanceled]: 'Canceling',
+  [RunState.StoppingCanceled]: 'Stopping',
   [RunState.StoppingCompleted]: 'Completing',
   [RunState.StoppingError]: 'Erroring',
   [RunState.StoppingKilled]: 'Killed',
@@ -156,7 +157,7 @@ export const commandTypeToLabel: { [key in CommandType]: string } = {
 };
 
 export const jobStateToLabel: { [key in JobState]: string } = {
-  [JobState.SCHEDULED]: 'Scheduled',
+  [JobState.SCHEDULED]: 'Running',
   [JobState.SCHEDULEDBACKFILLED]: 'ScheduledBackfilled',
   [JobState.QUEUED]: 'Queued',
   [JobState.UNSPECIFIED]: 'Unspecified',

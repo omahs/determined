@@ -34,9 +34,7 @@ import (
 
 func errCheckpointsNotFound(ids []string) error {
 	tmp := make([]string, len(ids))
-	for i, id := range ids {
-		tmp[i] = id
-	}
+	copy(tmp, ids)
 	sort.Strings(tmp)
 	return api.NotFoundErrs("checkpoints", strings.Join(tmp, ", "), true)
 }
@@ -357,7 +355,7 @@ func (a *apiServer) CheckpointsRemoveFiles(
 	// Submit checkpoint GC tasks for all checkpoints.
 	for i, expIDcUUIDs := range groupCUUIDsByEIDs {
 		i := i
-		agentUserGroup, err := user.GetAgentUserGroup(curUser.ID, workspaceIDs[i])
+		agentUserGroup, err := user.GetAgentUserGroup(ctx, curUser.ID, workspaceIDs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +367,7 @@ func (a *apiServer) CheckpointsRemoveFiles(
 
 		go func() {
 			err = runCheckpointGCTask(
-				a.m.system, a.m.rm, a.m.db, taskID, jobID, jobSubmissionTime, taskSpec, exps[i].ID,
+				a.m.rm, a.m.db, taskID, jobID, jobSubmissionTime, taskSpec, exps[i].ID,
 				exps[i].Config, checkpointUUIDs, req.CheckpointGlobs, false, agentUserGroup, curUser,
 				nil,
 			)

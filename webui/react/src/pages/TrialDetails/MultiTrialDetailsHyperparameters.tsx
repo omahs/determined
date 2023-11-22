@@ -1,4 +1,5 @@
 import { Space } from 'antd';
+import { Loadable } from 'hew/utils/loadable';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import useMetricNames from 'hooks/useMetricNames';
@@ -19,7 +20,6 @@ import {
   TrialDetails,
 } from 'types';
 import handleError from 'utils/error';
-import { Loadable } from 'utils/loadable';
 import { alphaNumericSorter } from 'utils/sort';
 
 import {

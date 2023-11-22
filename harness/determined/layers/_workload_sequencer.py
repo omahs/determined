@@ -10,6 +10,8 @@ WorkloadStreamElem = Tuple[workload.Workload, workload.ResponseFunc]
 
 WorkloadGenerator = Generator[WorkloadStreamElem, None, None]
 
+logger = logging.getLogger("determined")
+
 
 def yield_and_await_response(
     wkld: workload.Workload,
@@ -99,7 +101,7 @@ class WorkloadSequencer(workload.Source):
 
         unit = self.core_context.searcher.get_configured_units()
         if unit is None:
-            logging.warning(
+            logger.warning(
                 "The searcher configuration provided was configured without units, but the "
                 "training loop you are using (one of the Trial APIs) requires a searcher "
                 "configured with units.  Proceeding anyway, and assuming that the lengths "
@@ -424,7 +426,11 @@ class WorkloadSequencer(workload.Source):
                 if not self.validation_is_current():
                     yield from self.validate(op)
 
-                assert op._completed, "logic error; op was never completed"
+                if not op._completed:
+                    # The only case where op isn't reported as completed is if we restarted but
+                    # op.length was already trained for and validated on; in that case just break
+                    # out of the operations loop; we have nothing to do.
+                    break
 
         except ShouldExit as e:
             # Checkpoint unsaved work and exit.

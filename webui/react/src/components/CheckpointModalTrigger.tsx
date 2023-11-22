@@ -1,8 +1,8 @@
+import Button from 'hew/Button';
+import Icon from 'hew/Icon';
+import { useModal } from 'hew/Modal';
 import React, { useCallback } from 'react';
 
-import Button from 'components/kit/Button';
-import Icon from 'components/kit/Icon';
-import { useModal } from 'components/kit/Modal';
 import ModelCreateModal from 'components/ModelCreateModal';
 import useModalCheckpointRegister from 'hooks/useModal/Checkpoint/useModalCheckpointRegister';
 import { ModalCloseReason } from 'hooks/useModal/useModal';
@@ -30,7 +30,7 @@ const CheckpointModalTrigger: React.FC<Props> = ({
     contextHolder: modalCheckpointRegisterContextHolder,
     modalOpen: openModalCheckpointRegister,
   } = useModalCheckpointRegister({
-    onClose: (reason?: ModalCloseReason, checkpoints?: string[]) => {
+    onClose: (_reason?: ModalCloseReason, checkpoints?: string[]) => {
       // TODO: fix the behavior along with checkpoint modal migration
       // It used to open checkpoint modal again after creating a model,
       // but it doesn't with new create model modal since we don't use context holder anymore.
@@ -40,7 +40,7 @@ const CheckpointModalTrigger: React.FC<Props> = ({
   });
 
   const handleOnCloseCreateModel = useCallback(
-    (reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
+    (_reason?: ModalCloseReason, checkpoints?: string[], modelName?: string) => {
       if (checkpoints) openModalCheckpointRegister({ checkpoints, selectedModelName: modelName });
     },
     [openModalCheckpointRegister],

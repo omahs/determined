@@ -1,14 +1,14 @@
-import { Select } from 'antd';
+import Form from 'hew/Form';
+import { Modal } from 'hew/Modal';
+import Select, { Option } from 'hew/Select';
+import Spinner from 'hew/Spinner';
+import { useToast } from 'hew/Toast';
 import React, { useEffect, useId } from 'react';
 
-import Form from 'components/kit/Form';
-import { Modal } from 'components/kit/Modal';
-import Spinner from 'components/kit/Spinner';
 import { updateGroup } from 'services/api';
 import { V1GroupSearchResult } from 'services/api-ts-sdk';
 import determinedStore from 'stores/determinedInfo';
 import { DetailedUser } from 'types';
-import { message } from 'utils/dialogApi';
 import handleError, { ErrorType } from 'utils/error';
 import { useObservable } from 'utils/observable';
 
@@ -28,6 +28,8 @@ interface FormInputs {
 const ManageGroupsModalComponent: React.FC<Props> = ({ user, groupOptions, userGroups }: Props) => {
   const idPrefix = useId();
   const [form] = Form.useForm<FormInputs>();
+
+  const { openToast } = useToast();
 
   const groupsValue = Form.useWatch(GROUPS_NAME, form);
 
@@ -62,7 +64,7 @@ const ManageGroupsModalComponent: React.FC<Props> = ({ user, groupOptions, userG
         }
       }
     } catch (e) {
-      message.error('Error adding user to groups');
+      openToast({ severity: 'Error', title: 'Error adding user to groups' });
       handleError(e, { silent: true, type: ErrorType.Input });
 
       // Re-throw error to prevent modal from getting dismissed.
@@ -89,15 +91,11 @@ const ManageGroupsModalComponent: React.FC<Props> = ({ user, groupOptions, userG
       <Spinner spinning={!groupOptions}>
         <Form form={form} id={idPrefix + FORM_ID}>
           <Form.Item name={GROUPS_NAME}>
-            <Select
-              mode="multiple"
-              optionFilterProp="children"
-              placeholder="Select Groups"
-              showSearch>
+            <Select mode="multiple" placeholder="Select Groups">
               {groupOptions.map((go) => (
-                <Select.Option key={go.group.groupId} value={go.group.groupId}>
+                <Option key={go.group.groupId} value={go.group.groupId}>
                   {go.group.name}
-                </Select.Option>
+                </Option>
               ))}
             </Select>
           </Form.Item>

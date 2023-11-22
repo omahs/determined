@@ -1,10 +1,8 @@
-import { Alert } from 'antd';
 import Hermes, { DimensionType } from 'hermes-parallel-coordinates';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { XAxisDomain } from 'components/kit/LineChart/XAxisFilter';
-import Spinner from 'components/kit/Spinner';
-import Message from 'components/Message';
 import ParallelCoordinates from 'components/ParallelCoordinates';
 import Section from 'components/Section';
 import { useGlasbey } from 'hooks/useGlasbey';
@@ -23,6 +21,7 @@ import {
   Range,
   Scale,
   TrialItem,
+  XAxisDomain,
 } from 'types';
 import { defaultNumericRange, getNumericRange, updateRange } from 'utils/chart';
 import { flattenObject, isPrimitive } from 'utils/data';
@@ -275,9 +274,9 @@ const CompareParallelCoordinates: React.FC<Props> = ({
   if (!chartData || (selectedExperiments.length !== 0 && metrics.length === 0)) {
     return (
       <div className={css.waiting}>
-        <Alert
+        <Message
           description="Please wait until the experiments are further along."
-          message="Not enough data points to plot."
+          title="Not enough data points to plot."
         />
         <Spinner center spinning />
       </div>

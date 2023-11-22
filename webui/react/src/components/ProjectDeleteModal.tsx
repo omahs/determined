@@ -1,8 +1,8 @@
+import Form from 'hew/Form';
+import Input from 'hew/Input';
+import { Modal } from 'hew/Modal';
 import React, { useCallback, useId } from 'react';
 
-import Form from 'components/kit/Form';
-import Input from 'components/kit/Input';
-import { Modal } from 'components/kit/Modal';
 import { deleteProject } from 'services/api';
 import { Project } from 'types';
 import handleError, { ErrorLevel, ErrorType } from 'utils/error';

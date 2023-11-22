@@ -1,12 +1,11 @@
-import { Alert } from 'antd';
+import Message from 'hew/Message';
+import Spinner from 'hew/Spinner';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import GalleryModal from 'components/GalleryModal';
 import Grid, { GridMode } from 'components/Grid';
-import Spinner from 'components/kit/Spinner';
-import useUI from 'components/kit/Theme';
-import Message, { MessageType } from 'components/Message';
 import Section from 'components/Section';
+import useUI from 'components/ThemeProvider';
 import { FacetedData, UPlotScatterProps } from 'components/UPlot/types';
 import UPlotScatter from 'components/UPlot/UPlotScatter';
 import { terminalRunStates } from 'constants/states';
@@ -14,14 +13,7 @@ import useResize from 'hooks/useResize';
 import { V1TrialsSnapshotResponse } from 'services/api-ts-sdk';
 import { detApi } from 'services/apiConfig';
 import { readStream } from 'services/utils';
-import {
-  ExperimentBase,
-  HyperparameterType,
-  Metric,
-  metricTypeParamMap,
-  Primitive,
-  Scale,
-} from 'types';
+import { ExperimentBase, HyperparameterType, Metric, Primitive, Scale } from 'types';
 import { flattenObject, isBoolean, isString } from 'utils/data';
 import { metricToStr } from 'utils/metric';
 
@@ -74,14 +66,14 @@ const ScatterPlots: React.FC<Props> = ({
 
     return selectedHParams.reduce((acc, hParam) => {
       const xLabel = hParam;
-      const yLabel = metricToStr(selectedMetric);
+      const yLabel = metricToStr(selectedMetric, 60);
       const title = `${yLabel} (y) vs ${xLabel} (x)`;
       const hpLabels = chartData?.hpLabels[hParam];
       const isLogarithmic = chartData?.hpLogScales[hParam];
       const isCategorical = hpLabels?.length !== 0;
       const xScaleKey = isCategorical ? 'xCategorical' : isLogarithmic ? 'xLog' : 'x';
       const xSplits = isCategorical
-        ? new Array(hpLabels.length).fill(0).map((x, i) => i)
+        ? new Array(hpLabels.length).fill(0).map((_x, i) => i)
         : undefined;
       const xValues = isCategorical ? hpLabels : undefined;
       acc[hParam] = {
@@ -155,8 +147,8 @@ const ScatterPlots: React.FC<Props> = ({
         experiment.id,
         selectedMetric.name,
         selectedBatch,
-        metricTypeParamMap[selectedMetric.group],
-        undefined, // custom metric group
+        undefined,
+        selectedMetric.group,
         selectedBatchMargin,
         undefined,
         { signal: canceler.signal },
@@ -247,12 +239,12 @@ const ScatterPlots: React.FC<Props> = ({
     return <Message title={pageError.message} />;
   } else if (hasLoaded && !chartData) {
     return isExperimentTerminal ? (
-      <Message title="No data to plot." type={MessageType.Empty} />
+      <Message icon="warning" title="No data to plot." />
     ) : (
       <div>
-        <Alert
+        <Message
           description="Please wait until the experiment is further along."
-          message="Not enough data points to plot."
+          title="Not enough data points to plot."
         />
         <Spinner spinning />
       </div>
@@ -284,7 +276,7 @@ const ScatterPlots: React.FC<Props> = ({
               ))}
             </Grid>
           ) : (
-            <Message title="No data to plot." type={MessageType.Empty} />
+            <Message icon="warning" title="No data to plot." />
           )}
         </div>
       </Section>

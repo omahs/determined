@@ -126,10 +126,6 @@ func (s TrialSpec) ToTaskSpec() TaskSpec {
 
 	res.ExtraEnvVars = envVars
 
-	res.LoggingFields = map[string]string{
-		"trial_id": strconv.Itoa(s.TrialID),
-	}
-
 	if shm := s.ExperimentConfig.Resources().ShmSize(); shm != nil {
 		res.ShmSize = int64(*shm)
 	}
@@ -185,13 +181,8 @@ func TrialSpecProxyPorts(
 	epp := schemas.WithDefaults(taskSpec.ExtraProxyPorts)
 	out := make(expconf.ProxyPortsConfig, 0, len(epp)+len(env.ProxyPorts()))
 
-	for _, pp := range epp {
-		out = append(out, pp)
-	}
-
-	for _, pp := range env.ProxyPorts() {
-		out = append(out, pp)
-	}
+	out = append(out, epp...)
+	out = append(out, env.ProxyPorts()...)
 
 	return out
 }

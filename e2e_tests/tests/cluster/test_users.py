@@ -431,33 +431,6 @@ def test_login_as_non_existent_user(clean_auth: None, login_admin: None) -> None
 
 
 @pytest.mark.e2e_cpu
-def test_login_with_environment_variables(clean_auth: None, login_admin: None) -> None:
-    creds = api_utils.create_test_user(True)
-    # logout admin
-    log_out_user()
-
-    os.environ["DET_USER"] = creds.username
-    os.environ["DET_PASS"] = creds.password
-    try:
-        child = det_spawn(["user", "whoami"])
-        child.expect(creds.username)
-        child.read()
-        child.wait()
-        assert child.exitstatus == 0
-
-        # Can still override with -u.
-        with logged_in_user(conf.ADMIN_CREDENTIALS):
-            child = det_spawn(["-u", conf.ADMIN_CREDENTIALS.username, "user", "whoami"])
-            child.expect(conf.ADMIN_CREDENTIALS.username)
-            child.read()
-            child.wait()
-            assert child.exitstatus == 0
-    finally:
-        del os.environ["DET_USER"]
-        del os.environ["DET_PASS"]
-
-
-@pytest.mark.e2e_cpu
 def test_auth_inside_shell(clean_auth: None, login_admin: None) -> None:
     creds = api_utils.create_test_user(True)
 
@@ -503,26 +476,6 @@ def test_auth_inside_shell(clean_auth: None, login_admin: None) -> None:
         child.read()
         child.wait()
         assert child.exitstatus == 0
-
-
-@pytest.mark.e2e_cpu
-def test_login_as_non_active_user(clean_auth: None, login_admin: None) -> None:
-    creds = api_utils.create_test_user(True)
-
-    passwd_prompt = f"Password for user '{creds.username}':"
-    unauth_error = "user is not active"
-    command = ["det", "-m", conf.make_master_url(), "user", "deactivate", creds.username]
-    subprocess.run(command, check=True)
-
-    child = det_spawn(["user", "login", creds.username])
-    child.setecho(True)
-    child.expect(passwd_prompt, timeout=EXPECT_TIMEOUT)
-    child.sendline(creds.password)
-    assert unauth_error in str(child.read())
-    child.wait()
-    child.close()
-
-    assert child.exitstatus != 0
 
 
 @pytest.mark.e2e_cpu

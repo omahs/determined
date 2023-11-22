@@ -125,8 +125,6 @@ class Authentication:
         fallback_to_default = password is None and session_user == constants.DEFAULT_DETERMINED_USER
         if fallback_to_default:
             password = constants.DEFAULT_DETERMINED_PASSWORD
-        elif session_user is None:
-            session_user = input("Username: ")
 
         if password is None:
             password = getpass.getpass("Password for user '{}': ".format(session_user))

@@ -24,10 +24,11 @@ import (
 type JSONB interface{}
 
 const (
-	minReconn  = 1 * time.Second
-	maxReconn  = 10 * time.Second
-	trialChan  = "stream_trial_chan"
-	metricChan = "stream_metric_chan"
+	minReconn      = 1 * time.Second
+	maxReconn      = 10 * time.Second
+	trialChan      = "stream_trial_chan"
+	metricChan     = "stream_metric_chan"
+	checkpointChan = "stream_checkpoint_chan"
 )
 
 // PublisherSet contains all publishers, and handles all websockets.  It will connect each websocket
@@ -35,9 +36,10 @@ const (
 //
 // There is one PublisherSet for the whole process.  It has one Publisher per streamable type.
 type PublisherSet struct {
-	DBAddress string
-	Trials    *stream.Publisher[*TrialMsg]
-	Metrics   *stream.Publisher[*MetricMsg]
+	DBAddress   string
+	Trials      *stream.Publisher[*TrialMsg]
+	Metrics     *stream.Publisher[*MetricMsg]
+	Checkpoints *stream.Publisher[*CheckpointMsg]
 	// Experiments *stream.Publisher[*ExperimentMsg]
 	bootemChan chan struct{}
 	bootLock   sync.Mutex
@@ -50,8 +52,9 @@ type PublisherSet struct {
 // There is one SubscriptionSet for each websocket connection.  It has one SubscriptionManager per
 // streamable type.
 type SubscriptionSet struct {
-	Trials  *subscriptionState[*TrialMsg, TrialSubscriptionSpec]
-	Metrics *subscriptionState[*MetricMsg, MetricSubscriptionSpec]
+	Trials      *subscriptionState[*TrialMsg, TrialSubscriptionSpec]
+	Metrics     *subscriptionState[*MetricMsg, MetricSubscriptionSpec]
+	Checkpoints *subscriptionState[*CheckpointMsg, CheckpointSubscriptionSpec]
 	// Experiments *subscriptionState[*ExperimentMsg, ExperimentSubscriptionSpec]
 }
 
@@ -95,9 +98,10 @@ func newDBListener(dbAddress, channel string) (*pq.Listener, error) {
 func NewPublisherSet(dbAddress string) *PublisherSet {
 	lock := sync.Mutex{}
 	return &PublisherSet{
-		DBAddress: dbAddress,
-		Trials:    stream.NewPublisher[*TrialMsg](),
-		Metrics:   stream.NewPublisher[*MetricMsg](),
+		DBAddress:   dbAddress,
+		Trials:      stream.NewPublisher[*TrialMsg](),
+		Metrics:     stream.NewPublisher[*MetricMsg](),
+		Checkpoints: stream.NewPublisher[*CheckpointMsg](),
 		// Experiments: stream.NewPublisher[*ExperimentMsg](),
 		bootemChan: make(chan struct{}),
 		readyCond:  *sync.NewCond(&lock),
@@ -124,15 +128,17 @@ type StartupMsg struct {
 //
 // Each field of a KnownKeySet is a comma-separated list of int64s and ranges like "a,b-c,d".
 type KnownKeySet struct {
-	Trials  string `json:"trials"`
-	Metrics string `json:"metrics"`
+	Trials      string `json:"trials"`
+	Metrics     string `json:"metrics"`
+	Checkpoints string `json:"checkpoints"`
 	// Experiments string `json:"experiments"`
 }
 
 // SubscriptionSpecSet is the set of subscription specs that can be sent in startup message.
 type SubscriptionSpecSet struct {
-	Trials  *TrialSubscriptionSpec  `json:"trials"`
-	Metrics *MetricSubscriptionSpec `json:"metrics"`
+	Trials      *TrialSubscriptionSpec      `json:"trials"`
+	Metrics     *MetricSubscriptionSpec     `json:"metrics"`
+	Checkpoints *CheckpointSubscriptionSpec `json:"checkpoints"`
 	// Experiments *ExperimentSubscriptionSpec `json:"experiments"`
 }
 
@@ -161,6 +167,12 @@ func (ps *PublisherSet) Start(ctx context.Context) error {
 		},
 	)
 
+	eg.Go(
+		func(c context.Context) error {
+			return start(c, ps.DBAddress, checkpointChan, ps.Checkpoints)
+		},
+	)
+
 	// 	eg.Go(func(c context.Context) error {
 	// 		return start(c, ps.DBAddress, metricChan, ps.Metrics)
 	// 	},
@@ -172,6 +184,7 @@ func (ps *PublisherSet) Start(ctx context.Context) error {
 			readyChans := []chan bool{
 				ps.Trials.ReadyChan,
 				ps.Metrics.ReadyChan,
+				ps.Checkpoints.ReadyChan,
 				// ps.Experiment.ReadyChan,
 			}
 
@@ -614,6 +627,7 @@ func NewSubscriptionSet(
 	var err error
 	var trialSubscriptionState *subscriptionState[*TrialMsg, TrialSubscriptionSpec]
 	var metricSubscriptionState *subscriptionState[*MetricMsg, MetricSubscriptionSpec]
+	var checkpointSubscriptionState *subscriptionState[*CheckpointMsg, CheckpointSubscriptionSpec]
 
 	if spec.Trials != nil {
 		trialSubscriptionState = &subscriptionState[*TrialMsg, TrialSubscriptionSpec]{
@@ -639,9 +653,22 @@ func NewSubscriptionSet(
 		}
 	}
 
+	if spec.Checkpoints != nil {
+		checkpointSubscriptionState = &subscriptionState[*CheckpointMsg, CheckpointSubscriptionSpec]{
+			stream.NewSubscription(
+				streamer,
+				ps.Checkpoints,
+				newPermFilter(ctx, user, CheckpointMakePermissionFilter, &err),
+				newFilter(spec.Checkpoints, CheckpointMakeFilter, &err),
+			),
+			CheckpointCollectStartupMsgs,
+		}
+	}
+
 	return SubscriptionSet{
-		Trials:  trialSubscriptionState,
-		Metrics: metricSubscriptionState,
+		Trials:      trialSubscriptionState,
+		Metrics:     metricSubscriptionState,
+		Checkpoints: checkpointSubscriptionState,
 	}, err
 }
 
@@ -700,6 +727,13 @@ func (ss *SubscriptionSet) Startup(ctx context.Context, user model.User, startup
 			sub.Metrics, ss.Metrics.Subscription.Streamer.PrepareFn,
 		)
 	}
+	if ss.Checkpoints != nil {
+		err = startup(
+			ctx, user, &msgs, err,
+			ss.Checkpoints, known.Checkpoints,
+			sub.Checkpoints, ss.Checkpoints.Subscription.Streamer.PrepareFn,
+		)
+	}
 	/*
 		if ss.Experiments != nil {
 			err = startup(
@@ -719,6 +753,9 @@ func (ss *SubscriptionSet) UnregisterAll() {
 	}
 	if ss.Metrics != nil {
 		ss.Metrics.Subscription.Unregister()
+	}
+	if ss.Checkpoints != nil {
+		ss.Checkpoints.Subscription.Unregister()
 	}
 	// ss.Experiments.Subscription.Unregister()
 }

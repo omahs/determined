@@ -3,6 +3,7 @@ package stream
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -201,112 +202,61 @@ func CheckpointCollectStartupMsgs(
 	return out, nil
 }
 
-// CheckpointCollectSubscriptionModMsgs scrapes the database when a
-// user submits a new CheckpointSubscriptionSpec for initial matches.
-func CheckpointCollectSubscriptionModMsgs(ctx context.Context, addSpec CheckpointSubscriptionSpec) (
-	[]interface{}, error,
-) {
-	if len(addSpec.TrialIDs) == 0 && len(addSpec.ExperimentIDs) == 0 {
-		return nil, nil
-	}
-	var checkpointMsgs []*CheckpointMsg
-	q := getCheckpointMsgsWithWorkspaceID(checkpointMsgs)
-
-	// Use WhereSince to build a complex WHERE clause.
-	ws := stream.WhereSince{Since: addSpec.Since}
-	if len(addSpec.TrialIDs) > 0 {
-		ws.Include("id in (?)", bun.In(addSpec.TrialIDs))
-	}
-	if len(addSpec.ExperimentIDs) > 0 {
-		ws.Include("experiment_id in (?)", bun.In(addSpec.ExperimentIDs))
-	}
-	q = ws.Apply(q)
-
-	err := q.Scan(ctx)
-	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		log.Errorf("error: %v\n", err)
-		return nil, err
-	}
-
-	var out []interface{}
-	for _, msg := range checkpointMsgs {
-		out = append(out, msg.UpsertMsg())
-	}
-	return out, nil
-}
-
-// CheckpointFilterMaker tracks the Checkpoint and experiment id's that are to be filtered for.
-type CheckpointFilterMaker struct {
-	TrialIds      map[int]bool
-	ExperimentIds map[int]bool
-}
-
-// NewCheckpointFilterMaker creates a new FilterMaker.
-func NewCheckpointFilterMaker() FilterMaker[*CheckpointMsg, CheckpointSubscriptionSpec] {
-	return &CheckpointFilterMaker{make(map[int]bool), make(map[int]bool)}
-}
-
-// AddSpec adds CheckpointIds and ExperimentIds specified in CheckpointSubscriptionSpec.
-func (ts *CheckpointFilterMaker) AddSpec(spec CheckpointSubscriptionSpec) {
-	for _, id := range spec.TrialIDs {
-		ts.TrialIds[id] = true
-	}
-	for _, id := range spec.ExperimentIDs {
-		ts.ExperimentIds[id] = true
-	}
-}
-
-// DropSpec removes CheckpointIds and ExperimentIds specified in CheckpointSubscriptionSpec.
-func (ts *CheckpointFilterMaker) DropSpec(spec CheckpointSubscriptionSpec) {
-	for _, id := range spec.TrialIDs {
-		delete(ts.TrialIds, id)
-	}
-	for _, id := range spec.ExperimentIDs {
-		delete(ts.ExperimentIds, id)
-	}
-}
-
-// MakeFilter returns a function that determines if a CheckpointMsg based on
-// the CheckpointFilterMaker's spec.
-func (ts *CheckpointFilterMaker) MakeFilter() func(*CheckpointMsg) bool {
+// Checkpoint MakeFilter creates a CheckpointMsg filter based on the given CheckpointSubscriptionSpec.
+func CheckpointMakeFilter(spec *CheckpointSubscriptionSpec) (func(*CheckpointMsg) bool, error) {
 	// Should this filter even run?
-	if len(ts.TrialIds) == 0 && len(ts.ExperimentIds) == 0 {
-		return nil
+	if len(spec.TrialIDs) == 0 && len(spec.ExperimentIDs) == 0 {
+		return nil, fmt.Errorf(
+			"invalid subscription spec arguments: %v %v",
+			spec.TrialIDs, spec.ExperimentIDs,
+		)
 	}
 
-	// Make a copy of the maps, because the filter must run safely off-thread.
-	checkpointIds := make(map[int]bool)
-	experimentIds := make(map[int]bool)
-	for id := range ts.TrialIds {
-		checkpointIds[id] = true
+	// Make a copy of the map, because the filter must run safely off-thread.
+	trialIds := make(map[int]struct{})
+	for _, id := range spec.TrialIDs {
+		if id <= 0 {
+			return nil, fmt.Errorf("invalid trial id: %d", id)
+		}
+		trialIds[id] = struct{}{}
 	}
-	for id := range ts.ExperimentIds {
-		experimentIds[id] = true
+	experimentIds := make(map[int]struct{})
+	for _, id := range spec.ExperimentIDs {
+		if id <= 0 {
+			return nil, fmt.Errorf("invalid experiment id: %d", id)
+		}
+		experimentIds[id] = struct{}{}
 	}
 
-	// return a closure around our copied maps
+	// return a closure around our copied map
 	return func(msg *CheckpointMsg) bool {
-		if _, ok := checkpointIds[msg.ID]; ok {
+		if _, ok := trialIds[msg.ID]; ok {
 			return true
 		}
 		if _, ok := experimentIds[msg.ExperimentID]; ok {
 			return true
 		}
 		return false
-	}
+	}, nil
 }
 
 // CheckpointMakePermissionFilter returns a function that checks if a CheckpointMsg
 // is in scope of the user permissions.
-func CheckpointMakePermissionFilter(ctx context.Context, user model.User) (func(*CheckpointMsg) bool, error) {
-	accessScopeSet, err := AuthZProvider.Get().GetCheckpointStreamableScopes(ctx, user)
+func CheckpointMakePermissionFilter(
+	ctx context.Context,
+	user model.User,
+) (func(*CheckpointMsg) bool, error) {
+	accessScopeSet, err := AuthZProvider.Get().GetCheckpointStreamableScopes(
+		ctx,
+		user,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	switch {
 	case accessScopeSet[model.GlobalAccessScopeID]:
-		// user has global access for viewing checkpoints
+		// user has global access for viewing Checkpoints
 		return func(msg *CheckpointMsg) bool { return true }, nil
 	default:
 		return func(msg *CheckpointMsg) bool {

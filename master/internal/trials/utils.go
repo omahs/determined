@@ -21,11 +21,11 @@ import (
 func CanGetTrialsExperimentAndCheckCanDoAction(ctx context.Context,
 	trialID int, actionFunc func(context.Context, model.User, *model.Experiment) error,
 ) error {
+	fmt.Println("Entering CanGetTrialsExperimentAndCheckCanDoAction \n \n ")
 	curUser, _, err := grpcutil.GetUser(ctx)
 	if err != nil {
 		return err
 	}
-
 	trialNotFound := api.NotFoundErrs("trial", fmt.Sprint(trialID), true)
 	exp, err := db.ExperimentByTrialID(ctx, trialID)
 	if errors.Is(err, db.ErrNotFound) {
@@ -33,6 +33,7 @@ func CanGetTrialsExperimentAndCheckCanDoAction(ctx context.Context,
 	} else if err != nil {
 		return err
 	}
+	fmt.Printf("curUser ID: %d \n ", int(curUser.ID))
 	if err = experiment.AuthZProvider.Get().CanGetExperiment(ctx, *curUser, exp); err != nil {
 		return authz.SubIfUnauthorized(err, trialNotFound)
 	}
@@ -40,5 +41,6 @@ func CanGetTrialsExperimentAndCheckCanDoAction(ctx context.Context,
 	if err = actionFunc(ctx, *curUser, exp); err != nil {
 		return status.Error(codes.PermissionDenied, err.Error())
 	}
+	fmt.Println("Exit CanGetTrialsExperimentAndCheckCanDoAction \n \n ")
 	return nil
 }

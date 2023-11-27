@@ -1162,6 +1162,8 @@ func TestTrialSourceInfoCheckpoint(t *testing.T) {
 		return u.ID == curUser.ID
 	})
 
+	fmt.Printf("User ID: %d \n \n ", int(curUser.ID))
+
 	// Create a checkpoint to index with
 	checkpointUUID := createVersionTwoCheckpoint(ctx, t, api, curUser, map[string]int64{"a": 1})
 
@@ -1204,9 +1206,11 @@ func TestTrialSourceInfoCheckpoint(t *testing.T) {
 	require.Equal(t, len(getCkptResp.Metrics), 2)
 
 	infTrialExp, err := db.ExperimentByID(ctx, infTrial.ExperimentID)
+	fmt.Printf("Experiment ID no permission: %d \n \n ", infTrialExp.ID)
 	require.NoError(t, err)
 	infTrial2Exp, err := db.ExperimentByID(ctx, infTrial2.ExperimentID)
 	require.NoError(t, err)
+	fmt.Printf("Experiment ID permissions: %d \n \n ", infTrial2Exp.ID)
 
 	// All experiments can be seen
 	authZExp.On("CanGetExperiment", mock.Anything, mockUserArg, mock.Anything).

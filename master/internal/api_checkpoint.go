@@ -67,6 +67,7 @@ func (m *Master) canDoActionOnCheckpoint(
 	if err := expauth.AuthZProvider.Get().CanGetExperiment(ctx, curUser, exp); err != nil {
 		return authz.SubIfUnauthorized(err, api.NotFoundErrs("checkpoint", id, true))
 	}
+	fmt.Printf("This is the current user id: %d \n ", int(curUser.ID))
 	if err := action(ctx, curUser, exp); err != nil {
 		return status.Error(codes.PermissionDenied, err.Error())
 	}
@@ -441,12 +442,14 @@ func (a *apiServer) GetTrialMetricsByCheckpoint(
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("first authz check experiment artifacts \n ")
 	err = a.m.canDoActionOnCheckpoint(ctx, *curUser, req.CheckpointUuid,
 		expauth.AuthZProvider.Get().CanGetExperimentArtifacts)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Println("End of first authz check experimnet artifacts \n ")
 	resp := &apiv1.GetTrialMetricsByCheckpointResponse{}
 	trialIDsQuery := db.Bun().NewSelect().Table("trial_source_infos").
 		Where("checkpoint_uuid = ?", req.CheckpointUuid)

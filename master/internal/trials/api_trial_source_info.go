@@ -36,6 +36,7 @@ func GetMetricsForTrialSourceInfoQuery(
 	ctx context.Context, q *bun.SelectQuery,
 	groupName *string,
 ) ([]*trialv1.MetricsReport, error) {
+	fmt.Println("Entering GetMetricsForTrialSourceInfoQuery \n \n ")
 	trialIds := []struct {
 		TrialID             int
 		TrialSourceInfoType string
@@ -52,6 +53,7 @@ func GetMetricsForTrialSourceInfoQuery(
 	ret := []*trialv1.MetricsReport{}
 	numMetricsLimit := 1000
 	for _, val := range trialIds {
+		fmt.Printf("This is the trial id: %d \n ", val.TrialID)
 		if err := CanGetTrialsExperimentAndCheckCanDoAction(ctx, val.TrialID,
 			expauth.AuthZProvider.Get().CanGetExperimentArtifacts); err != nil {
 			// If the user can see the checkpoint, but not one of the inference
@@ -65,5 +67,6 @@ func GetMetricsForTrialSourceInfoQuery(
 		}
 		ret = append(ret, res...)
 	}
+	fmt.Println("Exit GetMetricsForTrialSourceInfoQuery \n \n ")
 	return ret, nil
 }

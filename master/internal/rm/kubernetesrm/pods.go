@@ -76,7 +76,7 @@ type pods struct {
 	baseContainerDefaults *model.TaskContainerDefaultsConfig
 	credsDir              string
 
-	clientSet        *k8sClient.Clientset
+	clientSet        k8sClient.Interface
 	masterIP         string
 	masterPort       int32
 	masterTLSConfig  model.TLSClientConfig
@@ -277,10 +277,28 @@ func (p *pods) RefreshPodStates(msg refreshPodStates) error {
 	return p.refreshPodStates(msg.allocationID)
 }
 
+func (p *pods) GetSlots(msg *apiv1.GetSlotsRequest) *apiv1.GetSlotsResponse {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.handleGetSlotsRequest(msg.AgentId)
+}
+
+func (p *pods) GetSlot(msg *apiv1.GetSlotRequest) *apiv1.GetSlotResponse {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.handleGetSlotRequest(msg.AgentId, msg.SlotId)
+}
+
 func (p *pods) GetAgents(msg *apiv1.GetAgentsRequest) *apiv1.GetAgentsResponse {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.handleGetAgentsRequest()
+}
+
+func (p *pods) GetAgent(msg *apiv1.GetAgentRequest) *apiv1.GetAgentResponse {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.handleGetAgentRequest(msg.AgentId)
 }
 
 func (p *pods) EnableAgent(msg *apiv1.EnableAgentRequest) (*apiv1.EnableAgentResponse, error) {
@@ -1221,6 +1239,18 @@ func (p *pods) cleanUpPodHandler(podHandler *pod) error {
 	return nil
 }
 
+func (p *pods) handleGetSlotsRequest(agentID string) *apiv1.GetSlotsResponse {
+	agentResp := p.handleGetAgentRequest(agentID)
+	return &apiv1.GetSlotsResponse{Slots: maps.Values(agentResp.Agent.Slots)}
+}
+
+func (p *pods) handleGetSlotRequest(agentID string, slotID string) *apiv1.GetSlotResponse {
+	agentResp := p.handleGetAgentRequest(agentID)
+	slots := agentResp.Agent.Slots
+	slot := slots[slotID]
+	return &apiv1.GetSlotResponse{Slot: slot}
+}
+
 func (p *pods) handleGetAgentsRequest() *apiv1.GetAgentsResponse {
 	nodeSummaries := p.summarizeClusterByNodes()
 	_, nodesToPools := p.getNodeResourcePoolMapping(nodeSummaries)
@@ -1231,6 +1261,14 @@ func (p *pods) handleGetAgentsRequest() *apiv1.GetAgentsResponse {
 		response.Agents = append(response.Agents, summary.ToProto())
 	}
 	return response
+}
+
+func (p *pods) handleGetAgentRequest(agentID string) *apiv1.GetAgentResponse {
+	nodeSummaries := p.summarizeClusterByNodes()
+	_, nodesToPools := p.getNodeResourcePoolMapping(nodeSummaries)
+	agentSummary := nodeSummaries[agentID]
+	agentSummary.ResourcePool = nodesToPools[agentSummary.ID]
+	return &apiv1.GetAgentResponse{Agent: agentSummary.ToProto()}
 }
 
 // summarize describes pods' available resources. When there's exactly one resource pool, it uses
@@ -1397,7 +1435,7 @@ func (p *pods) summarizeClusterByNodes() map[string]model.AgentSummary {
 		var deviceType device.Type
 		switch p.slotType {
 		case device.CPU:
-			resources := node.Status.Allocatable["cpu"]
+			resources := node.Status.Allocatable[k8sV1.ResourceCPU]
 			milliCPUs := resources.MilliValue() - p.nodeToSystemResourceRequests[node.Name]
 			numSlots = int64(float32(milliCPUs) / (1000. * p.slotResourceRequests.CPU))
 			deviceType = device.CPU
@@ -1425,7 +1463,7 @@ func (p *pods) summarizeClusterByNodes() map[string]model.AgentSummary {
 				}
 
 				slotsSummary[strconv.Itoa(curSlot)] = model.SlotSummary{
-					ID:        strconv.Itoa(i),
+					ID:        strconv.Itoa(curSlot),
 					Device:    device.Device{Type: deviceType},
 					Draining:  isDraining,
 					Enabled:   !isDisabled,
@@ -1443,7 +1481,7 @@ func (p *pods) summarizeClusterByNodes() map[string]model.AgentSummary {
 				}
 
 				slotsSummary[strconv.Itoa(curSlot)] = model.SlotSummary{
-					ID:       strconv.FormatInt(i, 10),
+					ID:       strconv.Itoa(curSlot),
 					Device:   device.Device{Type: deviceType},
 					Draining: isDraining,
 					Enabled:  !isDisabled,

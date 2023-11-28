@@ -59,7 +59,7 @@ type pod struct {
 
 	clusterID    string
 	allocationID model.AllocationID
-	clientSet    *k8sClient.Clientset
+	clientSet    k8sClient.Interface
 	namespace    string
 	masterIP     string
 	masterPort   int32
@@ -102,7 +102,7 @@ type podNodeInfo struct {
 func newPod(
 	msg StartTaskPod,
 	clusterID string,
-	clientSet *k8sClient.Clientset,
+	clientSet k8sClient.Interface,
 	namespace string,
 	masterIP string,
 	masterPort int32,

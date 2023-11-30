@@ -1,8 +1,9 @@
-import { Modal, Tag, Typography } from 'antd';
+import { Modal, Tag } from 'antd';
 import Message from 'hew/Message';
 import Select, { Option, SelectValue } from 'hew/Select';
 import Spinner from 'hew/Spinner';
 import { useTheme } from 'hew/Theme';
+import { Label } from 'hew/Typography';
 import { Loadable } from 'hew/utils/loadable';
 import usePrevious from 'hew/utils/usePrevious';
 import _ from 'lodash';
@@ -246,9 +247,9 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                       onClose={() => handleTrialUnselect(trial.id)}>
                       <Link path={paths.trialDetails(trial.id, trial.experimentId)}>
                         {Array.isArray(experiment) ? (
-                          <Typography.Text ellipsis={{ tooltip: true }}>
+                          <Label truncate={{ tooltip: true }}>
                             {experimentMap[trial.experimentId]?.name}
-                          </Typography.Text>
+                          </Label>
                         ) : (
                           `Trial ${trial.id}`
                         )}
@@ -273,9 +274,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                     <th scope="row">Experiment ID</th>
                     {trialsDetails.map((trial) => (
                       <td key={trial.id}>
-                        <Typography.Text ellipsis={{ tooltip: true }}>
-                          {trial.experimentId}
-                        </Typography.Text>
+                        <Label truncate={{ tooltip: true }}>{trial.experimentId}</Label>
                       </td>
                     ))}
                   </tr>
@@ -283,7 +282,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                     <th scope="row">Trial ID</th>
                     {trialsDetails.map((trial) => (
                       <td key={trial.id}>
-                        <Typography.Text ellipsis={{ tooltip: true }}>{trial.id}</Typography.Text>
+                        <Label truncate={{ tooltip: true }}>{trial.id}</Label>
                       </td>
                     ))}
                   </tr>
@@ -293,9 +292,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                 <th scope="row">Batched Processed</th>
                 {trialsDetails.map((trial) => (
                   <td key={trial.id}>
-                    <Typography.Text ellipsis={{ tooltip: true }}>
-                      {trial.totalBatchesProcessed}
-                    </Typography.Text>
+                    <Label truncate={{ tooltip: true }}>{trial.totalBatchesProcessed}</Label>
                   </td>
                 ))}
               </tr>
@@ -303,9 +300,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                 <th scope="row">Total Checkpoint Size</th>
                 {trialsDetails.map((trial) => (
                   <td key={trial.id}>
-                    <Typography.Text ellipsis={{ tooltip: true }}>
-                      {totalCheckpointsSizes[trial.id]}
-                    </Typography.Text>
+                    <Label truncate={{ tooltip: true }}>{totalCheckpointsSizes[trial.id]}</Label>
                   </td>
                 ))}
               </tr>
@@ -366,7 +361,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
               {selectedHyperparameters.map((hp) => (
                 <tr key={hp}>
                   <th scope="row">
-                    <Typography.Text ellipsis={{ tooltip: true }}>{hp}</Typography.Text>
+                    <Label truncate={{ tooltip: true }}>{hp}</Label>
                   </th>
                   {trialsDetails.map((trial) => {
                     const hpValue = trial.hyperparameters[hp];
@@ -376,9 +371,7 @@ export const TrialsComparisonTable: React.FC<TableProps> = ({
                         {isNumber(hpValue) ? (
                           <HumanReadableNumber num={hpValue} />
                         ) : (
-                          <Typography.Text ellipsis={{ tooltip: true }}>
-                            {stringValue}
-                          </Typography.Text>
+                          <Label truncate={{ tooltip: true }}>{stringValue}</Label>
                         )}
                       </td>
                     );

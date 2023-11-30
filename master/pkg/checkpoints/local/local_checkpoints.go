@@ -24,26 +24,7 @@ type LocalDownloader struct {
 // This is the same as the default part size for S3.
 const DefaultDownloadPartSize = units.MiB * 5
 
-func (d *LocalDownloader) archivePath(path string, info os.FileInfo, err error) error {
-	if err != nil {
-		return err
-	}
-	if info.IsDir() && !strings.HasSuffix(path, "/") {
-		path += "/"
-	}
-
-	var size int64
-	if !info.IsDir() {
-		size = info.Size()
-	}
-	err = d.aw.WriteHeader(strings.TrimPrefix(path, d.prefix), size)
-	if err != nil {
-		return err
-	}
-	if info.IsDir() {
-		return nil
-	}
-
+func (d *LocalDownloader) writeFile(path string, info os.FileInfo) error {
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return err
@@ -66,8 +47,35 @@ func (d *LocalDownloader) archivePath(path string, info os.FileInfo, err error) 
 		}
 		remaining -= int64(sizeRead)
 	}
-
 	return nil
+}
+
+func (d *LocalDownloader) writeHeader(path string, info os.FileInfo) error {
+	var size int64
+	if !info.IsDir() {
+		size = info.Size()
+	}
+	return d.aw.WriteHeader(path, size)
+}
+
+func (d *LocalDownloader) archivePath(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+	if info.IsDir() && !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+	relPath := strings.TrimPrefix(path, d.prefix)
+	if relPath == "" {
+		return nil
+	}
+	if err := d.writeHeader(relPath, info); err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return nil
+	}
+	return d.writeFile(path, info)
 }
 
 // Download downloads the checkpoint.
@@ -91,7 +99,7 @@ func NewLocalDownloader(aw archive.ArchiveWriter, prefix string) *LocalDownloade
 	}
 	return &LocalDownloader{
 		aw:     aw,
-		prefix: filepath.Clean(prefix),
+		prefix: prefix,
 		buffer: make([]byte, DefaultDownloadPartSize),
 	}
 }

@@ -57,7 +57,7 @@ func NewDownloader(
 		return gcs.NewGCSDownloader(aw, storage.Bucket(), prefix), nil
 
 	case expconf.SharedFSConfig:
-		prefix := idPrefix(storage.PathInContainer())
+		prefix := idPrefix(storage.PathInContainerOrHost())
 		return local.NewLocalDownloader(aw, prefix), nil
 
 	case expconf.DirectoryConfig:
